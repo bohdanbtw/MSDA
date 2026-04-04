@@ -1,6 +1,12 @@
 .vs/
 out/
 x64/
+*84B6A2E9/
+AndroidCppApp/out/
+AndroidCppApp/packaging/.gradle/
+AndroidCppApp/packaging/app/build/
+copilot-instructions.md
+.github/copilot-instructions.md
 **/bin/
 **/obj/
 *.user
