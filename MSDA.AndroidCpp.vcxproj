@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{E5B7F7A2-A892-4AC7-9E35-6D7873E85A26}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>MSDAAndroidCpp</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)out\vs\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)out\vs-int\$(Configuration)\</IntDir>
+    <TargetName>msda_cli</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LocalDebuggerCommand>$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>-ExecutionPolicy Bypass -File "$(ProjectDir)AndroidCppApp\tools\launch-from-vs.ps1" -AvdName "MSDA_API30"</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LocalDebuggerCommand>$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments>-ExecutionPolicy Bypass -File "$(ProjectDir)AndroidCppApp\tools\launch-from-vs.ps1" -AvdName "MSDA_API30"</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)AndroidCppApp\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)AndroidCppApp\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="AndroidCppApp\src\cli\main.cpp" />
+    <ClCompile Include="AndroidCppApp\src\msda\AccountManager.cpp" />
+    <ClCompile Include="AndroidCppApp\src\msda\MafileParser.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AndroidCppApp\src\msda\AccountManager.h" />
+    <ClInclude Include="AndroidCppApp\src\msda\MafileModels.h" />
+    <ClInclude Include="AndroidCppApp\src\msda\MafileParser.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\AppSettings.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BackgroundSyncAlarmReceiver.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BackgroundSyncScheduler.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BootCompletedReceiver.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\ConfirmationBackgroundWorker.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\HubActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SettingsActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SteamAuthService.kt" />
+    <None Include="AndroidCppApp\src\android\jni_bridge.cpp" />
+    <None Include="AndroidCppApp\tools\launch-from-vs.ps1" />
+    <None Include="AndroidCppApp\CMakeLists.txt" />
+    <None Include="AndroidCppApp\CMakePresets.json" />
+    <None Include="AndroidCppApp\README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\drawable-night\bg_surface_card.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\drawable\bg_surface_card.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_hub.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_settings.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\values-night\themes.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\values\themes.xml" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

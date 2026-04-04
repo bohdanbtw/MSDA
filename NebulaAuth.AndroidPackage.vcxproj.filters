@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Scripts">
+      <UniqueIdentifier>{6D13A96C-2D7F-4F6C-8705-7E6CBCCE511A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Packaging">
+      <UniqueIdentifier>{7E50CF97-D4CE-4E7A-A4EF-F0C4AF0257F2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="AndroidCppApp\tools\build-android-package.ps1">
+      <Filter>Scripts</Filter>
+    </None>
+    <None Include="AndroidCppApp\tools\run-android-emulator.ps1">
+      <Filter>Scripts</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\settings.gradle">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\build.gradle">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\gradle.properties">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\app\build.gradle">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\app\proguard-rules.pro">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\app\src\main\AndroidManifest.xml">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\nebulaauth\android\MainActivity.kt">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\nebulaauth\android\NativeBridge.kt">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_main.xml">
+      <Filter>Packaging</Filter>
+    </None>
+    <None Include="AndroidCppApp\packaging\app\src\main\res\values\strings.xml">
+      <Filter>Packaging</Filter>
+    </None>
+  </ItemGroup>
+</Project>

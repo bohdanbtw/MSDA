@@ -1,0 +1,18 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectRoot>$(MSBuildThisFileDirectory)</ProjectRoot>
+    <CmakeSource>$(ProjectRoot)AndroidCppApp</CmakeSource>
+    <CmakeBuildDir>$(ProjectRoot)AndroidCppApp\out\build\windows-debug</CmakeBuildDir>
+  </PropertyGroup>
+
+  <Target Name="Build">
+    <Exec Command="cmake --preset windows-debug -S &quot;$(CmakeSource)&quot;" />
+    <Exec Command="cmake --build &quot;$(CmakeBuildDir)&quot; --target nebulaauth_cli" />
+  </Target>
+
+  <Target Name="Clean">
+    <Exec Command="if exist &quot;$(CmakeBuildDir)&quot; cmake --build &quot;$(CmakeBuildDir)&quot; --target clean" />
+  </Target>
+
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
+</Project>

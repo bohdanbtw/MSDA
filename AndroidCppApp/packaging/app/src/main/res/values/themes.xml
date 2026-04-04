@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MSDA" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#6200EE</item>
+        <item name="colorPrimary">#6200EE</item>
+        <item name="colorPrimaryVariant">#4B00C9</item>
+        <item name="colorSecondary">#03DAC5</item>
+        <item name="android:windowBackground">#F5F5F5</item>
+    </style>
+</resources>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Build Files">
+      <UniqueIdentifier>{E0D239F4-0A2E-4028-A31A-2BB52AFBC8A6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AndroidCppApp\src\cli\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AndroidCppApp\src\nebulaauth\AccountManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AndroidCppApp\src\nebulaauth\MafileParser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AndroidCppApp\src\nebulaauth\AccountManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AndroidCppApp\src\nebulaauth\MafileModels.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AndroidCppApp\src\nebulaauth\MafileParser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="AndroidCppApp\CMakeLists.txt">
+      <Filter>Build Files</Filter>
+    </None>
+    <None Include="AndroidCppApp\CMakePresets.json">
+      <Filter>Build Files</Filter>
+    </None>
+    <None Include="AndroidCppApp\README.md">
+      <Filter>Build Files</Filter>
+    </None>
+    <None Include="AndroidCppApp\src\android\jni_bridge.cpp">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="MSDA.AndroidPackage.vcxproj" />
+    <None Include="MSDA.AndroidCpp.vcxproj" />
+  </ItemGroup>
+</Project>
