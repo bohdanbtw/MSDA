@@ -1,6 +1,7 @@
 package com.msda.android
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.widget.RadioGroup
@@ -44,13 +45,17 @@ class SettingsActivity : AppCompatActivity() {
                 else -> "system"
             }
 
+            if (newMode == AppSettings.getThemeMode(this)) {
+                return@setOnCheckedChangeListener
+            }
+
             AppSettings.setThemeMode(this, newMode)
             when (newMode) {
                 "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
                 "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
                 else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
             }
-            recreate()
+            restartToHub()
         }
 
         switchBackground.setOnCheckedChangeListener { _, isChecked ->
@@ -70,6 +75,14 @@ class SettingsActivity : AppCompatActivity() {
             AppSettings.setPushConfirmationsEnabled(this, isChecked)
             BackgroundSyncScheduler.configure(this)
         }
+    }
+
+    private fun restartToHub() {
+        val intent = Intent(this, HubActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+        startActivity(intent)
+        finish()
     }
 
     private fun applyThemePreference() {

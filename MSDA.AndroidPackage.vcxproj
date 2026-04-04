@@ -42,7 +42,7 @@
     <NMakeBuildCommandLine>"$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$(ProjectDir)AndroidCppApp\tools\build-android-package.ps1"</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>"$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$(ProjectDir)AndroidCppApp\tools\build-android-package.ps1"</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>if exist "$(ProjectDir)AndroidCppApp\packaging\app\build" rmdir /s /q "$(ProjectDir)AndroidCppApp\packaging\app\build"</NMakeCleanCommandLine>
-    <NMakeOutput>$(ProjectDir)AndroidCppApp\packaging\app\build\outputs\apk\debug\app-debug.apk</NMakeOutput>
+    <NMakeOutput>$(ProjectDir)AndroidCppApp\packaging\app\build\outputs\apk\debug\MSDA-1.0.0.apk</NMakeOutput>
     <NMakeIncludeSearchPath>$(ProjectDir)AndroidCppApp\src</NMakeIncludeSearchPath>
     <LocalDebuggerCommand>$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe</LocalDebuggerCommand>
     <LocalDebuggerCommandArguments>-ExecutionPolicy Bypass -File "$(ProjectDir)AndroidCppApp\tools\launch-from-vs.ps1" -AvdName "MSDA_API30"</LocalDebuggerCommandArguments>
@@ -52,7 +52,7 @@
     <NMakeBuildCommandLine>"$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$(ProjectDir)AndroidCppApp\tools\build-android-package.ps1"</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>"$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy Bypass -File "$(ProjectDir)AndroidCppApp\tools\build-android-package.ps1"</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>if exist "$(ProjectDir)AndroidCppApp\packaging\app\build" rmdir /s /q "$(ProjectDir)AndroidCppApp\packaging\app\build"</NMakeCleanCommandLine>
-    <NMakeOutput>$(ProjectDir)AndroidCppApp\packaging\app\build\outputs\apk\debug\app-debug.apk</NMakeOutput>
+    <NMakeOutput>$(ProjectDir)AndroidCppApp\packaging\app\build\outputs\apk\debug\MSDA-1.0.0.apk</NMakeOutput>
     <NMakeIncludeSearchPath>$(ProjectDir)AndroidCppApp\src</NMakeIncludeSearchPath>
     <LocalDebuggerCommand>$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe</LocalDebuggerCommand>
     <LocalDebuggerCommandArguments>-ExecutionPolicy Bypass -File "$(ProjectDir)AndroidCppApp\tools\launch-from-vs.ps1" -AvdName "MSDA_API30"</LocalDebuggerCommandArguments>

@@ -99,6 +99,10 @@
     <ClInclude Include="AndroidCppApp\src\msda\MafileParser.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".gitignore" />
+    <None Include="AndroidCppApp\docs\ARCHITECTURE.md" />
+    <None Include="AndroidCppApp\docs\GITHUB_PUBLISH.md" />
+    <None Include="AndroidCppApp\docs\SETUP_AND_RUN.md" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\AppSettings.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BackgroundSyncAlarmReceiver.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BackgroundSyncScheduler.kt" />
@@ -112,13 +116,19 @@
     <None Include="AndroidCppApp\CMakeLists.txt" />
     <None Include="AndroidCppApp\CMakePresets.json" />
     <None Include="AndroidCppApp\README.md" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\drawable-night\bg_surface_card.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\drawable\bg_surface_card.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\drawable\ic_launcher_foreground.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\drawable\ic_launcher_monochrome.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_hub.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_settings.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\mipmap-anydpi-v26\ic_launcher.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\mipmap-anydpi-v26\ic_launcher_round.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\values-night\themes.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\values\colors.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\values\themes.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -7,7 +7,7 @@
     <string name="status_started">MSDA Android package started</string>
     <string name="status_saved_mafiles_loaded">Loaded saved mafiles</string>
     <string name="status_import_cancelled">Import cancelled</string>
-    <string name="status_invalid_file">Please select a .mafile file</string>
+    <string name="status_invalid_file">Only .mafile files are supported. Please select a .mafile file.</string>
     <string name="status_copy_failed">Failed to copy selected file</string>
     <string name="status_import_failed">Import failed</string>
     <string name="status_import_success">Mafile imported</string>
