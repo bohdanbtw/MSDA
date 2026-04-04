@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
     <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -18,33 +18,28 @@
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\CMakePresets.json" />
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\app\build.gradle" />
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\app\proguard-rules.pro" />
-    <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\app\src\main\java\com\nebulaauth\android\MainActivity.kt" />
-    <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\app\src\main\java\com\nebulaauth\android\NativeBridge.kt" />
+    <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\app\src\main\java\com\msda\android\MainActivity.kt" />
+    <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\app\src\main\java\com\msda\android\NativeBridge.kt" />
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\build.gradle" />
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\gradle.properties" />
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\settings.gradle" />
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\README.md" />
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\tools\build-android-package.ps1" />
     <None Include="$(MSBuildThisFileDirectory)AndroidCppApp\tools\run-android-emulator.ps1" />
-    <None Include="$(MSBuildThisFileDirectory)NebulaAuth.AndroidCpp.proj" />
-    <None Include="$(MSBuildThisFileDirectory)NebulaAuth.AndroidCpp.vcxproj" />
-    <None Include="$(MSBuildThisFileDirectory)NebulaAuth.AndroidCpp.vcxproj.filters" />
-    <None Include="$(MSBuildThisFileDirectory)NebulaAuth.AndroidPackage.vcxproj" />
-    <None Include="$(MSBuildThisFileDirectory)NebulaAuth.AndroidPackage.vcxproj.filters" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="$(MSBuildThisFileDirectory)AndroidCppApp\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\nebulaauth\AccountManager.h" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\nebulaauth\MafileModels.h" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\nebulaauth\MafileParser.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\msda\AccountManager.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\msda\MafileModels.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\msda\MafileParser.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\android\jni_bridge.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\cli\main.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\nebulaauth\AccountManager.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\nebulaauth\MafileParser.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\msda\AccountManager.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)AndroidCppApp\src\msda\MafileParser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="$(MSBuildThisFileDirectory)AndroidCppApp\packaging\app\src\main\AndroidManifest.xml" />

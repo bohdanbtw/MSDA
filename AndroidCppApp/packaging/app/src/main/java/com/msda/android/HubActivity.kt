@@ -7,7 +7,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
-import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -38,7 +37,6 @@ class HubActivity : AppCompatActivity() {
         accountsListContainer = findViewById(R.id.hubAccountsListContainer)
 
         val btnAddAccount = findViewById<Button>(R.id.btnHubAddAccount)
-        val btnQuickActions = findViewById<ImageButton>(R.id.btnHubQuickActions)
         val btnSettings = findViewById<ImageButton>(R.id.btnHubSettings)
 
         val startupLoaded = loadPersistedMafiles()
@@ -51,8 +49,9 @@ class HubActivity : AppCompatActivity() {
         renderAccounts()
         BackgroundSyncScheduler.configure(this)
 
-        btnAddAccount.setOnClickListener { importMafileLauncher.launch(arrayOf("*/*")) }
-        btnQuickActions.setOnClickListener { showQuickActionsMenu(it) }
+        btnAddAccount.setOnClickListener {
+            importMafileLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
+        }
         btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -63,34 +62,6 @@ class HubActivity : AppCompatActivity() {
         applyThemePreference()
         BackgroundSyncScheduler.configure(this)
         renderAccounts()
-    }
-
-    private fun showQuickActionsMenu(anchor: View) {
-        val menu = PopupMenu(this, anchor)
-        menu.menu.add(0, 1, 0, getString(R.string.add_account))
-        menu.setOnMenuItemClickListener {
-            if (it.itemId == 1) {
-                importMafileLauncher.launch(arrayOf("*/*"))
-            }
-            true
-        }
-        menu.show()
-    }
-
-    private fun showSettingsMenu(anchor: View) {
-        startActivity(Intent(this, SettingsActivity::class.java))
-    }
-
-    private fun setThemeMode(mode: String) {
-        val prefs = getSharedPreferences("msda_ui", MODE_PRIVATE)
-        prefs.edit().putString("theme_mode", mode).apply()
-
-        when (mode) {
-            "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        }
-
-        recreate()
     }
 
     private fun applyThemePreference() {

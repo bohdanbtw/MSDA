@@ -15,6 +15,14 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
+            <ImageView
+                android:id="@+id/imgMainLogo"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginEnd="8dp"
+                android:contentDescription="@string/app_name"
+                android:src="@drawable/logo" />
+
             <TextView
                 android:id="@+id/txtAppTitle"
                 android:layout_width="0dp"

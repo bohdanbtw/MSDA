@@ -125,7 +125,10 @@ try {
     $hasConnectedDevice = $false
 
     if (Get-Command adb -ErrorAction SilentlyContinue) {
+        $ErrorActionPreference = "SilentlyContinue"
+        & adb start-server *> $null
         $adbDevices = & adb devices 2>$null
+        $ErrorActionPreference = "Stop"
         $deviceLines = $adbDevices | Where-Object { $_ -match "\sdevice$" -and $_ -notmatch "List of devices" }
         if ($deviceLines) {
             $hasConnectedDevice = $true

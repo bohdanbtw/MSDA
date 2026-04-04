@@ -15,7 +15,7 @@ object AppSettings {
 
     fun setThemeMode(context: Context, mode: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY_THEME_MODE, mode).apply()
+            .edit().putString(KEY_THEME_MODE, mode).commit()
     }
 
     fun isBackgroundSyncEnabled(context: Context): Boolean {
