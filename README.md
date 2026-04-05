@@ -15,13 +15,6 @@ This repository contains:
 
 The workflow builds native libs, assembles/installs APK, and launches on USB device (preferred) or emulator fallback.
 
-## Documentation
-
-- Main project documentation: `AndroidCppApp/README.md`
-- Setup and run guide: `AndroidCppApp/docs/SETUP_AND_RUN.md`
-- Architecture and technical deep dive: `AndroidCppApp/docs/ARCHITECTURE.md`
-- GitHub publishing notes: `AndroidCppApp/docs/GITHUB_PUBLISH.md`
-
 ## Key capabilities
 
 - Multi-account `.mafile` import and account hub
@@ -29,7 +22,8 @@ The workflow builds native libs, assembles/installs APK, and launches on USB dev
 - Confirmation actions (single and batch)
 - Background checks + optional notifications
 - Theme and behavior settings
-
-## Current app version
-
-`1.0.0`
+- QR code scanner for Steam login requests
+- Account swipe-to-delete with confirmation
+- Account backup export (encrypted ZIP)
+- Per-account mafile export
+- Share backup via Android chooser (Telegram, Email, Files, Cloud storage, etc.)

@@ -62,6 +62,28 @@ std::optional<MafileAccount> MafileParser::parseContent(const std::string& conte
 
     auto steamLoginSecure = extractStringValue(content, "steamLoginSecure");
 
+    auto refreshToken = extractStringValue(content, "refresh_token");
+    if (refreshToken.empty()) {
+        refreshToken = extractStringValue(content, "refreshtoken");
+    }
+    if (refreshToken.empty()) {
+        refreshToken = extractStringValue(content, "OAuthToken");
+    }
+    if (refreshToken.empty()) {
+        refreshToken = extractStringValue(content, "refresh");
+    }
+
+    auto accessToken = extractStringValue(content, "access_token");
+    if (accessToken.empty()) {
+        accessToken = extractStringValue(content, "accesstoken");
+    }
+    if (accessToken.empty()) {
+        accessToken = extractStringValue(content, "access");
+    }
+    if (accessToken.empty()) {
+        accessToken = steamLoginSecure;
+    }
+
     if (accountName.empty()) {
         accountName = fileNameFromPath(filePath);
     }
@@ -77,6 +99,8 @@ std::optional<MafileAccount> MafileParser::parseContent(const std::string& conte
     item.deviceId = std::move(deviceId);
     item.sessionId = std::move(sessionId);
     item.steamLoginSecure = std::move(steamLoginSecure);
+    item.refreshToken = std::move(refreshToken);
+    item.accessToken = std::move(accessToken);
     item.sourcePath = filePath;
     return item;
 }

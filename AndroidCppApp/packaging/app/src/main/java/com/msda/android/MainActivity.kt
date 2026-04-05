@@ -2,6 +2,7 @@ package com.msda.android
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
@@ -9,7 +10,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -20,6 +20,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import com.google.zxing.client.android.Intents
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import java.io.File
 import java.net.URL
 
@@ -41,6 +44,8 @@ class MainActivity : AppCompatActivity() {
 
     private val uiHandler = Handler(Looper.getMainLooper())
     private var activeAuthContext: ConfirmationAuthContext? = null
+    private var currentAccountIndex: Int = -1
+    private var currentAccountName: String = ""
     private var steamLoginInProgress = false
     private var lastSuccessfulBundles: List<ConfirmationBundle> = emptyList()
     private val expandedBundleKeys = mutableSetOf<String>()
@@ -56,6 +61,15 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             refreshConfirmationsAsync()
             uiHandler.postDelayed(this, 15000)
+        }
+    }
+
+    private val qrScanLauncher = registerForActivityResult(ScanContract()) { result ->
+        val scannedText = result.contents?.trim().orEmpty()
+        when {
+            scannedText.isBlank() -> txtStatus.text = getString(R.string.status_qr_scan_cancelled)
+            !QrApprovalService.looksLikeSteamLoginQr(scannedText) -> txtStatus.text = getString(R.string.status_qr_invalid)
+            else -> authorizeSteamQr(scannedText)
         }
     }
 
@@ -83,15 +97,17 @@ class MainActivity : AppCompatActivity() {
         txtAuthProgress = findViewById(R.id.txtAuthProgress)
         btnRefreshConfirmations = findViewById(R.id.btnRefreshConfirmations)
 
+        val btnScanQr = findViewById<ImageButton>(R.id.btnScanQr)
         val btnQuickActions = findViewById<ImageButton>(R.id.btnQuickActions)
         val txtAppTitle = findViewById<TextView>(R.id.txtAppTitle)
 
         val selectedIndex = intent.getIntExtra(EXTRA_ACCOUNT_INDEX, -1)
         if (selectedIndex >= 0) {
+            currentAccountIndex = selectedIndex
+            currentAccountName = intent.getStringExtra(EXTRA_ACCOUNT_NAME).orEmpty()
             NativeBridge.setActiveAccount(selectedIndex)
-            val selectedName = intent.getStringExtra(EXTRA_ACCOUNT_NAME).orEmpty()
-            if (selectedName.isNotBlank()) {
-                txtAppTitle.text = selectedName
+            if (currentAccountName.isNotBlank()) {
+                txtAppTitle.text = currentAccountName
             }
         }
 
@@ -109,6 +125,10 @@ class MainActivity : AppCompatActivity() {
 
         txtCode.setOnClickListener {
             copyCurrentCodeToClipboard()
+        }
+
+        btnScanQr.setOnClickListener {
+            startQrScanner()
         }
 
         btnQuickActions.setOnClickListener { showQuickActionsMenu(it) }
@@ -129,14 +149,30 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateActiveAuthContext()
         uiHandler.post(codeTicker)
         uiHandler.post(confirmationsTicker)
     }
 
-    override fun onPause() {
-        super.onPause()
-        uiHandler.removeCallbacks(codeTicker)
-        uiHandler.removeCallbacks(confirmationsTicker)
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent != null) {
+            val selectedIndex = intent.getIntExtra(EXTRA_ACCOUNT_INDEX, -1)
+            if (selectedIndex >= 0) {
+                currentAccountIndex = selectedIndex
+                currentAccountName = intent.getStringExtra(EXTRA_ACCOUNT_NAME).orEmpty()
+                NativeBridge.setActiveAccount(selectedIndex)
+                val txtAppTitle = findViewById<TextView>(R.id.txtAppTitle)
+                if (currentAccountName.isNotBlank()) {
+                    txtAppTitle.text = currentAccountName
+                }
+                refreshCodeViews()
+                updateActiveAuthContext()
+                refreshConfirmationsAsync()
+                txtStatus.text = "Loaded account: $currentAccountName"
+            }
+        }
     }
 
     private fun copyCurrentCodeToClipboard() {
@@ -155,76 +191,61 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, getString(R.string.code_copied), Toast.LENGTH_LONG).show()
     }
 
-    private fun showQuickActionsMenu(anchor: View) {
-        val menu = PopupMenu(this, anchor)
-        menu.menu.add(0, 1, 0, getString(R.string.login_steam))
-        menu.menu.add(0, 3, 1, getString(R.string.back_to_hub))
-        menu.setOnMenuItemClickListener {
-            when (it.itemId) {
-                1 -> promptSteamLogin()
-                3 -> finish()
-            }
-            true
-        }
-        menu.show()
-    }
-
-    private fun updateActiveAuthContext() {
-        val payload = try {
-            NativeBridge.getActiveConfirmationAuthPayload()
-        } catch (_: Throwable) {
-            ""
-        }
-
-        val parsed = ConfirmationService.parseAuthPayload(payload)
-        activeAuthContext = parsed?.let { context ->
-            val saved = SessionStore.loadSession(this, context.steamId)
-            if (saved != null) context.withSession(saved) else context
-        }
-    }
-
-    private fun promptSteamLogin() {
+    private fun startQrScanner() {
         val auth = activeAuthContext
         if (auth == null) {
             txtStatus.text = getString(R.string.status_login_unavailable)
             return
         }
 
+        val options = ScanOptions().apply {
+            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            setPrompt(getString(R.string.scan_steam_qr))
+            setBeepEnabled(false)
+            setOrientationLocked(true)
+            addExtra(Intents.Scan.CAMERA_ID, 0)
+            addExtra("SCAN_ORIENTATION_LOCKED", true)
+        }
+        qrScanLauncher.launch(options)
+    }
+
+    private fun authorizeSteamQr(scannedText: String) {
+        if (currentAccountIndex < 0) {
+            txtStatus.text = "Error: No account selected"
+            return
+        }
+        
+        NativeBridge.setActiveAccount(currentAccountIndex)
+        updateActiveAuthContext()
+        
+        val auth = activeAuthContext
+        if (auth == null) {
+            txtStatus.text = getString(R.string.status_login_unavailable)
+            return
+        }
         if (steamLoginInProgress) {
             return
         }
 
         steamLoginInProgress = true
         setAuthenticatingUi(true)
+        txtStatus.text = getString(R.string.status_qr_authorizing)
 
-        SteamAuthService.showPasswordDialog(
-            context = this,
-            accountName = auth.accountName,
-            onResult = { result ->
+        Thread {
+            val result = QrApprovalService.approveLoginRequest(this, auth, scannedText)
+            runOnUiThread {
                 steamLoginInProgress = false
                 setAuthenticatingUi(false)
-
-                if (result.success && result.steamId != null && result.steamLoginSecure != null && result.sessionId != null) {
-                    SessionStore.saveSession(
-                        this,
-                        result.steamId,
-                        StoredSteamSession(
-                            steamLoginSecure = result.steamLoginSecure,
-                            sessionId = result.sessionId
-                        )
-                    )
-                    updateActiveAuthContext()
-                    txtStatus.text = getString(R.string.status_login_saved)
-                    refreshConfirmationsAsync()
-                } else {
-                    txtStatus.text = formatLoginError(result.errorMessage)
+                txtStatus.text = when {
+                    result.success -> getString(R.string.status_qr_authorized)
+                    result.errorMessage == QrApprovalService.ERROR_NO_REQUESTS -> getString(R.string.status_qr_no_requests)
+                    result.errorMessage == QrApprovalService.ERROR_MULTIPLE_REQUESTS -> getString(R.string.status_qr_multiple_requests)
+                    result.errorMessage == QrApprovalService.ERROR_TOKEN_MISSING -> getString(R.string.status_qr_token_missing)
+                    result.errorMessage == QrApprovalService.ERROR_INVALID_QR -> getString(R.string.status_qr_invalid)
+                    else -> result.errorMessage ?: getString(R.string.status_confirmation_failed)
                 }
-            },
-            onProgress = { message ->
-                txtAuthProgress.text = message
-                txtStatus.text = message
             }
-        )
+        }.start()
     }
 
     private fun setAuthenticatingUi(visible: Boolean) {
@@ -247,6 +268,223 @@ class MainActivity : AppCompatActivity() {
         }
 
         return getString(R.string.status_login_failed, message)
+    }
+
+    private fun showQuickActionsMenu(anchor: View) {
+        val menu = PopupMenu(this, anchor)
+        menu.menu.add(0, 1, 0, getString(R.string.back_to_hub))
+        menu.menu.add(0, 2, 1, getString(R.string.import_mafile))
+        menu.menu.add(0, 6, 2, getString(R.string.export_single_mafile))
+        menu.menu.add(0, 3, 3, getString(R.string.login_steam))
+        menu.menu.add(0, 4, 4, getString(R.string.load_confirmations))
+        menu.menu.add(0, 5, 5, getString(R.string.settings))
+
+        menu.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> {
+                    startActivity(Intent(this, HubActivity::class.java))
+                    finish()
+                    true
+                }
+                2 -> {
+                    importMafileLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
+                    true
+                }
+                6 -> {
+                    exportCurrentAccountMafile()
+                    true
+                }
+                3 -> {
+                    promptSteamLogin()
+                    true
+                }
+                4 -> {
+                    txtStatus.text = getString(R.string.status_loading_confirmations)
+                    refreshConfirmationsAsync()
+                    true
+                }
+                5 -> {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    true
+                }
+                else -> false
+            }
+        }
+
+        menu.show()
+    }
+
+    private fun exportCurrentAccountMafile() {
+        val mafilesDir = File(filesDir, "mafiles")
+        
+        if (!mafilesDir.exists() || mafilesDir.listFiles()?.isEmpty() == true) {
+            txtStatus.text = getString(R.string.export_mafiles_empty)
+            return
+        }
+
+        try {
+            val mafiles = mafilesDir.listFiles()?.filter { 
+                it.isFile && it.name.endsWith(".mafile", ignoreCase = true) 
+            } ?: emptyList()
+
+            if (mafiles.isEmpty()) {
+                txtStatus.text = getString(R.string.export_mafiles_empty)
+                return
+            }
+
+            val tempExportDir = File(cacheDir, "export_temp_${System.currentTimeMillis()}")
+            if (!tempExportDir.mkdirs()) {
+                txtStatus.text = "Failed to create export directory"
+                return
+            }
+
+            try {
+                var exported = false
+                for (mafile in mafiles) {
+                    try {
+                        val content = mafile.readText()
+                        if (content.contains(currentAccountName, ignoreCase = true)) {
+                            val tempMafile = File(tempExportDir, mafile.name)
+                            tempMafile.writeText(content)
+                            exported = true
+                            break
+                        }
+                    } catch (_: Throwable) {
+                        continue
+                    }
+                }
+
+                if (!exported) {
+                    txtStatus.text = "Could not find mafile for current account"
+                    tempExportDir.deleteRecursively()
+                    return
+                }
+
+                val timestamp = java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
+                val zipFileName = "${currentAccountName}_$timestamp.zip"
+                val outputZipFile = File(cacheDir, zipFileName)
+
+                createZipFile(tempExportDir, outputZipFile)
+                shareFile(outputZipFile)
+                
+                txtStatus.text = getString(R.string.export_mafiles_success)
+            } finally {
+                tempExportDir.deleteRecursively()
+            }
+        } catch (ex: Exception) {
+            txtStatus.text = "Export error: ${ex.message}"
+        }
+    }
+
+    private fun createZipFile(sourceDir: File, outputZipFile: File) {
+        java.util.zip.ZipOutputStream(java.io.FileOutputStream(outputZipFile)).use { zos ->
+            sourceDir.listFiles()?.forEach { file ->
+                if (file.isFile) {
+                    val entry = java.util.zip.ZipEntry(file.name)
+                    zos.putNextEntry(entry)
+                    file.inputStream().use { fis ->
+                        fis.copyTo(zos)
+                    }
+                    zos.closeEntry()
+                }
+            }
+        }
+    }
+
+    private fun shareFile(file: File) {
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            this,
+            "${packageName}.fileprovider",
+            file
+        )
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/zip"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, "Share mafile backup"))
+    }
+
+    private fun updateActiveAuthContext() {
+        val payload = try {
+            NativeBridge.getActiveConfirmationAuthPayload()
+        } catch (_: Throwable) {
+            ""
+        }
+
+        val parsed = ConfirmationService.parseAuthPayload(payload)
+        activeAuthContext = if (parsed == null) {
+            null
+        } else {
+            val savedSession = SessionStore.loadSession(this, parsed.steamId)
+            if (savedSession != null) parsed.withSession(savedSession) else parsed
+        }
+    }
+
+    private fun promptSteamLogin() {
+        if (steamLoginInProgress) {
+            return
+        }
+
+        if (activeAuthContext == null) {
+            updateActiveAuthContext()
+        }
+
+        val auth = activeAuthContext
+        if (auth == null) {
+            txtStatus.text = getString(R.string.status_login_unavailable)
+            return
+        }
+
+        steamLoginInProgress = true
+        setAuthenticatingUi(true)
+
+        SteamAuthService.showPasswordDialog(
+            context = this,
+            accountName = auth.accountName,
+            onResult = { result ->
+                steamLoginInProgress = false
+                setAuthenticatingUi(false)
+
+                if (!result.success) {
+                    txtStatus.text = if (result.errorMessage.equals("Login cancelled", ignoreCase = true)) {
+                        getString(R.string.status_login_cancelled)
+                    } else {
+                        formatLoginError(result.errorMessage)
+                    }
+                    return@showPasswordDialog
+                }
+
+                val steamId = result.steamId?.ifBlank { auth.steamId } ?: auth.steamId
+                val loginSecure = result.steamLoginSecure.orEmpty()
+                val sessionId = (result.sessionId ?: auth.sessionId).orEmpty()
+
+                if (steamId.isBlank() || loginSecure.isBlank() || sessionId.isBlank()) {
+                    txtStatus.text = getString(R.string.status_login_capture_failed)
+                    return@showPasswordDialog
+                }
+
+                SessionStore.saveSession(
+                    this,
+                    steamId,
+                    StoredSteamSession(
+                        steamLoginSecure = loginSecure,
+                        sessionId = sessionId,
+                        refreshToken = result.refreshToken.orEmpty(),
+                        accessToken = result.accessToken.orEmpty()
+                    )
+                )
+
+                updateActiveAuthContext()
+                txtStatus.text = getString(R.string.status_login_saved)
+                refreshConfirmationsAsync()
+            },
+            onProgress = { progressText ->
+                txtAuthProgress.text = progressText
+                txtStatus.text = progressText
+            }
+        )
     }
 
     private fun loadPersistedMafiles(): Boolean {
@@ -366,7 +604,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (error != null) {
                     txtStatus.text = getString(R.string.status_confirmation_load_failed, error)
-                    if (error!!.contains("needauth", ignoreCase = true)) {
+                    if (error.contains("needauth", ignoreCase = true)) {
                         promptSteamLogin()
                     }
                     // Keep current list visible on transient errors.

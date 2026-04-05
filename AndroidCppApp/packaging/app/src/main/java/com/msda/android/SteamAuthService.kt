@@ -28,6 +28,8 @@ data class SteamAuthResult(
     val steamId: String? = null,
     val steamLoginSecure: String? = null,
     val sessionId: String? = null,
+    val refreshToken: String? = null,
+    val accessToken: String? = null,
     val errorMessage: String? = null
 )
 
@@ -316,7 +318,9 @@ object SteamAuthService {
                 success = true,
                 steamId = resolvedSteamId,
                 steamLoginSecure = steamLoginSecure,
-                sessionId = sessionId
+                sessionId = sessionId,
+                refreshToken = refreshToken,
+                accessToken = accessToken
             )
         } catch (e: Exception) {
             SteamAuthResult(false, errorMessage = e.message ?: "Network error")

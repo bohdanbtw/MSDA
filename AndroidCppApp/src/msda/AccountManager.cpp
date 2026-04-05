@@ -320,7 +320,10 @@ std::string AccountManager::activeConfirmationAuthPayload() const {
         << active->deviceId << "|"
         << active->sessionId << "|"
         << active->steamLoginSecure << "|"
-        << active->accountName;
+        << active->accountName << "|"
+        << active->sharedSecret << "|"
+        << active->refreshToken << "|"
+        << active->accessToken;
     return out.str();
 }
 

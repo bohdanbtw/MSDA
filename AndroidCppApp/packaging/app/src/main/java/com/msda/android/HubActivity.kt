@@ -112,10 +112,19 @@ class HubActivity : AppCompatActivity() {
         }
         val steamId = if (parts.size >= 3) parts[2] else ""
 
-        return LinearLayout(this).apply {
+        val rowContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val accountContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 14, 0, 14)
+            setPadding(16, 14, 16, 14)
             background = getDrawable(android.R.drawable.list_selector_background)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
 
             addView(TextView(this@HubActivity).apply {
                 text = name
@@ -140,6 +149,192 @@ class HubActivity : AppCompatActivity() {
                 }
             }
         }
+
+        val deleteButton = android.widget.Button(this).apply {
+            text = "Delete"
+            textSize = 12f
+            layoutParams = LinearLayout.LayoutParams(
+                200,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(android.graphics.Color.RED)
+            setTextColor(android.graphics.Color.WHITE)
+            visibility = View.GONE
+            setOnClickListener {
+                showDeleteAccountConfirmation(name)
+            }
+        }
+
+        rowContainer.addView(accountContent)
+        rowContainer.addView(deleteButton)
+
+        var startX = 0f
+        val deleteButtonWidth = 200f
+        var isExpanded = false
+
+        accountContent.setOnTouchListener { _, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    startX = event.x
+                    false
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    val currentX = event.x
+                    val deltaX = startX - currentX
+                    
+                    if (kotlin.math.abs(deltaX) > 10) {
+                        if (deltaX >= 0) {
+                            deleteButton.visibility = View.VISIBLE
+                            
+                            val revealProgress = (deltaX / deleteButtonWidth).coerceIn(0f, 1f)
+                            accountContent.translationX = -(revealProgress * deleteButtonWidth)
+                            deleteButton.translationX = deleteButtonWidth - (revealProgress * deleteButtonWidth)
+                        } else if (deltaX < 0 && isExpanded) {
+                            val revealProgress = ((deleteButtonWidth + deltaX) / deleteButtonWidth).coerceIn(0f, 1f)
+                            accountContent.translationX = -(revealProgress * deleteButtonWidth)
+                            deleteButton.translationX = deleteButtonWidth - (revealProgress * deleteButtonWidth)
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    val endX = event.x
+                    val deltaX = kotlin.math.abs(startX - endX)
+                    val revealPercentage = ((-accountContent.translationX) / deleteButtonWidth).coerceIn(0f, 1f)
+                    
+                    if (deltaX > 10) {
+                        if (revealPercentage >= 0.5f) {
+                            isExpanded = true
+                            snapToExpanded(deleteButton, accountContent, deleteButtonWidth)
+                        } else {
+                            isExpanded = false
+                            snapToCollapsed(deleteButton, accountContent)
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+                android.view.MotionEvent.ACTION_CANCEL -> {
+                    if (isExpanded) {
+                        snapToExpanded(deleteButton, accountContent, deleteButtonWidth)
+                    } else {
+                        snapToCollapsed(deleteButton, accountContent)
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+
+        return rowContainer
+    }
+
+    private fun snapToExpanded(deleteButton: android.widget.Button, content: LinearLayout, deleteButtonWidth: Float) {
+        val contentAnimator = android.animation.ObjectAnimator.ofFloat(content, "translationX", content.translationX, -deleteButtonWidth)
+        val buttonAnimator = android.animation.ObjectAnimator.ofFloat(deleteButton, "translationX", deleteButton.translationX, 0f)
+        
+        android.animation.AnimatorSet().apply {
+            duration = 200
+            playTogether(contentAnimator, buttonAnimator)
+            start()
+        }
+    }
+
+    private fun snapToCollapsed(deleteButton: android.widget.Button, content: LinearLayout) {
+        val contentAnimator = android.animation.ObjectAnimator.ofFloat(content, "translationX", content.translationX, 0f)
+        val buttonAnimator = android.animation.ObjectAnimator.ofFloat(deleteButton, "translationX", deleteButton.translationX, 200f)
+        
+        android.animation.AnimatorSet().apply {
+            duration = 200
+            playTogether(contentAnimator, buttonAnimator)
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    deleteButton.visibility = View.GONE
+                }
+            })
+            start()
+        }
+    }
+
+    private fun animateRevealDelete(deleteButton: android.widget.Button, content: LinearLayout) {
+        deleteButton.visibility = View.VISIBLE
+        deleteButton.translationX = 200f
+
+        val animationSet = android.animation.AnimatorSet()
+        
+        val deleteButtonSlide = android.animation.ObjectAnimator.ofFloat(deleteButton, "translationX", 200f, 0f)
+        val contentSlide = android.animation.ObjectAnimator.ofFloat(content, "translationX", 0f, -200f)
+        val deleteButtonFade = android.animation.ObjectAnimator.ofFloat(deleteButton, "alpha", 0f, 1f)
+        
+        animationSet.apply {
+            duration = 350
+            playTogether(deleteButtonSlide, contentSlide, deleteButtonFade)
+            start()
+        }
+    }
+
+    private fun animateHideDelete(deleteButton: android.widget.Button, content: LinearLayout) {
+        val animationSet = android.animation.AnimatorSet()
+        
+        val deleteButtonSlide = android.animation.ObjectAnimator.ofFloat(deleteButton, "translationX", 0f, 200f)
+        val contentSlide = android.animation.ObjectAnimator.ofFloat(content, "translationX", -200f, 0f)
+        val deleteButtonFade = android.animation.ObjectAnimator.ofFloat(deleteButton, "alpha", 1f, 0f)
+        
+        animationSet.apply {
+            duration = 350
+            playTogether(deleteButtonSlide, contentSlide, deleteButtonFade)
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    deleteButton.visibility = View.GONE
+                    deleteButton.translationX = 0f
+                }
+            })
+            start()
+        }
+    }
+
+    private fun showDeleteAccountConfirmation(accountName: String) {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Delete Account")
+            .setMessage("Delete account \"$accountName\"?\n\nIf you didn't save your mafile, you won't be able to access this account again.")
+            .setNegativeButton("Cancel") { _, _ -> }
+            .setPositiveButton("Delete account") { _, _ ->
+                deleteAccount(accountName)
+            }
+            .show()
+    }
+
+    private fun deleteAccount(accountName: String) {
+        val importDir = File(filesDir, "mafiles")
+        if (!importDir.exists()) return
+
+        val mafiles = importDir.listFiles { file ->
+            file.isFile && file.name.endsWith(".mafile", ignoreCase = true)
+        } ?: emptyArray()
+
+        mafiles.forEach { currentFile ->
+            try {
+                if (currentFile.inputStream().use { it.readBytes().decodeToString().contains(accountName, ignoreCase = true) }) {
+                    currentFile.delete()
+                }
+            } catch (_: Throwable) {
+                try {
+                    currentFile.delete()
+                } catch (_: Throwable) {
+                }
+            }
+        }
+
+        try {
+            NativeBridge.importMafilesFromFolder(importDir.absolutePath)
+        } catch (_: Throwable) {
+        }
+
+        txtHubStatus.text = "Account deleted: $accountName"
+        renderAccounts()
     }
 
     private fun loadPersistedMafiles(): Boolean {

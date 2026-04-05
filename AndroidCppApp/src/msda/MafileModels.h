@@ -12,6 +12,8 @@ struct MafileAccount {
     std::string deviceId;
     std::string sessionId;
     std::string steamLoginSecure;
+    std::string refreshToken;
+    std::string accessToken;
     std::string sourcePath;
 };
 
