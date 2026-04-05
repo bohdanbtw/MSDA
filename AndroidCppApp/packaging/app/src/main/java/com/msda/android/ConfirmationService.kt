@@ -17,12 +17,17 @@ data class ConfirmationAuthContext(
     val deviceId: String,
     val sessionId: String,
     val steamLoginSecure: String,
-    val accountName: String
+    val accountName: String,
+    val sharedSecret: String = "",
+    val refreshToken: String = "",
+    val accessToken: String = ""
 ) {
     fun withSession(session: StoredSteamSession): ConfirmationAuthContext {
         return copy(
             steamLoginSecure = session.steamLoginSecure,
-            sessionId = session.sessionId
+            sessionId = session.sessionId,
+            refreshToken = session.refreshToken.ifBlank { refreshToken },
+            accessToken = session.accessToken.ifBlank { accessToken }
         )
     }
 }
@@ -66,7 +71,10 @@ object ConfirmationService {
             deviceId = parts[2],
             sessionId = parts[3],
             steamLoginSecure = parts[4],
-            accountName = parts[5]
+            accountName = parts[5],
+            sharedSecret = parts.getOrElse(6) { "" },
+            refreshToken = parts.getOrElse(7) { "" },
+            accessToken = parts.getOrElse(8) { "" }
         )
     }
 

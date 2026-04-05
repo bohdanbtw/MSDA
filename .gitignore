@@ -5,6 +5,7 @@ x64/
 AndroidCppApp/out/
 AndroidCppApp/packaging/.gradle/
 AndroidCppApp/packaging/app/build/
+AndroidCppApp/docs
 copilot-instructions.md
 .github/copilot-instructions.md
 **/bin/

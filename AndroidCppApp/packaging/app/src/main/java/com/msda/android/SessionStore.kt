@@ -4,7 +4,9 @@ import android.content.Context
 
 data class StoredSteamSession(
     val steamLoginSecure: String,
-    val sessionId: String
+    val sessionId: String,
+    val refreshToken: String = "",
+    val accessToken: String = ""
 )
 
 object SessionStore {
@@ -15,6 +17,8 @@ object SessionStore {
         prefs.edit()
             .putString("$steamId.steamLoginSecure", session.steamLoginSecure)
             .putString("$steamId.sessionid", session.sessionId)
+            .putString("$steamId.refreshToken", session.refreshToken)
+            .putString("$steamId.accessToken", session.accessToken)
             .apply()
     }
 
@@ -27,6 +31,11 @@ object SessionStore {
             return null
         }
 
-        return StoredSteamSession(login, sessionId)
+        return StoredSteamSession(
+            steamLoginSecure = login,
+            sessionId = sessionId,
+            refreshToken = prefs.getString("$steamId.refreshToken", "") ?: "",
+            accessToken = prefs.getString("$steamId.accessToken", "") ?: ""
+        )
     }
 }

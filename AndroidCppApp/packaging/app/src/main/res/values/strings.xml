@@ -24,6 +24,14 @@
     <string name="status_login_failed_generic">Steam login failed</string>
     <string name="status_authentificating">Authentificating...</string>
     <string name="status_login_unavailable">Import/select an account first</string>
+    <string name="status_qr_scan_cancelled">QR scan cancelled</string>
+    <string name="status_qr_invalid">Unsupported QR code. Scan a Steam login QR code.</string>
+    <string name="status_qr_authorizing">Approving Steam login request…</string>
+    <string name="status_qr_authorized">Steam login approved</string>
+    <string name="status_qr_no_requests">No pending Steam login request was found for this account</string>
+    <string name="status_qr_multiple_requests">Multiple pending Steam login requests detected. Retry with only one pending QR login.</string>
+    <string name="status_qr_token_missing">This account has no mobile token yet. Re-login first, then scan the QR again.</string>
+    <string name="scan_steam_qr">Scan Steam QR</string>
     <string name="quick_actions">Quick actions</string>
     <string name="settings">Settings</string>
     <string name="accounts_header">Accounts</string>
@@ -32,7 +40,7 @@
     <string name="theme_system">Theme: System</string>
     <string name="theme_dark">Theme: Dark</string>
     <string name="theme_mode_title">Theme mode</string>
-    <string name="settings_app_version">Version 1.0.0</string>
+    <string name="github_repository">GitHub: bohdanbtw/MSDA</string>
     <string name="background_title">Background behavior</string>
     <string name="background_sync">Allow background confirmations check</string>
     <string name="background_push_confirmations">Enable push notifications for confirmations</string>
@@ -56,6 +64,12 @@
     <string name="code_copied">Copied to the clipboard</string>
     <string name="code_timer_placeholder">Next code in --s</string>
     <string name="code_timer_value">Next code in %1$ss</string>
+    <string name="data_title">Data</string>
+    <string name="export_mafiles">Export accounts (backup)</string>
+    <string name="export_single_mafile">Export this account</string>
+    <string name="export_mafiles_success">Export successful</string>
+    <string name="export_mafiles_failed">Export failed</string>
+    <string name="export_mafiles_empty">No accounts to export</string>
     <string name="confirmations_header">Active confirmations</string>
     <string name="confirm_accept">Accept confirmation</string>
     <string name="confirm_decline">Decline confirmation</string>

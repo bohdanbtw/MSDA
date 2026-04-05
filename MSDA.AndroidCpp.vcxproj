@@ -109,6 +109,7 @@
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BootCompletedReceiver.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\ConfirmationBackgroundWorker.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\HubActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\QrApprovalService.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SettingsActivity.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SteamAuthService.kt" />
     <None Include="AndroidCppApp\src\android\jni_bridge.cpp" />
