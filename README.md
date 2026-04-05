@@ -29,7 +29,3 @@ The workflow builds native libs, assembles/installs APK, and launches on USB dev
 - Confirmation actions (single and batch)
 - Background checks + optional notifications
 - Theme and behavior settings
-
-## Current app version
-
-`1.0.0`
