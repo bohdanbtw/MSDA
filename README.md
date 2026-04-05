@@ -15,12 +15,6 @@ This repository contains:
 
 The workflow builds native libs, assembles/installs APK, and launches on USB device (preferred) or emulator fallback.
 
-## Documentation
-
-- Main project documentation: `AndroidCppApp/README.md`
-- Setup and run guide: `AndroidCppApp/docs/SETUP_AND_RUN.md`
-- Architecture and technical deep dive: `AndroidCppApp/docs/ARCHITECTURE.md`
-- GitHub publishing notes: `AndroidCppApp/docs/GITHUB_PUBLISH.md`
 
 ## Key capabilities
 
