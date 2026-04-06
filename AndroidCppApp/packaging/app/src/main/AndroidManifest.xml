@@ -42,6 +42,11 @@
 
         <activity
             android:name=".HubActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".LockActivity"
             android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter>

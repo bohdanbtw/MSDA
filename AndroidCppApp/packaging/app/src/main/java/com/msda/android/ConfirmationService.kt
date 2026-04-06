@@ -1,7 +1,10 @@
 package com.msda.android
 
+import android.content.Context
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URI
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -59,6 +62,12 @@ data class ConfirmationBundle(
 )
 
 object ConfirmationService {
+    private const val MIN_REQUEST_INTERVAL_MS = 1200L
+    private const val DEFAULT_RETRY_AFTER_MS = 10_000L
+    private const val MAX_RETRY_AFTER_MS = 60_000L
+    private val rateLimitLock = Any()
+    private var nextAllowedRequestAtMs = 0L
+
     fun parseAuthPayload(payload: String): ConfirmationAuthContext? {
         if (payload.isBlank()) return null
 
@@ -79,6 +88,10 @@ object ConfirmationService {
     }
 
     fun loadBundles(auth: ConfirmationAuthContext): List<ConfirmationBundle> {
+        return loadBundles(null, auth)
+    }
+
+    fun loadBundles(context: Context?, auth: ConfirmationAuthContext): List<ConfirmationBundle> {
         require(auth.identitySecret.isNotBlank()) { "identity_secret is missing in mafile" }
         require(auth.deviceId.isNotBlank()) { "device_id is missing in mafile" }
         require(auth.sessionId.isNotBlank()) { "sessionid is missing in mafile" }
@@ -86,7 +99,7 @@ object ConfirmationService {
 
         val query = withConfirmationQuery(auth, "conf")
         val url = "https://steamcommunity.com/mobileconf/getlist?$query"
-        val json = getJson(url, auth)
+        val json = getJson(url, auth, context)
 
         if (json.optBoolean("needauth", false)) {
             throw IllegalStateException("Steam reported needauth=true. Session cookies are invalid or expired.")
@@ -159,6 +172,10 @@ object ConfirmationService {
     }
 
     fun respondBundle(auth: ConfirmationAuthContext, bundle: ConfirmationBundle, accept: Boolean): Boolean {
+        return respondBundle(null, auth, bundle, accept)
+    }
+
+    fun respondBundle(context: Context?, auth: ConfirmationAuthContext, bundle: ConfirmationBundle, accept: Boolean): Boolean {
         val op = if (accept) "allow" else "cancel"
         val time = System.currentTimeMillis() / 1000L
         val key = confirmationKey(auth.identitySecret, time, op)
@@ -179,18 +196,22 @@ object ConfirmationService {
                 pairs.add("cid[]" to item.id)
                 pairs.add("ck[]" to item.nonce)
             }
-            val json = postJson("https://steamcommunity.com/mobileconf/multiajaxop", pairs, auth)
+            val json = postJson("https://steamcommunity.com/mobileconf/multiajaxop", pairs, auth, context)
             return json.optBoolean("success", false)
         }
 
         val item = bundle.items.firstOrNull() ?: return false
         pairs.add("cid" to item.id)
         pairs.add("ck" to item.nonce)
-        val json = getJson("https://steamcommunity.com/mobileconf/ajaxop?${toQuery(pairs)}", auth)
+        val json = getJson("https://steamcommunity.com/mobileconf/ajaxop?${toQuery(pairs)}", auth, context)
         return json.optBoolean("success", false)
     }
 
     fun respondItem(auth: ConfirmationAuthContext, item: ConfirmationItem, accept: Boolean): Boolean {
+        return respondItem(null, auth, item, accept)
+    }
+
+    fun respondItem(context: Context?, auth: ConfirmationAuthContext, item: ConfirmationItem, accept: Boolean): Boolean {
         val op = if (accept) "allow" else "cancel"
         val time = System.currentTimeMillis() / 1000L
         val key = confirmationKey(auth.identitySecret, time, op)
@@ -207,7 +228,7 @@ object ConfirmationService {
             .append("&ck=").append(url(item.nonce))
             .append("&op=").append(op)
 
-        val json = getJson("https://steamcommunity.com/mobileconf/ajaxop?$query", auth)
+        val json = getJson("https://steamcommunity.com/mobileconf/ajaxop?$query", auth, context)
         return json.optBoolean("success", false)
     }
 
@@ -231,8 +252,10 @@ object ConfirmationService {
         return Base64.getEncoder().encodeToString(mac.doFinal(data))
     }
 
-    private fun getJson(url: String, auth: ConfirmationAuthContext): JSONObject {
-        val connection = URI(url).toURL().openConnection() as HttpURLConnection
+    private fun getJson(url: String, auth: ConfirmationAuthContext, context: Context?): JSONObject {
+        waitForRateLimitWindow()
+
+        val connection = openConnection(url, auth, context)
         connection.requestMethod = "GET"
         connection.connectTimeout = 10000
         connection.readTimeout = 15000
@@ -257,11 +280,15 @@ object ConfirmationService {
             append("; mobileClientVersion=777777 3.6.1")
         }
         connection.setRequestProperty("Cookie", cookieHeader)
+        applyProxyAuthHeader(connection, context, auth)
 
         val status = connection.responseCode
         val body = if (status in 200..299) {
             connection.inputStream.bufferedReader().use { it.readText() }
         } else {
+            if (status == 429) {
+                applyRateLimitBackoff(connection)
+            }
             val err = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
             throw IllegalStateException("HTTP $status from Steam: $err")
         }
@@ -269,8 +296,10 @@ object ConfirmationService {
         return JSONObject(body)
     }
 
-    private fun postJson(url: String, pairs: List<Pair<String, String>>, auth: ConfirmationAuthContext): JSONObject {
-        val connection = URI(url).toURL().openConnection() as HttpURLConnection
+    private fun postJson(url: String, pairs: List<Pair<String, String>>, auth: ConfirmationAuthContext, context: Context?): JSONObject {
+        waitForRateLimitWindow()
+
+        val connection = openConnection(url, auth, context)
         connection.requestMethod = "POST"
         connection.connectTimeout = 10000
         connection.readTimeout = 15000
@@ -297,6 +326,7 @@ object ConfirmationService {
             append("; mobileClientVersion=777777 3.6.1")
         }
         connection.setRequestProperty("Cookie", cookieHeader)
+        applyProxyAuthHeader(connection, context, auth)
 
         val body = toQuery(pairs)
         connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
@@ -305,11 +335,73 @@ object ConfirmationService {
         val raw = if (status in 200..299) {
             connection.inputStream.bufferedReader().use { it.readText() }
         } else {
+            if (status == 429) {
+                applyRateLimitBackoff(connection)
+            }
             val err = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
             throw IllegalStateException("HTTP $status from Steam: $err")
         }
 
         return JSONObject(raw)
+    }
+
+    private fun openConnection(url: String, auth: ConfirmationAuthContext, context: Context?): HttpURLConnection {
+        val connectionUrl = URI(url).toURL()
+        val proxyConfig = context?.let { AppSettings.getAccountProxyConfig(it, auth.steamId) }
+        val useProxy = proxyConfig != null && proxyConfig.enabled && proxyConfig.host.isNotBlank() && proxyConfig.port in 1..65535
+
+        return if (useProxy) {
+            val proxyType = if (proxyConfig!!.type.equals("socks", ignoreCase = true)) Proxy.Type.SOCKS else Proxy.Type.HTTP
+            val proxy = Proxy(proxyType, InetSocketAddress(proxyConfig.host, proxyConfig.port))
+            connectionUrl.openConnection(proxy) as HttpURLConnection
+        } else {
+            connectionUrl.openConnection() as HttpURLConnection
+        }
+    }
+
+    private fun applyProxyAuthHeader(connection: HttpURLConnection, context: Context?, auth: ConfirmationAuthContext) {
+        val proxyConfig = context?.let { AppSettings.getAccountProxyConfig(it, auth.steamId) } ?: return
+        if (!proxyConfig.enabled || !proxyConfig.type.equals("http", ignoreCase = true) || proxyConfig.username.isBlank()) {
+            return
+        }
+
+        val token = Base64.getEncoder().encodeToString("${proxyConfig.username}:${proxyConfig.password}".toByteArray())
+        connection.setRequestProperty("Proxy-Authorization", "Basic $token")
+    }
+
+    private fun waitForRateLimitWindow() {
+        val waitMs: Long = synchronized(rateLimitLock) {
+            val now = System.currentTimeMillis()
+            val delay = (nextAllowedRequestAtMs - now).coerceAtLeast(0L)
+            val base = now + delay
+            nextAllowedRequestAtMs = base + MIN_REQUEST_INTERVAL_MS
+            delay
+        }
+
+        if (waitMs > 0) {
+            try {
+                Thread.sleep(waitMs)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+    }
+
+    private fun applyRateLimitBackoff(connection: HttpURLConnection) {
+        val retryAfterHeader = connection.getHeaderField("Retry-After")
+        val retryAfterMs = retryAfterHeader
+            ?.trim()
+            ?.toLongOrNull()
+            ?.times(1000L)
+            ?.coerceIn(1000L, MAX_RETRY_AFTER_MS)
+            ?: DEFAULT_RETRY_AFTER_MS
+
+        synchronized(rateLimitLock) {
+            val target = System.currentTimeMillis() + retryAfterMs
+            if (target > nextAllowedRequestAtMs) {
+                nextAllowedRequestAtMs = target
+            }
+        }
     }
 
     private fun toQuery(pairs: List<Pair<String, String>>): String {

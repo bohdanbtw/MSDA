@@ -1,17 +1,23 @@
 package com.msda.android
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.text.InputFilter
+import android.text.InputType
 import android.widget.Button
+import android.widget.EditText
 import android.widget.RadioGroup
 import android.widget.Switch
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.biometric.BiometricManager
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
@@ -37,8 +43,12 @@ class SettingsActivity : AppCompatActivity() {
         val group = findViewById<RadioGroup>(R.id.radioThemeGroup)
         val switchBackground = findViewById<Switch>(R.id.switchBackgroundSync)
         val switchPush = findViewById<Switch>(R.id.switchPushConfirmations)
+        val txtPinLockStatus = findViewById<TextView>(R.id.txtPinLockStatus)
+        val btnSetPin = findViewById<Button>(R.id.btnSetPinLock)
+        val btnRemovePin = findViewById<Button>(R.id.btnRemovePinLock)
+        val switchBiometric = findViewById<Switch>(R.id.switchBiometricUnlock)
         val btnExport = findViewById<Button>(R.id.btnExportMafiles)
-        val txtGithubLink = findViewById<android.widget.TextView>(R.id.txtGithubLink)
+        val txtGithubLink = findViewById<TextView>(R.id.txtGithubLink)
 
         when (AppSettings.getThemeMode(this)) {
             "light" -> group.check(R.id.radioThemeLight)
@@ -46,9 +56,10 @@ class SettingsActivity : AppCompatActivity() {
             else -> group.check(R.id.radioThemeSystem)
         }
 
-        switchBackground.isChecked = AppSettings.isBackgroundSyncEnabled(this)
+        switchBackground.isChecked = AppSettings.isBackgroundConfirmationsEnabled(this)
         switchPush.isChecked = AppSettings.isPushConfirmationsEnabled(this)
-        switchPush.isEnabled = switchBackground.isChecked
+
+        refreshSecurityViews(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
 
         group.setOnCheckedChangeListener { _, checkedId ->
             val newMode = when (checkedId) {
@@ -71,12 +82,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         switchBackground.setOnCheckedChangeListener { _, isChecked ->
-            AppSettings.setBackgroundSyncEnabled(this, isChecked)
-            switchPush.isEnabled = isChecked
-            if (!isChecked) {
-                switchPush.isChecked = false
-                AppSettings.setPushConfirmationsEnabled(this, false)
-            }
+            AppSettings.setBackgroundConfirmationsEnabled(this, isChecked)
             BackgroundSyncScheduler.configure(this)
         }
 
@@ -88,6 +94,34 @@ class SettingsActivity : AppCompatActivity() {
             BackgroundSyncScheduler.configure(this)
         }
 
+        btnSetPin.setOnClickListener {
+            showPinSetupDialog(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
+        }
+
+        btnRemovePin.setOnClickListener {
+            confirmPinRemoval(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
+        }
+
+        switchBiometric.setOnCheckedChangeListener { buttonView, isChecked ->
+            if (!buttonView.isPressed) {
+                return@setOnCheckedChangeListener
+            }
+
+            if (!AppSettings.hasPinLock(this)) {
+                switchBiometric.isChecked = false
+                Toast.makeText(this, getString(R.string.biometric_requires_pin), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+
+            if (isChecked && !isBiometricAvailable()) {
+                switchBiometric.isChecked = false
+                Toast.makeText(this, getString(R.string.biometric_unavailable), Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+
+            AppSettings.setBiometricUnlockEnabled(this, isChecked)
+        }
+
         btnExport.setOnClickListener {
             exportMafiles()
         }
@@ -95,6 +129,99 @@ class SettingsActivity : AppCompatActivity() {
         txtGithubLink.setOnClickListener {
             openGitHubRepository()
         }
+    }
+
+    private fun refreshSecurityViews(
+        txtPinLockStatus: TextView,
+        btnSetPin: Button,
+        btnRemovePin: Button,
+        switchBiometric: Switch
+    ) {
+        val hasPin = AppSettings.hasPinLock(this)
+        txtPinLockStatus.text = getString(if (hasPin) R.string.pin_lock_enabled else R.string.pin_lock_not_set)
+        btnSetPin.text = getString(if (hasPin) R.string.change_pin_lock else R.string.set_pin_lock)
+        btnRemovePin.isEnabled = hasPin
+        btnRemovePin.alpha = if (hasPin) 1f else 0.5f
+        switchBiometric.isEnabled = hasPin && isBiometricAvailable()
+        switchBiometric.isChecked = AppSettings.isBiometricUnlockEnabled(this)
+    }
+
+    private fun showPinSetupDialog(
+        txtPinLockStatus: TextView,
+        btnSetPin: Button,
+        btnRemovePin: Button,
+        switchBiometric: Switch
+    ) {
+        val pinInput = EditText(this).apply {
+            hint = getString(R.string.pin_setup_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(4))
+        }
+        val confirmInput = EditText(this).apply {
+            hint = getString(R.string.pin_setup_confirm_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(4))
+        }
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(32, 16, 32, 0)
+            addView(pinInput)
+            addView(confirmInput)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pin_setup_title)
+            .setMessage(R.string.pin_setup_message)
+            .setView(container)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.pin_save, null)
+            .create()
+            .also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val pin = pinInput.text?.toString().orEmpty()
+                        val confirm = confirmInput.text?.toString().orEmpty()
+                        when {
+                            !AppSettings.isValidPin(pin) -> Toast.makeText(this, getString(R.string.pin_invalid), Toast.LENGTH_SHORT).show()
+                            pin != confirm -> Toast.makeText(this, getString(R.string.pin_mismatch), Toast.LENGTH_SHORT).show()
+                            else -> {
+                                AppSettings.setPinLock(this, pin)
+                                Toast.makeText(this, getString(R.string.pin_saved), Toast.LENGTH_SHORT).show()
+                                refreshSecurityViews(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
+                                dialog.dismiss()
+                            }
+                        }
+                    }
+                }
+                dialog.show()
+            }
+    }
+
+    private fun confirmPinRemoval(
+        txtPinLockStatus: TextView,
+        btnSetPin: Button,
+        btnRemovePin: Button,
+        switchBiometric: Switch
+    ) {
+        if (!AppSettings.hasPinLock(this)) {
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pin_remove_confirm_title)
+            .setMessage(R.string.pin_remove_confirm_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.remove_pin_lock) { _, _ ->
+                AppSettings.clearPinLock(this)
+                Toast.makeText(this, getString(R.string.pin_removed), Toast.LENGTH_SHORT).show()
+                refreshSecurityViews(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
+            }
+            .show()
+    }
+
+    private fun isBiometricAvailable(): Boolean {
+        return BiometricManager.from(this)
+            .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     private fun exportMafiles() {

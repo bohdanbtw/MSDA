@@ -8,13 +8,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.ProgressBar
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,7 +27,11 @@ import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URL
+import java.util.Base64
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -41,12 +48,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var authProgressRow: LinearLayout
     private lateinit var txtAuthProgress: TextView
     private lateinit var btnRefreshConfirmations: ImageButton
+    private lateinit var imgProxyStatus: ImageView
 
     private val uiHandler = Handler(Looper.getMainLooper())
     private var activeAuthContext: ConfirmationAuthContext? = null
     private var currentAccountIndex: Int = -1
     private var currentAccountName: String = ""
     private var steamLoginInProgress = false
+    private var proxyCheckInProgress = false
     private var lastSuccessfulBundles: List<ConfirmationBundle> = emptyList()
     private val expandedBundleKeys = mutableSetOf<String>()
 
@@ -60,7 +69,7 @@ class MainActivity : AppCompatActivity() {
     private val confirmationsTicker = object : Runnable {
         override fun run() {
             refreshConfirmationsAsync()
-            uiHandler.postDelayed(this, 15000)
+            uiHandler.postDelayed(this, 5000)
         }
     }
 
@@ -96,9 +105,11 @@ class MainActivity : AppCompatActivity() {
         authProgressRow = findViewById(R.id.authProgressRow)
         txtAuthProgress = findViewById(R.id.txtAuthProgress)
         btnRefreshConfirmations = findViewById(R.id.btnRefreshConfirmations)
+        imgProxyStatus = findViewById(R.id.imgProxyStatus)
 
         val btnScanQr = findViewById<ImageButton>(R.id.btnScanQr)
         val btnQuickActions = findViewById<ImageButton>(R.id.btnQuickActions)
+        val btnAutoConfirm = findViewById<android.widget.Button>(R.id.btnAutoConfirm)
         val txtAppTitle = findViewById<TextView>(R.id.txtAppTitle)
 
         val selectedIndex = intent.getIntExtra(EXTRA_ACCOUNT_INDEX, -1)
@@ -121,6 +132,7 @@ class MainActivity : AppCompatActivity() {
         refreshCodeViews()
         updateActiveAuthContext()
         refreshConfirmationsAsync()
+        refreshProxyIndicatorAsync()
         BackgroundSyncScheduler.configure(this)
 
         txtCode.setOnClickListener {
@@ -129,6 +141,14 @@ class MainActivity : AppCompatActivity() {
 
         btnScanQr.setOnClickListener {
             startQrScanner()
+        }
+
+        btnAutoConfirm.setOnClickListener {
+            showMarketAutoConfirmDialog()
+        }
+
+        imgProxyStatus.setOnClickListener {
+            showProxySettingsDialog()
         }
 
         btnQuickActions.setOnClickListener { showQuickActionsMenu(it) }
@@ -150,6 +170,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateActiveAuthContext()
+        refreshProxyIndicatorAsync()
         uiHandler.post(codeTicker)
         uiHandler.post(confirmationsTicker)
     }
@@ -170,6 +191,7 @@ class MainActivity : AppCompatActivity() {
                 refreshCodeViews()
                 updateActiveAuthContext()
                 refreshConfirmationsAsync()
+                refreshProxyIndicatorAsync()
                 txtStatus.text = "Loaded account: $currentAccountName"
             }
         }
@@ -275,9 +297,11 @@ class MainActivity : AppCompatActivity() {
         menu.menu.add(0, 1, 0, getString(R.string.back_to_hub))
         menu.menu.add(0, 2, 1, getString(R.string.import_mafile))
         menu.menu.add(0, 6, 2, getString(R.string.export_single_mafile))
-        menu.menu.add(0, 3, 3, getString(R.string.login_steam))
-        menu.menu.add(0, 4, 4, getString(R.string.load_confirmations))
-        menu.menu.add(0, 5, 5, getString(R.string.settings))
+        menu.menu.add(0, 7, 3, getString(R.string.auto_market_confirmations))
+        menu.menu.add(0, 8, 4, getString(R.string.proxy_settings))
+        menu.menu.add(0, 3, 5, getString(R.string.login_steam))
+        menu.menu.add(0, 4, 6, getString(R.string.load_confirmations))
+        menu.menu.add(0, 5, 7, getString(R.string.settings))
 
         menu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
@@ -292,6 +316,14 @@ class MainActivity : AppCompatActivity() {
                 }
                 6 -> {
                     exportCurrentAccountMafile()
+                    true
+                }
+                7 -> {
+                    showMarketAutoConfirmDialog()
+                    true
+                }
+                8 -> {
+                    showProxySettingsDialog()
                     true
                 }
                 3 -> {
@@ -312,6 +344,64 @@ class MainActivity : AppCompatActivity() {
         }
 
         menu.show()
+    }
+
+    private fun showMarketAutoConfirmDialog() {
+        updateActiveAuthContext()
+        val auth = activeAuthContext
+        if (auth == null || auth.steamId.isBlank()) {
+            txtStatus.text = getString(R.string.status_login_unavailable)
+            return
+        }
+
+        val marketSwitch = Switch(this).apply {
+            text = getString(R.string.allow_market_confirmations_on_account)
+            isChecked = AppSettings.isMarketAutoConfirmEnabled(this@MainActivity, auth.steamId)
+        }
+
+        val tradeSwitch = Switch(this).apply {
+            text = getString(R.string.allow_trade_confirmations_on_account)
+            isChecked = AppSettings.isTradeAutoConfirmEnabled(this@MainActivity, auth.steamId)
+        }
+
+        val giftTradeSwitch = Switch(this).apply {
+            text = getString(R.string.allow_gift_trade_confirmations_on_account)
+            isChecked = AppSettings.isGiftTradeAutoConfirmEnabled(this@MainActivity, auth.steamId)
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 24, 40, 0)
+            addView(marketSwitch)
+            addView(tradeSwitch)
+            addView(giftTradeSwitch)
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.auto_market_confirmations))
+            .setView(container)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                AppSettings.setMarketAutoConfirmEnabled(this, auth.steamId, marketSwitch.isChecked)
+                AppSettings.setTradeAutoConfirmEnabled(this, auth.steamId, tradeSwitch.isChecked)
+                AppSettings.setGiftTradeAutoConfirmEnabled(this, auth.steamId, giftTradeSwitch.isChecked)
+
+                txtStatus.text = when {
+                    marketSwitch.isChecked && tradeSwitch.isChecked && giftTradeSwitch.isChecked -> getString(R.string.auto_confirm_all_types_enabled)
+                    marketSwitch.isChecked && tradeSwitch.isChecked -> getString(R.string.auto_confirm_market_trade_enabled)
+                    marketSwitch.isChecked && giftTradeSwitch.isChecked -> getString(R.string.auto_confirm_market_gift_enabled)
+                    tradeSwitch.isChecked && giftTradeSwitch.isChecked -> getString(R.string.auto_confirm_trade_gift_enabled)
+                    marketSwitch.isChecked -> getString(R.string.market_auto_confirm_enabled)
+                    tradeSwitch.isChecked -> getString(R.string.trade_auto_confirm_enabled)
+                    giftTradeSwitch.isChecked -> getString(R.string.gift_trade_auto_confirm_enabled)
+                    else -> getString(R.string.auto_confirm_all_disabled)
+                }
+
+                if (marketSwitch.isChecked || tradeSwitch.isChecked || giftTradeSwitch.isChecked) {
+                    BackgroundSyncScheduler.configure(this)
+                }
+            }
+            .show()
     }
 
     private fun exportCurrentAccountMafile() {
@@ -594,11 +684,45 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             var error: String? = null
-            val bundles = try {
-                ConfirmationService.loadBundles(auth)
+            var bundles: List<ConfirmationBundle>? = try {
+                ConfirmationService.loadBundles(this, auth)
             } catch (ex: Throwable) {
                 error = ex.message ?: "Unknown confirmation error"
                 null
+            }
+
+            if (error == null && bundles != null) {
+                try {
+                    val marketEnabled = AppSettings.isMarketAutoConfirmEnabled(this, auth.steamId)
+                    val tradeEnabled = AppSettings.isTradeAutoConfirmEnabled(this, auth.steamId)
+                    val giftTradeEnabled = AppSettings.isGiftTradeAutoConfirmEnabled(this, auth.steamId)
+                    if (marketEnabled || tradeEnabled || giftTradeEnabled) {
+                        val itemsToAutoAccept = bundles
+                            .flatMap { it.items }
+                            .filter { item ->
+                                (marketEnabled && isStrictMarketConfirmation(item)) ||
+                                    (tradeEnabled && isStrictTradeConfirmation(item)) ||
+                                    (giftTradeEnabled && isGiftTradeConfirmation(item))
+                            }
+                            .distinctBy { it.id }
+
+                        itemsToAutoAccept.forEach { item ->
+                            try {
+                                ConfirmationService.respondItem(this, auth, item, true)
+                            } catch (_: Throwable) {
+                            }
+                        }
+
+                        if (itemsToAutoAccept.isNotEmpty()) {
+                            bundles = try {
+                                ConfirmationService.loadBundles(this, auth)
+                            } catch (_: Throwable) {
+                                bundles
+                            }
+                        }
+                    }
+                } catch (_: Throwable) {
+                }
             }
 
             runOnUiThread {
@@ -618,6 +742,47 @@ class MainActivity : AppCompatActivity() {
                 renderBundles(stable)
             }
         }.start()
+    }
+
+    private fun isStrictMarketConfirmation(item: ConfirmationItem): Boolean {
+        return item.type != 2 && item.typeName.contains("market", ignoreCase = true)
+    }
+
+    private fun isStrictTradeConfirmation(item: ConfirmationItem): Boolean {
+        return item.type == 2 || item.typeName.contains("trade", ignoreCase = true)
+    }
+
+    private fun isGiftTradeConfirmation(item: ConfirmationItem): Boolean {
+        if (!isStrictTradeConfirmation(item)) {
+            return false
+        }
+
+        val text = (listOf(item.headline) + item.summary)
+            .joinToString(" ")
+            .lowercase()
+
+        val giftSignals = listOf(
+            "gift",
+            "you will receive",
+            "you'll receive",
+            "for free",
+            "without exchange",
+            "no items from your inventory",
+            "no items from you",
+            "0 items from you",
+            "nothing to give",
+            "sent you a gift"
+        )
+        val lossSignals = listOf(
+            "you will give",
+            "you'll give",
+            "you are giving",
+            "from your inventory",
+            "in exchange",
+            "for your"
+        )
+
+        return giftSignals.any { text.contains(it) } && lossSignals.none { text.contains(it) }
     }
 
     private fun renderBundles(bundles: List<ConfirmationBundle>) {
@@ -796,7 +961,7 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             val ok = try {
-                ConfirmationService.respondBundle(auth, bundle, accept)
+                ConfirmationService.respondBundle(this, auth, bundle, accept)
             } catch (_: Throwable) {
                 false
             }
@@ -818,7 +983,7 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             val ok = try {
-                ConfirmationService.respondItem(auth, item, accept)
+                ConfirmationService.respondItem(this, auth, item, accept)
             } catch (_: Throwable) {
                 false
             }
@@ -850,6 +1015,182 @@ class MainActivity : AppCompatActivity() {
             }
 
             return it.getString(index)
+        }
+    }
+
+    private fun showProxySettingsDialog() {
+        updateActiveAuthContext()
+        val steamId = activeAuthContext?.steamId.orEmpty()
+        if (steamId.isBlank()) {
+            txtStatus.text = getString(R.string.status_login_unavailable)
+            return
+        }
+
+        val current = AppSettings.getAccountProxyConfig(this, steamId)
+
+        val enabledSwitch = Switch(this).apply {
+            text = getString(R.string.proxy_enable_on_account)
+            isChecked = current.enabled
+        }
+
+        val typeGroup = android.widget.RadioGroup(this).apply {
+            orientation = android.widget.RadioGroup.VERTICAL
+        }
+        val httpOption = android.widget.RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.proxy_type_http)
+        }
+        val socksOption = android.widget.RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.proxy_type_socks)
+        }
+        typeGroup.addView(httpOption)
+        typeGroup.addView(socksOption)
+        if (current.type.equals("socks", ignoreCase = true)) {
+            typeGroup.check(socksOption.id)
+        } else {
+            typeGroup.check(httpOption.id)
+        }
+
+        val hostInput = EditText(this).apply {
+            hint = getString(R.string.proxy_host_hint)
+            setText(current.host)
+            inputType = InputType.TYPE_CLASS_TEXT
+        }
+
+        val portInput = EditText(this).apply {
+            hint = getString(R.string.proxy_port_hint)
+            setText(if (current.port > 0) current.port.toString() else "")
+            inputType = InputType.TYPE_CLASS_NUMBER
+        }
+
+        val userInput = EditText(this).apply {
+            hint = getString(R.string.proxy_username_hint)
+            setText(current.username)
+            inputType = InputType.TYPE_CLASS_TEXT
+        }
+
+        val passInput = EditText(this).apply {
+            hint = getString(R.string.proxy_password_hint)
+            setText(current.password)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 24, 40, 0)
+            addView(enabledSwitch)
+            addView(typeGroup)
+            addView(hostInput)
+            addView(portInput)
+            addView(userInput)
+            addView(passInput)
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.proxy_settings))
+            .setView(container)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.proxy_clear) { _, _ ->
+                AppSettings.clearAccountProxyConfig(this, steamId)
+                refreshProxyIndicatorAsync()
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val enabled = enabledSwitch.isChecked
+                val host = hostInput.text?.toString().orEmpty().trim()
+                val port = portInput.text?.toString().orEmpty().toIntOrNull() ?: 0
+                val user = userInput.text?.toString().orEmpty().trim()
+                val pass = passInput.text?.toString().orEmpty()
+                val type = if (typeGroup.checkedRadioButtonId == socksOption.id) "socks" else "http"
+
+                if (enabled && (host.isBlank() || port !in 1..65535)) {
+                    txtStatus.text = getString(R.string.proxy_invalid)
+                    return@setPositiveButton
+                }
+
+                AppSettings.setAccountProxyConfig(
+                    this,
+                    steamId,
+                    AccountProxyConfig(
+                        enabled = enabled,
+                        type = type,
+                        host = host,
+                        port = port,
+                        username = user,
+                        password = pass
+                    )
+                )
+                txtStatus.text = getString(R.string.proxy_saved)
+                refreshProxyIndicatorAsync()
+            }
+            .show()
+    }
+
+    private fun refreshProxyIndicatorAsync() {
+        val auth = activeAuthContext
+        val steamId = auth?.steamId.orEmpty()
+        if (steamId.isBlank()) {
+            hideProxyIndicator(getString(R.string.proxy_status_unknown))
+            return
+        }
+
+        val config = AppSettings.getAccountProxyConfig(this, steamId)
+        if (!config.enabled || config.host.isBlank() || config.port !in 1..65535) {
+            hideProxyIndicator(getString(R.string.proxy_status_disabled))
+            return
+        }
+
+        if (proxyCheckInProgress) {
+            return
+        }
+
+        imgProxyStatus.visibility = View.VISIBLE
+        proxyCheckInProgress = true
+        txtStatus.text = getString(R.string.proxy_checking)
+
+        Thread {
+            val ok = isProxyWorking(config)
+            runOnUiThread {
+                proxyCheckInProgress = false
+                if (ok) {
+                    setProxyIndicator(true, getString(R.string.proxy_status_working))
+                } else {
+                    setProxyIndicator(false, getString(R.string.proxy_status_failed))
+                }
+            }
+        }.start()
+    }
+
+    private fun setProxyIndicator(working: Boolean, description: String) {
+        imgProxyStatus.visibility = View.VISIBLE
+        imgProxyStatus.setImageResource(if (working) android.R.drawable.presence_online else android.R.drawable.presence_busy)
+        imgProxyStatus.contentDescription = description
+    }
+
+    private fun hideProxyIndicator(description: String) {
+        imgProxyStatus.visibility = View.GONE
+        imgProxyStatus.contentDescription = description
+    }
+
+    private fun isProxyWorking(config: AccountProxyConfig): Boolean {
+        return try {
+            val proxyType = if (config.type.equals("socks", ignoreCase = true)) Proxy.Type.SOCKS else Proxy.Type.HTTP
+            val proxy = Proxy(proxyType, InetSocketAddress(config.host, config.port))
+            val connection = URL("https://steamcommunity.com").openConnection(proxy) as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
+            connection.setRequestProperty("User-Agent", "MSDA/1.2.0")
+
+            if (proxyType == Proxy.Type.HTTP && config.username.isNotBlank()) {
+                val token = Base64.getEncoder().encodeToString("${config.username}:${config.password}".toByteArray())
+                connection.setRequestProperty("Proxy-Authorization", "Basic $token")
+            }
+
+            val code = connection.responseCode
+            code in 200..399
+        } catch (_: Throwable) {
+            false
         }
     }
 }
