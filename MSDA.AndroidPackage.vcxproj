@@ -74,7 +74,6 @@
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\NativeBridge.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_main.xml" />
     <None Include="AndroidCppApp\packaging\app\src\main\res\values\strings.xml" />
-    <None Include="release-note-v1.0.0.md" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\xml\file_paths.xml" />

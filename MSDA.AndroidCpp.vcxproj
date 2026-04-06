@@ -102,13 +102,13 @@
     <None Include=".gitignore" />
     <None Include="AndroidCppApp\docs\ARCHITECTURE.md" />
     <None Include="AndroidCppApp\docs\GITHUB_PUBLISH.md" />
-    <None Include="AndroidCppApp\docs\SETUP_AND_RUN.md" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\AppSettings.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BackgroundSyncAlarmReceiver.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BackgroundSyncScheduler.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BootCompletedReceiver.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\ConfirmationBackgroundWorker.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\HubActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\LockActivity.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\QrApprovalService.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SettingsActivity.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SteamAuthService.kt" />
@@ -116,7 +116,6 @@
     <None Include="AndroidCppApp\tools\launch-from-vs.ps1" />
     <None Include="AndroidCppApp\CMakeLists.txt" />
     <None Include="AndroidCppApp\CMakePresets.json" />
-    <None Include="AndroidCppApp\README.md" />
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
@@ -125,6 +124,7 @@
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\drawable\ic_launcher_foreground.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\drawable\ic_launcher_monochrome.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_hub.xml" />
+    <Xml Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_lock.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\layout\activity_settings.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\mipmap-anydpi-v26\ic_launcher.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\mipmap-anydpi-v26\ic_launcher_round.xml" />

@@ -72,13 +72,85 @@ class ConfirmationBackgroundWorker(
                     ?.let { base.withSession(it) }
                     ?: continue
 
-                val bundles = ConfirmationService.loadBundles(withSession)
+                var bundles = ConfirmationService.loadBundles(applicationContext, withSession)
+
+                val marketEnabled = AppSettings.isMarketAutoConfirmEnabled(applicationContext, steamId)
+                val tradeEnabled = AppSettings.isTradeAutoConfirmEnabled(applicationContext, steamId)
+                val giftTradeEnabled = AppSettings.isGiftTradeAutoConfirmEnabled(applicationContext, steamId)
+
+                if (marketEnabled || tradeEnabled || giftTradeEnabled) {
+                    val itemsToAutoAccept = bundles
+                        .flatMap { it.items }
+                        .filter { item ->
+                            (marketEnabled && isStrictMarketConfirmation(item)) ||
+                                (tradeEnabled && isStrictTradeConfirmation(item)) ||
+                                (giftTradeEnabled && isGiftTradeConfirmation(item))
+                        }
+                        .distinctBy { it.id }
+
+                    itemsToAutoAccept.forEach { item ->
+                        try {
+                            ConfirmationService.respondItem(applicationContext, withSession, item, true)
+                        } catch (_: Throwable) {
+                        }
+                    }
+
+                    if (itemsToAutoAccept.isNotEmpty()) {
+                        bundles = try {
+                            ConfirmationService.loadBundles(applicationContext, withSession)
+                        } catch (_: Throwable) {
+                            bundles
+                        }
+                    }
+                }
+
                 total += bundles.sumOf { it.items.size }
             } catch (_: Throwable) {
             }
         }
 
         return total
+    }
+
+    private fun isStrictMarketConfirmation(item: ConfirmationItem): Boolean {
+        return item.type != 2 && item.typeName.contains("market", ignoreCase = true)
+    }
+
+    private fun isStrictTradeConfirmation(item: ConfirmationItem): Boolean {
+        return item.type == 2 || item.typeName.contains("trade", ignoreCase = true)
+    }
+
+    private fun isGiftTradeConfirmation(item: ConfirmationItem): Boolean {
+        if (!isStrictTradeConfirmation(item)) {
+            return false
+        }
+
+        val text = (listOf(item.headline) + item.summary)
+            .joinToString(" ")
+            .lowercase()
+
+        val giftSignals = listOf(
+            "gift",
+            "you will receive",
+            "you'll receive",
+            "for free",
+            "without exchange",
+            "no items from your inventory",
+            "no items from you",
+            "0 items from you",
+            "nothing to give",
+            "sent you a gift"
+        )
+        val lossSignals = listOf(
+            "you will give",
+            "you'll give",
+            "you are giving",
+            "from your inventory",
+            "in exchange",
+            "for your"
+        )
+
+        return giftSignals.any { text.contains(it) } && lossSignals.none { text.contains(it) }
     }
 
     private fun canPostNotifications(): Boolean {

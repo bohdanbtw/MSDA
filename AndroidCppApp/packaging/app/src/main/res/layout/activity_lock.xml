@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/txtLockTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/unlock_title"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtLockSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:text="@string/unlock_subtitle"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/pinDot1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:text="○"
+            android:textSize="28sp" />
+
+        <TextView
+            android:id="@+id/pinDot2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:text="○"
+            android:textSize="28sp" />
+
+        <TextView
+            android:id="@+id/pinDot3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:text="○"
+            android:textSize="28sp" />
+
+        <TextView
+            android:id="@+id/pinDot4"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:text="○"
+            android:textSize="28sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtLockStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:textSize="14sp" />
+
+    <GridLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:columnCount="3"
+        android:rowCount="4"
+        android:useDefaultMargins="true">
+
+        <Button android:id="@+id/btnPin1" android:layout_width="84dp" android:layout_height="64dp" android:text="1" />
+        <Button android:id="@+id/btnPin2" android:layout_width="84dp" android:layout_height="64dp" android:text="2" />
+        <Button android:id="@+id/btnPin3" android:layout_width="84dp" android:layout_height="64dp" android:text="3" />
+        <Button android:id="@+id/btnPin4" android:layout_width="84dp" android:layout_height="64dp" android:text="4" />
+        <Button android:id="@+id/btnPin5" android:layout_width="84dp" android:layout_height="64dp" android:text="5" />
+        <Button android:id="@+id/btnPin6" android:layout_width="84dp" android:layout_height="64dp" android:text="6" />
+        <Button android:id="@+id/btnPin7" android:layout_width="84dp" android:layout_height="64dp" android:text="7" />
+        <Button android:id="@+id/btnPin8" android:layout_width="84dp" android:layout_height="64dp" android:text="8" />
+        <Button android:id="@+id/btnPin9" android:layout_width="84dp" android:layout_height="64dp" android:text="9" />
+        <Button android:id="@+id/btnBiometricUnlock" android:layout_width="84dp" android:layout_height="64dp" android:text="🔒" />
+        <Button android:id="@+id/btnPin0" android:layout_width="84dp" android:layout_height="64dp" android:text="0" />
+        <Button android:id="@+id/btnPinDelete" android:layout_width="84dp" android:layout_height="64dp" android:text="⌫" />
+    </GridLayout>
+
+    <Button
+        android:id="@+id/btnLockClose"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="@string/unlock_close" />
+
+</LinearLayout>

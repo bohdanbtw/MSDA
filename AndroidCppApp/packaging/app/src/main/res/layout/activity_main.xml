@@ -32,6 +32,15 @@
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
+            <ImageView
+                android:id="@+id/imgProxyStatus"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginEnd="8dp"
+                android:contentDescription="@string/proxy_status_unknown"
+                android:src="@android:drawable/presence_invisible"
+                android:visibility="gone" />
+
             <ImageButton
                 android:id="@+id/btnScanQr"
                 android:layout_width="40dp"
@@ -39,6 +48,16 @@
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/scan_steam_qr"
                 android:src="@android:drawable/ic_menu_camera" />
+
+            <Button
+                android:id="@+id/btnAutoConfirm"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:minWidth="0dp"
+                android:text="@string/auto_button"
+                android:textSize="11sp" />
 
             <ImageButton
                 android:id="@+id/btnQuickActions"
