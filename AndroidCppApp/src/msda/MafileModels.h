@@ -10,8 +10,11 @@ struct MafileAccount {
     std::string sharedSecret;
     std::string identitySecret;
 
-    // Stable, non‑changing device identifier that persists across reinstalls.
-    // Replaces the original mutable maFile device fingerprint.
+    // Stable device identifier that persists across OS reinstalls.
+    // Used for data linking and recovery, independent of the maFile fingerprint.
+    std::string permanentDeviceId;
+
+    // Original device fingerprint from the maFile (required for 2‑FA binding).
     std::string deviceId;
 
     std::string sessionId;
