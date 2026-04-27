@@ -1,5 +1,7 @@
 package com.msda.android
 
+import android.content.Context
+
 object NativeBridge {
     init {
         System.loadLibrary("msda_android")
@@ -13,10 +15,11 @@ object NativeBridge {
     external fun getSecondsToNextCode(): Int
     external fun getActiveConfirmationAuthPayload(): String
 
-    // New: session renewal and fallback
-    external fun tryRefreshSession(steamId: String): Boolean
-    external fun reauthWithPassword(steamId: String, password: String): Boolean
+    // New: session renewal and fallback (with stable device id)
+    external fun tryRefreshSession(steamId: String, deviceId: String): Boolean
+    external fun reauthWithPassword(steamId: String, password: String, deviceId: String): Boolean
 
-    // New: stable device identifier
-    external fun getPermanentDeviceId(): String
+    // New: stable device identifier (Kotlin side)
+    fun getPermanentDeviceId(context: Context): String =
+        AppSettings.getPermanentDeviceId(context)
 }

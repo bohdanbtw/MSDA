@@ -55,8 +55,10 @@ object SessionStore {
      * @return true if the session is now live; false if all attempts failed.
      */
     fun renewSessionOrFallback(context: Context, steamId: String, accountName: String): Boolean {
+        val deviceId = NativeBridge.getPermanentDeviceId(context)
+
         // 1. Token‑based refresh (native implementation).
-        val refreshed = NativeBridge.tryRefreshSession(steamId)
+        val refreshed = NativeBridge.tryRefreshSession(steamId, deviceId)
         if (refreshed) {
             // The native layer should have updated the active session.
             return true
@@ -66,7 +68,7 @@ object SessionStore {
         val password = PasswordManager.getPassword(context, accountName)
         if (password.isNullOrBlank()) return false
 
-        val reauthed = NativeBridge.reauthWithPassword(steamId, password)
+        val reauthed = NativeBridge.reauthWithPassword(steamId, password, deviceId)
         if (reauthed) {
             // After successful re‑auth the session is live;
             // the caller can reload it via loadSession.
