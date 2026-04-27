@@ -46,4 +46,32 @@ object SessionStore {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return prefs.getString("$steamId.accountName", null)
     }
+
+    /**
+     * Attempt to restore a valid session without user interaction.
+     * 1. Try a silent refresh using any stored refresh token.
+     * 2. If that fails, fall back to the stored password.
+     *
+     * @return true if the session is now live; false if all attempts failed.
+     */
+    fun renewSessionOrFallback(context: Context, steamId: String, accountName: String): Boolean {
+        // 1. Token‑based refresh (native implementation).
+        val refreshed = NativeBridge.tryRefreshSession(steamId)
+        if (refreshed) {
+            // The native layer should have updated the active session.
+            return true
+        }
+
+        // 2. Fallback: re‑authenticate with the stored password.
+        val password = PasswordManager.getPassword(context, accountName)
+        if (password.isNullOrBlank()) return false
+
+        val reauthed = NativeBridge.reauthWithPassword(steamId, password)
+        if (reauthed) {
+            // After successful re‑auth the session is live;
+            // the caller can reload it via loadSession.
+            return true
+        }
+        return false
+    }
 }

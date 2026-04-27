@@ -30,6 +30,7 @@ object AppSettings {
     private const val KEY_PROXY_PORT_PREFIX = "proxy_port_"
     private const val KEY_PROXY_USERNAME_PREFIX = "proxy_username_"
     private const val KEY_PROXY_PASSWORD_PREFIX = "proxy_password_"
+    private const val KEY_PERMANENT_DEVICE_ID = "permanent_device_id"
 
     fun getThemeMode(context: Context): String {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -228,5 +229,16 @@ object AppSettings {
             .remove("$KEY_PROXY_USERNAME_PREFIX$steamId")
             .remove("$KEY_PROXY_PASSWORD_PREFIX$steamId")
             .apply()
+    }
+
+    // ---------- Stable device identifier ----------
+    fun getPermanentDeviceId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val existing = prefs.getString(KEY_PERMANENT_DEVICE_ID, null)
+        if (!existing.isNullOrBlank()) return existing
+
+        val newId = UUID.randomUUID().toString()
+        prefs.edit().putString(KEY_PERMANENT_DEVICE_ID, newId).apply()
+        return newId
     }
 }
