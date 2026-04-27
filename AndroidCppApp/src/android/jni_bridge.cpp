@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <mutex>
 #include <sstream>
+#include <cstdio>
 #include "msda/AccountManager.h"
 
 namespace {
@@ -23,6 +24,35 @@ std::string jstringToStd(JNIEnv* env, jstring input) {
 
 jstring stdToJstring(JNIEnv* env, const std::string& value) {
     return env->NewStringUTF(value.c_str());
+}
+
+// Escape a string so that it can be safely placed inside a JSON double‑quoted value.
+// Escapes double quote, backslash, and control characters.
+std::string escapeJson(const std::string& value) {
+    std::string out;
+    out.reserve(value.size() * 2);
+    for (char ch : value) {
+        switch (ch) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b";  break;
+            case '\f': out += "\\f";  break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    char buf[7];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x",
+                                  static_cast<unsigned char>(ch));
+                    out += buf;
+                } else {
+                    out += ch;
+                }
+                break;
+        }
+    }
+    return out;
 }
 
 // Quick JSON value extractor used by tryRefreshSession / reauthWithPassword.
@@ -128,16 +158,17 @@ Java_com_msda_android_NativeBridge_getActiveAccount(
         return stdToJstring(env, "{}");
     }
 
+    // Build valid JSON with proper escaping.
     std::ostringstream out;
-    out << "{\"accountName\":\"" << active->accountName << "\","
-        << "\"steamId\":\"" << active->steamId << "\","
-        << "\"sharedSecret\":\"" << active->sharedSecret << "\","
-        << "\"identitySecret\":\"" << active->identitySecret << "\","
-        << "\"deviceId\":\"" << active->deviceId << "\","
-        << "\"sessionId\":\"" << active->sessionId << "\","
-        << "\"steamLoginSecure\":\"" << active->steamLoginSecure << "\","
-        << "\"refreshToken\":\"" << active->refreshToken << "\","
-        << "\"accessToken\":\"" << active->accessToken << "\"}";
+    out << "{\"accountName\":\""        << escapeJson(active->accountName)       << "\","
+        << "\"steamId\":\""             << escapeJson(active->steamId)            << "\","
+        << "\"sharedSecret\":\""        << escapeJson(active->sharedSecret)       << "\","
+        << "\"identitySecret\":\""      << escapeJson(active->identitySecret)     << "\","
+        << "\"deviceId\":\""            << escapeJson(active->deviceId)           << "\","
+        << "\"sessionId\":\""           << escapeJson(active->sessionId)          << "\","
+        << "\"steamLoginSecure\":\""    << escapeJson(active->steamLoginSecure)   << "\","
+        << "\"refreshToken\":\""        << escapeJson(active->refreshToken)       << "\","
+        << "\"accessToken\":\""         << escapeJson(active->accessToken)        << "\"}";
     return stdToJstring(env, out.str());
 }
 
