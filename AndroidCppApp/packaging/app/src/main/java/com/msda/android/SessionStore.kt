@@ -1,6 +1,7 @@
 package com.msda.android
 
 import android.content.Context
+import org.json.JSONObject
 
 data class StoredSteamSession(
     val steamLoginSecure: String,
@@ -52,6 +53,10 @@ object SessionStore {
      * 1. Try a silent refresh using any stored refresh token.
      * 2. If that fails, fall back to the stored password.
      *
+     * After a successful renewal or re‑authentication the new session tokens
+     * are persisted to SharedPreferences so that loadSession returns valid
+     * cookies immediately.
+     *
      * @return true if the session is now live; false if all attempts failed.
      */
     fun renewSessionOrFallback(context: Context, steamId: String, accountName: String): Boolean {
@@ -60,7 +65,7 @@ object SessionStore {
         // 1. Token‑based refresh (native implementation).
         val refreshed = NativeBridge.tryRefreshSession(steamId, deviceId)
         if (refreshed) {
-            // The native layer should have updated the active session.
+            updateStoredSessionFromActive(context, steamId, accountName)
             return true
         }
 
@@ -68,12 +73,40 @@ object SessionStore {
         val password = PasswordManager.getPassword(context, accountName)
         if (password.isNullOrBlank()) return false
 
-        val reauthed = NativeBridge.reauthWithPassword(steamId, password, deviceId)
-        if (reauthed) {
-            // After successful re‑auth the session is live;
-            // the caller can reload it via loadSession.
+        val reauthenticated = NativeBridge.reauthWithPassword(steamId, password, deviceId)
+        if (reauthenticated) {
+            updateStoredSessionFromActive(context, steamId, accountName)
             return true
         }
         return false
+    }
+
+    /**
+     * Reads the active session from the native layer and saves it to SharedPreferences.
+     */
+    private fun updateStoredSessionFromActive(
+        context: Context,
+        steamId: String,
+        fallbackAccountName: String
+    ) {
+        try {
+            val jsonStr = NativeBridge.getActiveAccount()
+            if (jsonStr.isBlank()) return
+
+            val obj = JSONObject(jsonStr)
+            val session = StoredSteamSession(
+                steamLoginSecure = obj.optString("steamLoginSecure", ""),
+                sessionId = obj.optString("sessionId", ""),
+                refreshToken = obj.optString("refreshToken", ""),
+                accessToken = obj.optString("accessToken", ""),
+                accountName = obj.optString("accountName", fallbackAccountName)
+            )
+            if (session.steamLoginSecure.isNotBlank() && session.sessionId.isNotBlank()) {
+                saveSession(context, steamId, session)
+            }
+        } catch (_: Exception) {
+            // If parsing fails we simply do not update SharedPreferences.
+            // The native state is still valid for the current session.
+        }
     }
 }
