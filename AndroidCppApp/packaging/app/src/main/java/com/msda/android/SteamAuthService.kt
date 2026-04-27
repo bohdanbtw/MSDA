@@ -42,6 +42,7 @@ object SteamAuthService {
     private const val STEAM_UPDATE_GUARD_URL = "$STEAM_API_BASE/UpdateAuthSessionWithSteamGuardCode/v1"
     private const val STEAM_POLL_AUTH_URL = "$STEAM_API_BASE/PollAuthSessionStatus/v1"
     private const val STEAM_FINALIZE_URL = "https://login.steampowered.com/jwt/finalizelogin"
+    private const val STEAM_TOKEN_REFRESH_URL = "$STEAM_API_BASE/TokenRefresh/v1"
 
     fun showPasswordDialog(
         context: Context,
@@ -80,7 +81,7 @@ object SteamAuthService {
                 if (password.isBlank()) {
                     onResult(SteamAuthResult(false, errorMessage = "Password cannot be empty"))
                 } else {
-                    performLogin(accountName, password, onResult, onProgress)
+                    performLogin(accountName, password, context, onResult, onProgress)
                 }
             }
             .setNegativeButton("Cancel") { dialog, _ ->
@@ -93,6 +94,7 @@ object SteamAuthService {
     private fun performLogin(
         accountName: String,
         password: String,
+        context: Context,
         onResult: (SteamAuthResult) -> Unit,
         onProgress: ((String) -> Unit)?
     ) {
@@ -100,7 +102,7 @@ object SteamAuthService {
             val result = try {
                 emitProgress(onProgress, "Authentificating… preparing account")
                 val authPayload = NativeBridge.getActiveConfirmationAuthPayload()
-                val context = ConfirmationService.parseAuthPayload(authPayload)
+                val authContext = ConfirmationService.parseAuthPayload(authPayload)
                     ?: return@launch withContext(Dispatchers.Main) {
                         onResult(SteamAuthResult(false, errorMessage = "Failed to parse account data"))
                     }
@@ -116,9 +118,9 @@ object SteamAuthService {
                     accountName = accountName,
                     password = password,
                     twoFactorCode = twoFactorCode,
-                    steamId = context.steamId,
-                    existingSteamLoginSecure = context.steamLoginSecure,
-                    existingSessionId = context.sessionId,
+                    steamId = authContext.steamId,
+                    existingSteamLoginSecure = authContext.steamLoginSecure,
+                    existingSessionId = authContext.sessionId,
                     onProgress = onProgress
                 )
             } catch (e: Exception) {
@@ -126,9 +128,40 @@ object SteamAuthService {
             }
 
             withContext(Dispatchers.Main) {
-                onResult(result)
+                if (result.success) {
+                    // Show password save confirmation
+                    showPasswordSaveDialog(context, accountName, password, result, onResult)
+                } else {
+                    onResult(result)
+                }
             }
         }
+    }
+
+    private fun showPasswordSaveDialog(
+        context: Context,
+        accountName: String,
+        password: String,
+        loginResult: SteamAuthResult,
+        onResult: (SteamAuthResult) -> Unit
+    ) {
+        AlertDialog.Builder(context)
+            .setTitle("Save Password?")
+            .setMessage("Save your password securely for automatic login on next session expiry?\n\nYour password will be encrypted using your device ID and cannot be used on another device.")
+            .setPositiveButton("Save") { dialog, _ ->
+                dialog.dismiss()
+                try {
+                    PasswordManager.savePassword(context, accountName, password)
+                    onResult(loginResult)
+                } catch (e: Exception) {
+                    onResult(loginResult.copy(errorMessage = "Password saved but encryption failed: ${e.message}"))
+                }
+            }
+            .setNegativeButton("Don't Save") { dialog, _ ->
+                dialog.dismiss()
+                onResult(loginResult)
+            }
+            .show()
     }
 
     private suspend fun emitProgress(onProgress: ((String) -> Unit)?, message: String) {
@@ -326,6 +359,87 @@ object SteamAuthService {
             SteamAuthResult(false, errorMessage = e.message ?: "Network error")
         } finally {
             CookieHandler.setDefault(previousHandler)
+        }
+    }
+
+    suspend fun refreshSessionUsingToken(refreshToken: String): SteamAuthResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                val refreshBody = formBody(
+                    "refresh_token" to refreshToken,
+                    "client_id" to "3839104",
+                    "grant_type" to "refresh_token"
+                )
+
+                val refreshRoot = postJson(STEAM_TOKEN_REFRESH_URL, refreshBody)
+                val refreshResponse = refreshRoot.optJSONObject("response") ?: JSONObject()
+
+                val newAccessToken = refreshResponse.optString("access_token", "")
+                val newRefreshToken = refreshResponse.optString("refresh_token", refreshToken)
+
+                if (newAccessToken.isBlank()) {
+                    return@withContext SteamAuthResult(
+                        false,
+                        errorMessage = "Token refresh failed: no access_token in response"
+                    )
+                }
+
+                // Extract steamid from refresh token if possible (format: steamid||base64data)
+                val steamId = if (refreshToken.contains("||")) {
+                    refreshToken.split("||").getOrNull(0).orEmpty()
+                } else {
+                    ""
+                }
+
+                // Construct new session tokens from access token
+                // Steam uses access_token in the steamLoginSecure format: steamid||accesstoken
+                val newSteamLoginSecure = if (steamId.isNotBlank()) {
+                    "$steamId%7C%7C$newAccessToken"
+                } else {
+                    newAccessToken
+                }
+
+                SteamAuthResult(
+                    success = true,
+                    steamId = steamId.ifBlank { null },
+                    steamLoginSecure = newSteamLoginSecure,
+                    sessionId = createSessionId(),
+                    refreshToken = newRefreshToken,
+                    accessToken = newAccessToken
+                )
+            } catch (e: Exception) {
+                SteamAuthResult(false, errorMessage = e.message ?: "Token refresh network error")
+            }
+        }
+    }
+
+    suspend fun refreshSessionUsingPassword(
+        accountName: String,
+        password: String
+    ): SteamAuthResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                val authPayload = NativeBridge.getActiveConfirmationAuthPayload()
+                val context = ConfirmationService.parseAuthPayload(authPayload)
+                    ?: return@withContext SteamAuthResult(false, errorMessage = "Failed to parse account data")
+
+                val twoFactorCode = NativeBridge.getActiveCode().trim()
+                if (twoFactorCode.isBlank()) {
+                    return@withContext SteamAuthResult(false, errorMessage = "Guard code is unavailable")
+                }
+
+                doLoginRequest(
+                    accountName = accountName,
+                    password = password,
+                    twoFactorCode = twoFactorCode,
+                    steamId = context.steamId,
+                    existingSteamLoginSecure = context.steamLoginSecure,
+                    existingSessionId = context.sessionId,
+                    onProgress = null
+                )
+            } catch (e: Exception) {
+                SteamAuthResult(false, errorMessage = e.message ?: "Password login failed")
+            }
         }
     }
 

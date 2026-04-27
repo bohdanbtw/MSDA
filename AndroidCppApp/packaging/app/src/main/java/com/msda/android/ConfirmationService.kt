@@ -171,6 +171,150 @@ object ConfirmationService {
         }
     }
 
+    suspend fun loadBundlesWithAutoRenew(context: Context?, auth: ConfirmationAuthContext): List<ConfirmationBundle> {
+        require(auth.identitySecret.isNotBlank()) { "identity_secret is missing in mafile" }
+        require(auth.deviceId.isNotBlank()) { "device_id is missing in mafile" }
+        require(auth.sessionId.isNotBlank()) { "sessionid is missing in mafile" }
+        require(auth.steamLoginSecure.isNotBlank()) { "steamLoginSecure is missing in mafile" }
+
+        val query = withConfirmationQuery(auth, "conf")
+        val url = "https://steamcommunity.com/mobileconf/getlist?$query"
+        val json = getJson(url, auth, context)
+
+        if (json.optBoolean("needauth", false)) {
+            // Try refresh token first
+            if (auth.refreshToken.isNotBlank()) {
+                val refreshed = SteamAuthService.refreshSessionUsingToken(auth.refreshToken)
+                if (refreshed.success && refreshed.steamLoginSecure != null && refreshed.sessionId != null) {
+                    // Update auth context with new session info and retry
+                    val newAuth = auth.copy(
+                        steamLoginSecure = refreshed.steamLoginSecure,
+                        sessionId = refreshed.sessionId,
+                        accessToken = refreshed.accessToken ?: auth.accessToken,
+                        refreshToken = refreshed.refreshToken ?: auth.refreshToken
+                    )
+                    // Persist updated session
+                    if (context != null) {
+                        SessionStore.saveSession(
+                            context,
+                            auth.steamId,
+                            StoredSteamSession(
+                                steamLoginSecure = newAuth.steamLoginSecure,
+                                sessionId = newAuth.sessionId,
+                                refreshToken = newAuth.refreshToken,
+                                accessToken = newAuth.accessToken
+                            )
+                        )
+                    }
+                    return loadBundlesWithAutoRenew(context, newAuth)
+                }
+            }
+
+            // Try cached password before failing
+            if (context != null && auth.accountName.isNotBlank()) {
+                val cachedPassword = PasswordManager.getPassword(context, auth.accountName)
+                if (!cachedPassword.isNullOrBlank()) {
+                    try {
+                        val loginResult = SteamAuthService.refreshSessionUsingPassword(
+                            accountName = auth.accountName,
+                            password = cachedPassword
+                        )
+                        if (loginResult.success && loginResult.steamLoginSecure != null && loginResult.sessionId != null) {
+                            // Update auth context and retry
+                            val newAuth = auth.copy(
+                                steamLoginSecure = loginResult.steamLoginSecure,
+                                sessionId = loginResult.sessionId,
+                                accessToken = loginResult.accessToken ?: auth.accessToken,
+                                refreshToken = loginResult.refreshToken ?: auth.refreshToken
+                            )
+                            // Persist updated session
+                            SessionStore.saveSession(
+                                context,
+                                auth.steamId,
+                                StoredSteamSession(
+                                    steamLoginSecure = newAuth.steamLoginSecure,
+                                    sessionId = newAuth.sessionId,
+                                    refreshToken = newAuth.refreshToken,
+                                    accessToken = newAuth.accessToken
+                                )
+                            )
+                            return loadBundlesWithAutoRenew(context, newAuth)
+                        }
+                    } catch (_: Throwable) {
+                        // Cached password login failed, fall through to throw
+                    }
+                }
+            }
+
+            throw IllegalStateException("Steam reported needauth=true. Session cookies are invalid or expired.")
+        }
+
+        if (!json.optBoolean("success", false)) {
+            val message = json.optString("message", "unknown")
+            val detail = json.optString("detail", "")
+            throw IllegalStateException("Confirmation load failed: $message $detail")
+        }
+
+        val conf = json.optJSONArray("conf") ?: return emptyList()
+        val items = mutableListOf<ConfirmationItem>()
+
+        for (i in 0 until conf.length()) {
+            val item = conf.optJSONObject(i) ?: continue
+            val summaryArray = item.optJSONArray("summary")
+            val summary = mutableListOf<String>()
+            if (summaryArray != null) {
+                for (s in 0 until summaryArray.length()) {
+                    summary.add(summaryArray.optString(s, ""))
+                }
+            }
+
+            val iconUrl = if (item.isNull("icon")) null else item.optString("icon", "")
+
+            items.add(
+                ConfirmationItem(
+                    id = item.optString("id", ""),
+                    nonce = item.optString("nonce", ""),
+                    type = item.optInt("type", 0),
+                    typeName = item.optString("type_name", "Unknown"),
+                    headline = item.optString("headline", ""),
+                    summary = summary,
+                    iconUrl = iconUrl,
+                    creatorId = item.optString("creator_id", ""),
+                    multi = item.optBoolean("multi", false)
+                )
+            )
+        }
+
+        val grouped = items.groupBy { item ->
+            when {
+                item.type == 2 -> "trade:${item.headline}"
+                item.typeName.contains("Market", ignoreCase = true) -> "market:${item.typeName}"
+                else -> "${item.typeName}:${item.creatorId}"
+            }
+        }
+
+        return grouped.map { (key, groupItems) ->
+            val first = groupItems.first()
+            val partner = if (first.type == 2) {
+                TradePartnerSummary(
+                    nickname = first.headline.ifBlank { "Unknown trader" },
+                    avatarUrl = first.iconUrl,
+                    steamLevel = "Steam Level: --"
+                )
+            } else {
+                null
+            }
+
+            ConfirmationBundle(
+                key = key,
+                title = first.typeName,
+                typeName = first.typeName,
+                items = groupItems,
+                partner = partner
+            )
+        }
+    }
+
     fun respondBundle(auth: ConfirmationAuthContext, bundle: ConfirmationBundle, accept: Boolean): Boolean {
         return respondBundle(null, auth, bundle, accept)
     }
