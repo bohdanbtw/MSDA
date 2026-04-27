@@ -327,4 +327,24 @@ std::string AccountManager::activeConfirmationAuthPayload() const {
     return out.str();
 }
 
+void AccountManager::updateSessionTokens(const std::string& steamId,
+                                         const std::string& sessionId,
+                                         const std::string& steamLoginSecure,
+                                         const std::string& refreshToken,
+                                         const std::string& accessToken,
+                                         const std::string& deviceId,
+                                         const std::string& permanentDeviceId) {
+    for (auto& account : _accounts) {
+        if (account.steamId == steamId) {
+            if (!sessionId.empty())          account.sessionId          = sessionId;
+            if (!steamLoginSecure.empty())   account.steamLoginSecure   = steamLoginSecure;
+            if (!refreshToken.empty())       account.refreshToken       = refreshToken;
+            if (!accessToken.empty())        account.accessToken        = accessToken;
+            if (!deviceId.empty())           account.deviceId           = deviceId;
+            if (!permanentDeviceId.empty())  account.permanentDeviceId  = permanentDeviceId;
+            break;
+        }
+    }
+}
+
 } // namespace msda
