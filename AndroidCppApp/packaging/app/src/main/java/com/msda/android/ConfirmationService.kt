@@ -3,6 +3,7 @@ package com.msda.android
 import android.content.Context
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URI
@@ -60,6 +61,10 @@ data class ConfirmationBundle(
     val items: List<ConfirmationItem>,
     val partner: TradePartnerSummary?
 )
+
+class NeedPasswordException(val accountName: String) : Exception("Password required for $accountName")
+
+class NeedPasswordException(val accountName: String) : Exception("Password required for $accountName")
 
 object ConfirmationService {
     private const val MIN_REQUEST_INTERVAL_MS = 1200L
@@ -184,29 +189,33 @@ object ConfirmationService {
         if (json.optBoolean("needauth", false)) {
             // Try refresh token first
             if (auth.refreshToken.isNotBlank()) {
-                val refreshed = SteamAuthService.refreshSessionUsingToken(auth.refreshToken)
-                if (refreshed.success && refreshed.steamLoginSecure != null && refreshed.sessionId != null) {
-                    // Update auth context with new session info and retry
-                    val newAuth = auth.copy(
-                        steamLoginSecure = refreshed.steamLoginSecure,
-                        sessionId = refreshed.sessionId,
-                        accessToken = refreshed.accessToken ?: auth.accessToken,
-                        refreshToken = refreshed.refreshToken ?: auth.refreshToken
-                    )
-                    // Persist updated session
-                    if (context != null) {
-                        SessionStore.saveSession(
-                            context,
-                            auth.steamId,
-                            StoredSteamSession(
-                                steamLoginSecure = newAuth.steamLoginSecure,
-                                sessionId = newAuth.sessionId,
-                                refreshToken = newAuth.refreshToken,
-                                accessToken = newAuth.accessToken
-                            )
+                try {
+                    val refreshed = SteamAuthService.refreshSessionUsingToken(auth.refreshToken)
+                    if (refreshed.success && refreshed.steamLoginSecure != null && refreshed.sessionId != null) {
+                        // Update auth context with new session info and retry
+                        val newAuth = auth.copy(
+                            steamLoginSecure = refreshed.steamLoginSecure,
+                            sessionId = refreshed.sessionId,
+                            accessToken = refreshed.accessToken ?: auth.accessToken,
+                            refreshToken = refreshed.refreshToken ?: auth.refreshToken
                         )
+                        // Persist updated session
+                        if (context != null) {
+                            SessionStore.saveSession(
+                                context,
+                                auth.steamId,
+                                StoredSteamSession(
+                                    steamLoginSecure = newAuth.steamLoginSecure,
+                                    sessionId = newAuth.sessionId,
+                                    refreshToken = newAuth.refreshToken,
+                                    accessToken = newAuth.accessToken
+                                )
+                            )
+                        }
+                        return loadBundlesWithAutoRenew(context, newAuth)
                     }
-                    return loadBundlesWithAutoRenew(context, newAuth)
+                } catch (_: Throwable) {
+                    // Refresh token failed, fall through to password
                 }
             }
 
@@ -244,6 +253,13 @@ object ConfirmationService {
                         // Cached password login failed, fall through to throw
                     }
                 }
+            }
+
+            // If we get here, both refresh token and cached password failed
+            // Try to prompt user for password via dialog (if context is available)
+            if (context != null && auth.accountName.isNotBlank()) {
+                // We'll throw a specific exception that the UI can catch and show password dialog
+                throw NeedPasswordException(auth.accountName)
             }
 
             throw IllegalStateException("Steam reported needauth=true. Session cookies are invalid or expired.")

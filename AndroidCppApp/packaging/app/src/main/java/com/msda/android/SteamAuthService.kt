@@ -22,6 +22,8 @@ import java.security.spec.RSAPublicKeySpec
 import java.util.Base64
 import java.util.UUID
 import javax.crypto.Cipher
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withContext
 
 data class SteamAuthResult(
     val success: Boolean,
@@ -43,6 +45,18 @@ object SteamAuthService {
     private const val STEAM_POLL_AUTH_URL = "$STEAM_API_BASE/PollAuthSessionStatus/v1"
     private const val STEAM_FINALIZE_URL = "https://login.steampowered.com/jwt/finalizelogin"
     private const val STEAM_TOKEN_REFRESH_URL = "$STEAM_API_BASE/TokenRefresh/v1"
+
+    private const val MIN_REQUEST_INTERVAL_MS = 1200L
+    private const val DEFAULT_RETRY_AFTER_MS = 10_000L
+    private const val MAX_RETRY_AFTER_MS = 60_000L
+    private val rateLimitLock = Any()
+    private var nextAllowedRequestAtMs = 0L
+
+    private const val MIN_REQUEST_INTERVAL_MS = 1200L
+    private const val DEFAULT_RETRY_AFTER_MS = 10_000L
+    private const val MAX_RETRY_AFTER_MS = 60_000L
+    private val rateLimitLock = Any()
+    private var nextAllowedRequestAtMs = 0L
 
     fun showPasswordDialog(
         context: Context,
@@ -129,6 +143,20 @@ object SteamAuthService {
 
             withContext(Dispatchers.Main) {
                 if (result.success) {
+                    // Save session immediately
+                    if (result.steamId != null && result.steamLoginSecure != null && result.sessionId != null) {
+                        SessionStore.saveSession(
+                            context,
+                            result.steamId,
+                            StoredSteamSession(
+                                steamLoginSecure = result.steamLoginSecure,
+                                sessionId = result.sessionId,
+                                refreshToken = result.refreshToken ?: "",
+                                accessToken = result.accessToken ?: "",
+                                accountName = accountName
+                            )
+                        )
+                    }
                     // Show password save confirmation
                     showPasswordSaveDialog(context, accountName, password, result, onResult)
                 } else {
@@ -180,6 +208,8 @@ object SteamAuthService {
         existingSessionId: String,
         onProgress: ((String) -> Unit)?
     ): SteamAuthResult {
+        // Save account name mapping for later password lookup
+        // This is done in the calling code (performLogin) after successful login
         val cookieManager = CookieManager(null, CookiePolicy.ACCEPT_ALL)
         val previousHandler = CookieHandler.getDefault()
         CookieHandler.setDefault(cookieManager)
@@ -520,6 +550,8 @@ object SteamAuthService {
     }
 
     private fun postText(url: String, body: String, referer: String = "$STEAM_BASE/login"): HttpResult {
+        waitForRateLimitWindow()
+
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.connectTimeout = 15000
@@ -541,6 +573,9 @@ object SteamAuthService {
         val bodyText = if (status in 200..299) {
             connection.inputStream.bufferedReader().use { it.readText() }
         } else {
+            if (status == 429) {
+                applyRateLimitBackoff(connection)
+            }
             val error = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
             throw IllegalStateException("HTTP $status $error")
         }
@@ -554,6 +589,41 @@ object SteamAuthService {
 
         connection.disconnect()
         return HttpResult(bodyText, setCookies)
+    }
+
+    private fun waitForRateLimitWindow() {
+        val waitMs: Long = synchronized(rateLimitLock) {
+            val now = System.currentTimeMillis()
+            val delay = (nextAllowedRequestAtMs - now).coerceAtLeast(0L)
+            val base = now + delay
+            nextAllowedRequestAtMs = base + MIN_REQUEST_INTERVAL_MS
+            delay
+        }
+
+        if (waitMs > 0) {
+            try {
+                Thread.sleep(waitMs)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+    }
+
+    private fun applyRateLimitBackoff(connection: HttpURLConnection) {
+        val retryAfterHeader = connection.getHeaderField("Retry-After")
+        val retryAfterMs = retryAfterHeader
+            ?.trim()
+            ?.toLongOrNull()
+            ?.times(1000L)
+            ?.coerceIn(1000L, MAX_RETRY_AFTER_MS)
+            ?: DEFAULT_RETRY_AFTER_MS
+
+        synchronized(rateLimitLock) {
+            val target = System.currentTimeMillis() + retryAfterMs
+            if (target > nextAllowedRequestAtMs) {
+                nextAllowedRequestAtMs = target
+            }
+        }
     }
 
     private fun extractCookieFromSetCookieHeaders(setCookies: List<String>, name: String): String? {

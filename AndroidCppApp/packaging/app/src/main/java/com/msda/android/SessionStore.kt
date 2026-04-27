@@ -6,7 +6,8 @@ data class StoredSteamSession(
     val steamLoginSecure: String,
     val sessionId: String,
     val refreshToken: String = "",
-    val accessToken: String = ""
+    val accessToken: String = "",
+    val accountName: String = ""
 )
 
 object SessionStore {
@@ -19,6 +20,7 @@ object SessionStore {
             .putString("$steamId.sessionid", session.sessionId)
             .putString("$steamId.refreshToken", session.refreshToken)
             .putString("$steamId.accessToken", session.accessToken)
+            .putString("$steamId.accountName", session.accountName)
             .apply()
     }
 
@@ -35,7 +37,13 @@ object SessionStore {
             steamLoginSecure = login,
             sessionId = sessionId,
             refreshToken = prefs.getString("$steamId.refreshToken", "") ?: "",
-            accessToken = prefs.getString("$steamId.accessToken", "") ?: ""
+            accessToken = prefs.getString("$steamId.accessToken", "") ?: "",
+            accountName = prefs.getString("$steamId.accountName", "") ?: ""
         )
+    }
+
+    fun getAccountName(context: Context, steamId: String): String? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getString("$steamId.accountName", null)
     }
 }

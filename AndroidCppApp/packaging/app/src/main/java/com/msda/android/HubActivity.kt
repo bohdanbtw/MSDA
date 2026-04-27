@@ -12,6 +12,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class HubActivity : AppCompatActivity() {
     private lateinit var txtHubStatus: TextView
@@ -353,6 +356,74 @@ class HubActivity : AppCompatActivity() {
         } catch (_: Throwable) {
             false
         }
+    }
+
+    fun handleNeedPassword(accountName: String) {
+        SteamAuthService.showPasswordDialog(
+            this,
+            accountName,
+            onResult = { result ->
+                if (result.success) {
+                    // Save password for future use
+                    if (result.steamLoginSecure != null && result.sessionId != null) {
+                        SessionStore.saveSession(
+                            this,
+                            result.steamId ?: "",
+                            StoredSteamSession(
+                                steamLoginSecure = result.steamLoginSecure,
+                                sessionId = result.sessionId,
+                                refreshToken = result.refreshToken ?: "",
+                                accessToken = result.accessToken ?: ""
+                            )
+                        )
+                    }
+                    // Save password if user chose to
+                    if (result.steamLoginSecure != null) {
+                        // Password was already saved in showPasswordSaveDialog
+                    }
+                    // Refresh the UI
+                    renderAccounts()
+                    txtHubStatus.text = "Session renewed for $accountName"
+                } else {
+                    txtHubStatus.text = "Failed to renew session: ${result.errorMessage}"
+                }
+            },
+            onProgress = { message ->
+                txtHubStatus.text = message
+            }
+        )
+    }
+
+    fun handleNeedPassword(accountName: String) {
+        SteamAuthService.showPasswordDialog(
+            this,
+            accountName,
+            onResult = { result ->
+                if (result.success) {
+                    // Save password for future use
+                    if (result.steamLoginSecure != null && result.sessionId != null) {
+                        SessionStore.saveSession(
+                            this,
+                            result.steamId ?: "",
+                            StoredSteamSession(
+                                steamLoginSecure = result.steamLoginSecure,
+                                sessionId = result.sessionId,
+                                refreshToken = result.refreshToken ?: "",
+                                accessToken = result.accessToken ?: ""
+                            )
+                        )
+                    }
+                    // Refresh the UI
+                    renderAccounts()
+                    txtHubStatus.text = "Session renewed for $accountName"
+                } else {
+                    txtHubStatus.text = "Failed to renew session: ${result.errorMessage}"
+                }
+            },
+            onProgress = { message ->
+                txtHubStatus.text = message
+            }
+        )
     }
 
     private fun importSelectedMafile(uri: Uri) {
