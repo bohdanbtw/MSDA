@@ -682,40 +682,42 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        Thread {
+        // Use coroutine for suspend function
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             var error: String? = null
             var bundles: List<ConfirmationBundle>? = try {
-                ConfirmationService.loadBundles(this, auth)
+                ConfirmationService.loadBundlesWithAutoRenew(this@MainActivity, auth)
             } catch (ex: Throwable) {
                 error = ex.message ?: "Unknown confirmation error"
                 null
             }
 
-            if (error == null && bundles != null) {
-                try {
-                    val marketEnabled = AppSettings.isMarketAutoConfirmEnabled(this, auth.steamId)
-                    val tradeEnabled = AppSettings.isTradeAutoConfirmEnabled(this, auth.steamId)
-                    val giftTradeEnabled = AppSettings.isGiftTradeAutoConfirmEnabled(this, auth.steamId)
-                    if (marketEnabled || tradeEnabled || giftTradeEnabled) {
-                        val itemsToAutoAccept = bundles
-                            .flatMap { it.items }
-                            .filter { item ->
-                                (marketEnabled && isStrictMarketConfirmation(item)) ||
-                                    (tradeEnabled && isStrictTradeConfirmation(item)) ||
-                                    (giftTradeEnabled && isGiftTradeConfirmation(item))
-                            }
-                            .distinctBy { it.id }
+            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (error == null && bundles != null) {
+                    try {
+                        val marketEnabled = AppSettings.isMarketAutoConfirmEnabled(this@MainActivity, auth.steamId)
+                        val tradeEnabled = AppSettings.isTradeAutoConfirmEnabled(this@MainActivity, auth.steamId)
+                        val giftTradeEnabled = AppSettings.isGiftTradeAutoConfirmEnabled(this@MainActivity, auth.steamId)
+                        if (marketEnabled || tradeEnabled || giftTradeEnabled) {
+                            val itemsToAutoAccept = bundles
+                                .flatMap { it.items }
+                                .filter { item ->
+                                    (marketEnabled && isStrictMarketConfirmation(item)) ||
+                                        (tradeEnabled && isStrictTradeConfirmation(item)) ||
+                                        (giftTradeEnabled && isGiftTradeConfirmation(item))
+                                }
+                                .distinctBy { it.id }
 
                         itemsToAutoAccept.forEach { item ->
                             try {
-                                ConfirmationService.respondItem(this, auth, item, true)
+                                ConfirmationService.respondItem(this@MainActivity, auth, item, true)
                             } catch (_: Throwable) {
                             }
                         }
 
                         if (itemsToAutoAccept.isNotEmpty()) {
                             bundles = try {
-                                ConfirmationService.loadBundles(this, auth)
+                                ConfirmationService.loadBundles(this@MainActivity, auth)
                             } catch (_: Throwable) {
                                 bundles
                             }
@@ -741,7 +743,7 @@ class MainActivity : AppCompatActivity() {
                 expandedBundleKeys.retainAll(existingKeys)
                 renderBundles(stable)
             }
-        }.start()
+        }
     }
 
     private fun isStrictMarketConfirmation(item: ConfirmationItem): Boolean {
