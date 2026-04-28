@@ -179,3 +179,18 @@ if ($hasConnectedDevice) {
 } else {
     Write-Host "[MSDA] Android package built (not installed)."
 }
+
+# Record APK path for downstream automation
+$apkSearchRoot = Join-Path $packagingRoot "app\build\outputs\apk"
+$outApkFile = $null
+if (Test-Path $apkSearchRoot) {
+    $apkFiles = Get-ChildItem -Path $apkSearchRoot -Filter "*.apk" -Recurse -ErrorAction SilentlyContinue
+    if ($apkFiles) {
+        $outApkFile = $apkFiles[0].FullName
+    }
+}
+if ($outApkFile) {
+    $apkInfoFile = Join-Path $repoRoot "out\apk-path.txt"
+    New-Item -ItemType Directory -Path (Split-Path $apkInfoFile -Parent) -Force | Out-Null
+    $outApkFile | Set-Content -Path $apkInfoFile
+}
