@@ -1,8 +1,8 @@
 #include "MafileParser.h"
 
+#include <cctype>
 #include <filesystem>
 #include <fstream>
-#include <regex>
 #include <sstream>
 
 namespace msda {
@@ -117,28 +117,59 @@ std::optional<std::string> MafileParser::readAllText(const std::string& filePath
 }
 
 std::string MafileParser::extractStringValue(const std::string& json, const std::string& key) {
-    const std::regex re("\\\"" + key + "\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"])*)\\\"");
-    std::smatch match;
-    if (std::regex_search(json, match, re) && match.size() > 1) {
-        return unescapeJsonString(match[1].str());
+    const std::string search = "\"" + key + "\":";
+    std::size_t pos = json.find(search);
+    if (pos == std::string::npos) {
+        return {};
     }
-
+    pos += search.length();
+    // skip whitespace
+    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t' || json[pos] == '\r' || json[pos] == '\n')) {
+        ++pos;
+    }
+    if (pos >= json.size() || json[pos] != '\"') {
+        return {};
+    }
+    ++pos; // skip opening quote
+    const std::size_t start = pos;
+    while (pos < json.size()) {
+        if (json[pos] == '\\' && pos + 1 < json.size()) {
+            pos += 2; // skip escaped character
+            continue;
+        }
+        if (json[pos] == '\"') {
+            return unescapeJsonString(json.substr(start, pos - start));
+        }
+        ++pos;
+    }
     return {};
 }
 
 std::string MafileParser::extractNumberOrString(const std::string& json, const std::string& key) {
+    // try a quoted string first
     auto fromString = extractStringValue(json, key);
     if (!fromString.empty()) {
         return fromString;
     }
 
-    const std::regex re("\\\"" + key + "\\\"\\s*:\\s*([0-9]+)");
-    std::smatch match;
-    if (std::regex_search(json, match, re) && match.size() > 1) {
-        return match[1].str();
+    const std::string search = "\"" + key + "\":";
+    std::size_t pos = json.find(search);
+    if (pos == std::string::npos) {
+        return {};
     }
-
-    return {};
+    pos += search.length();
+    // skip whitespace
+    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t' || json[pos] == '\r' || json[pos] == '\n')) {
+        ++pos;
+    }
+    if (pos >= json.size() || !std::isdigit(static_cast<unsigned char>(json[pos]))) {
+        return {};
+    }
+    const std::size_t start = pos;
+    while (pos < json.size() && std::isdigit(static_cast<unsigned char>(json[pos]))) {
+        ++pos;
+    }
+    return json.substr(start, pos - start);
 }
 
 std::string MafileParser::fileNameFromPath(const std::string& filePath) {
