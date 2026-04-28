@@ -171,7 +171,7 @@ object SteamAuthService {
     ) {
         AlertDialog.Builder(context)
             .setTitle("Save Password?")
-            .setMessage("Save your password securely for automatic login on next session expiry?\n\nYour password will be encrypted using your device ID and cannot be used on another device.")
+            .setMessage("Save your password securely for automatic login on next session expiry?\n\nYour password will be encrypted and stored on this device.")
             .setPositiveButton("Save") { dialog, _ ->
                 dialog.dismiss()
                 try {

@@ -11,10 +11,13 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import com.msda.android.ConfirmationService
+import com.msda.android.NeedPasswordException
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HubActivity : AppCompatActivity() {
     private lateinit var txtHubStatus: TextView
@@ -51,6 +54,7 @@ class HubActivity : AppCompatActivity() {
 
         renderAccounts()
         BackgroundSyncScheduler.configure(this)
+        checkSessionAndPromptIfNeeded()
 
         btnAddAccount.setOnClickListener {
             importMafileLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
@@ -65,6 +69,7 @@ class HubActivity : AppCompatActivity() {
         applyThemePreference()
         BackgroundSyncScheduler.configure(this)
         renderAccounts()
+        checkSessionAndPromptIfNeeded()
     }
 
     private fun applyThemePreference() {
@@ -355,6 +360,26 @@ class HubActivity : AppCompatActivity() {
             NativeBridge.importMafilesFromFolder(importDir.absolutePath)
         } catch (_: Throwable) {
             false
+        }
+    }
+
+    private fun checkSessionAndPromptIfNeeded() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val payload = NativeBridge.getActiveConfirmationAuthPayload()
+                if (payload.isNullOrBlank()) return@launch
+                val ctx = ConfirmationService.parseAuthPayload(payload) ?: return@launch
+                if (ctx.accountName.isBlank()) return@launch
+
+                // Attempt to load confirmation bundles; this triggers auto-renewal and password fallback
+                ConfirmationService.loadBundlesWithAutoRenew(this@HubActivity, ctx)
+            } catch (e: NeedPasswordException) {
+                withContext(Dispatchers.Main) {
+                    handleNeedPassword(e.accountName)
+                }
+            } catch (_: Exception) {
+                // Any other error, ignore
+            }
         }
     }
 
