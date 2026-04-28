@@ -6,7 +6,7 @@ param(
     [string]$ApkPath = ""
 )
 
-$script:EmulatorSerial = ""
+$script:AdbTargetSerial = ""
 
 $ErrorActionPreference = "Stop"
 
@@ -21,7 +21,7 @@ if (-not (Get-Command emulator -ErrorAction SilentlyContinue)) {
 function Wait-ForBoot {
     for ($i = 0; $i -lt 180; $i++) {
         Start-Sleep -Seconds 2
-        $boot = (& adb -s $script:EmulatorSerial shell getprop sys.boot_completed 2>$null).Trim()
+        $boot = (& adb -s $script:AdbTargetSerial shell getprop sys.boot_completed 2>$null).Trim()
         if ($boot -eq "1") {
             Write-Host "[MSDA] Emulator boot completed."
             return
@@ -59,20 +59,31 @@ function Ensure-AvdKeyboardEnabled {
 
 function Start-EmulatorIfNeeded {
     $adbDevices = & adb devices
+
+    # Check for a real device connected via USB first
+    $lines = $adbDevices -split "`r?`n"
+    foreach ($line in $lines) {
+        if ($line -match "^\s*(\S+)\s+device\s*$" -and $line -notmatch "emulator-") {
+            $script:AdbTargetSerial = $matches[1]
+            Write-Host "[MSDA] Real device connected: $script:AdbTargetSerial. Skipping emulator."
+            return
+        }
+    }
+
     if ($adbDevices -match "emulator-.*\sdevice") {
         Write-Host "[MSDA] Emulator already running."
         # extract its serial
         $lines = $adbDevices -split "`r?`n"
         foreach ($line in $lines) {
             if ($line -match "^(emulator-\d+)\s+device") {
-                $script:EmulatorSerial = $matches[1]
+                $script:AdbTargetSerial = $matches[1]
                 break
             }
         }
-        if ([string]::IsNullOrEmpty($script:EmulatorSerial)) {
-            $script:EmulatorSerial = "emulator-5554"
+        if ([string]::IsNullOrEmpty($script:AdbTargetSerial)) {
+            $script:AdbTargetSerial = "emulator-5554"
         }
-        Write-Host "[MSDA] Using emulator serial: $EmulatorSerial"
+        Write-Host "[MSDA] Using emulator serial: $script:AdbTargetSerial"
         Wait-ForBoot
         return
     }
@@ -98,14 +109,14 @@ function Start-EmulatorIfNeeded {
             $lines = $devices -split "`r?`n"
             foreach ($line in $lines) {
                 if ($line -match "^(emulator-\d+)\s+device") {
-                    $script:EmulatorSerial = $matches[1]
+                    $script:AdbTargetSerial = $matches[1]
                     break
                 }
             }
-            if ([string]::IsNullOrEmpty($script:EmulatorSerial)) {
-                $script:EmulatorSerial = "emulator-5554"
+            if ([string]::IsNullOrEmpty($script:AdbTargetSerial)) {
+                $script:AdbTargetSerial = "emulator-5554"
             }
-            Write-Host "[MSDA] Emulator connected (serial: $EmulatorSerial)."
+            Write-Host "[MSDA] Emulator connected (serial: $script:AdbTargetSerial)."
             Wait-ForBoot
             return
         }
@@ -115,16 +126,20 @@ function Start-EmulatorIfNeeded {
 }
 
 function Configure-EmulatorInputAndNavigation {
+    if ($script:AdbTargetSerial -notmatch "^emulator-") {
+        Write-Host "[MSDA] Skipping emulator configuration for real device."
+        return
+    }
     Write-Host "[MSDA] Configuring emulator input/navigation..."
 
-    try { & adb -s $script:EmulatorSerial shell settings put secure show_ime_with_hard_keyboard 1 | Out-Null } catch {}
-    try { & adb -s $script:EmulatorSerial shell settings put secure navigation_mode 0 | Out-Null } catch {}
-    try { & adb -s $script:EmulatorSerial shell settings put secure swipe_up_to_switch_apps_enabled 0 | Out-Null } catch {}
-    try { & adb -s $script:EmulatorSerial shell settings put secure system_navigation_keys_enabled 1 | Out-Null } catch {}
-    try { & adb -s $script:EmulatorSerial shell settings put system lock_to_app_enabled 0 | Out-Null } catch {}
-    try { & adb -s $script:EmulatorSerial shell settings put global policy_control null | Out-Null } catch {}
-    try { & adb -s $script:EmulatorSerial shell am task lock stop | Out-Null } catch {}
-    try { & adb -s $script:EmulatorSerial shell pkill com.android.systemui | Out-Null } catch {}
+    try { & adb -s $script:AdbTargetSerial shell settings put secure show_ime_with_hard_keyboard 1 | Out-Null } catch {}
+    try { & adb -s $script:AdbTargetSerial shell settings put secure navigation_mode 0 | Out-Null } catch {}
+    try { & adb -s $script:AdbTargetSerial shell settings put secure swipe_up_to_switch_apps_enabled 0 | Out-Null } catch {}
+    try { & adb -s $script:AdbTargetSerial shell settings put secure system_navigation_keys_enabled 1 | Out-Null } catch {}
+    try { & adb -s $script:AdbTargetSerial shell settings put system lock_to_app_enabled 0 | Out-Null } catch {}
+    try { & adb -s $script:AdbTargetSerial shell settings put global policy_control null | Out-Null } catch {}
+    try { & adb -s $script:AdbTargetSerial shell am task lock stop | Out-Null } catch {}
+    try { & adb -s $script:AdbTargetSerial shell pkill com.android.systemui | Out-Null } catch {}
 }
 
 Start-EmulatorIfNeeded
@@ -133,7 +148,7 @@ Configure-EmulatorInputAndNavigation
 # Install APK if provided
 if ($ApkPath -and (Test-Path $ApkPath)) {
     Write-Host "[MSDA] Installing APK from $ApkPath ..."
-    & adb -s $script:EmulatorSerial install -r $ApkPath
+    & adb -s $script:AdbTargetSerial install -r $ApkPath
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "[MSDA] APK installation may have failed."
     }
@@ -145,4 +160,4 @@ if ($StartOnly) {
 }
 
 Write-Host "[MSDA] Launching app..."
-& adb -s $script:EmulatorSerial shell am start -n "$PackageName/$PackageName$ActivityName"
+& adb -s $script:AdbTargetSerial shell am start -n "$PackageName/$PackageName$ActivityName"
