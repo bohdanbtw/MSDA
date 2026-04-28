@@ -62,8 +62,11 @@ if not exist "%WRAPPER_JAR%" (
     mkdir "!EXTRACT_DIR!"
     powershell -Command "Expand-Archive -Path '!GRADLE_DIST_ZIP!' -DestinationPath '!EXTRACT_DIR!'"
 
-    set EXTRACTED_JAR=!EXTRACT_DIR!\gradle-8.10.2\lib\gradle-wrapper-8.10.2.jar
-    if not exist "!EXTRACTED_JAR!" (
+    :: Search recursively for the wrapper jar
+    for /r "!EXTRACT_DIR!" %%f in (gradle-wrapper*.jar) do (
+        if not defined EXTRACTED_JAR set "EXTRACTED_JAR=%%f"
+    )
+    if not defined EXTRACTED_JAR (
         echo ERROR: Failed to locate gradle-wrapper.jar in downloaded distribution.
         exit /b 1
     )
