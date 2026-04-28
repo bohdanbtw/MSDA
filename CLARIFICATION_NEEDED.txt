@@ -1,3 +1,5 @@
 Please specify what command you want me to provide. You can say:
 - The exact command line to run (e.g., `.\run_build.bat`)
 - Or ask to edit one of the files you just added.
+
+Note: On Windows, use `run_build.bat` or `.\run_build.bat` (not `./run_build.bat`).
