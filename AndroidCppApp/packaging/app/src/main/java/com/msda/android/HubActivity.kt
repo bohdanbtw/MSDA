@@ -398,7 +398,8 @@ class HubActivity : AppCompatActivity() {
                                 steamLoginSecure = result.steamLoginSecure,
                                 sessionId = result.sessionId,
                                 refreshToken = result.refreshToken ?: "",
-                                accessToken = result.accessToken ?: ""
+                                accessToken = result.accessToken ?: "",
+                                accountName = accountName
                             )
                         )
                     }
