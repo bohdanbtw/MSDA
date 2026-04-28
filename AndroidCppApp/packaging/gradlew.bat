@@ -47,33 +47,15 @@ set WRAPPER_JAR=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
 @rem 2. If the wrapper jar is missing, download it automatically
 @rem -----------------------------------------------------------------
 if not exist "%WRAPPER_JAR%" (
-    echo Gradle wrapper jar not found - downloading 8.10.2 distribution ...
-    set GRADLE_DIST_ZIP=%TEMP%\gradle-8.10.2-bin.zip
-    if not exist "!GRADLE_DIST_ZIP!" (
-        powershell -Command "Invoke-WebRequest -Uri 'https://services.gradle.org/distributions/gradle-8.10.2-bin.zip' -OutFile '!GRADLE_DIST_ZIP!'"
-    )
-    if not exist "!GRADLE_DIST_ZIP!" (
-        echo ERROR: Failed to download Gradle distribution.
-        exit /b 1
-    )
-
-    set EXTRACT_DIR=%TEMP%\gradle-8.10.2-extract
-    if exist "!EXTRACT_DIR!" rd /s /q "!EXTRACT_DIR!"
-    mkdir "!EXTRACT_DIR!"
-    powershell -Command "Expand-Archive -Path '!GRADLE_DIST_ZIP!' -DestinationPath '!EXTRACT_DIR!'"
-
-    :: Search recursively for the wrapper jar
-    for /r "!EXTRACT_DIR!" %%f in (gradle-wrapper*.jar) do (
-        if not defined EXTRACTED_JAR set "EXTRACTED_JAR=%%f"
-    )
-    if not defined EXTRACTED_JAR (
-        echo ERROR: Failed to locate gradle-wrapper.jar in downloaded distribution.
-        exit /b 1
-    )
-
-    xcopy /y /q "!EXTRACTED_JAR!" "%WRAPPER_JAR%" >nul
+    echo Gradle wrapper jar not found.
+    echo Attempting to download directly from Gradle GitHub repository...
+    set WRAPPER_JAR_URL=https://raw.githubusercontent.com/gradle/gradle/v8.10.2/gradle/wrapper/gradle-wrapper.jar
+    powershell -Command "Invoke-WebRequest -Uri '!WRAPPER_JAR_URL!' -OutFile '%WRAPPER_JAR%'"
     if not exist "%WRAPPER_JAR%" (
-        echo ERROR: Failed to copy gradle-wrapper.jar into project.
+        echo ERROR: Failed to download gradle-wrapper.jar.
+        echo Please generate the wrapper manually by running:
+        echo     gradle wrapper --gradle-version 8.10.2
+        echo inside the packaging directory.
         exit /b 1
     )
     echo Gradle wrapper jar downloaded and ready.
