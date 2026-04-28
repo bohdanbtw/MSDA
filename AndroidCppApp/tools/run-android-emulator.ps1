@@ -2,7 +2,8 @@ param(
     [string]$PackageName = "com.msda.android",
     [string]$ActivityName = ".HubActivity",
     [string]$AvdName = "",
-    [switch]$StartOnly
+    [switch]$StartOnly,
+    [string]$ApkPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -103,6 +104,15 @@ function Configure-EmulatorInputAndNavigation {
 
 Start-EmulatorIfNeeded
 Configure-EmulatorInputAndNavigation
+
+# Install APK if provided
+if ($ApkPath -and (Test-Path $ApkPath)) {
+    Write-Host "[MSDA] Installing APK from $ApkPath ..."
+    & adb install -r $ApkPath
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "[MSDA] APK installation may have failed."
+    }
+}
 
 if ($StartOnly) {
     Write-Host "[MSDA] Emulator start-only mode complete."
