@@ -16,10 +16,20 @@ android {
         resValue "string", "settings_app_version", "Version ${versionName}"
     }
 
+    signingConfigs {
+        release {
+            storeFile file(rootProject.findProperty('MYAPP_RELEASE_STORE_FILE') ?: 'release.jks')
+            storePassword rootProject.findProperty('MYAPP_RELEASE_STORE_PASSWORD') ?: ''
+            keyAlias rootProject.findProperty('MYAPP_RELEASE_KEY_ALIAS') ?: ''
+            keyPassword rootProject.findProperty('MYAPP_RELEASE_KEY_PASSWORD') ?: ''
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 
