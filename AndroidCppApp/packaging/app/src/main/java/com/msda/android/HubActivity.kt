@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import com.msda.android.ConfirmationService
 import com.msda.android.NeedPasswordException
+import com.msda.android.SessionStore
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -371,8 +372,12 @@ class HubActivity : AppCompatActivity() {
                 val ctx = ConfirmationService.parseAuthPayload(payload) ?: return@launch
                 if (ctx.accountName.isBlank()) return@launch
 
+                // Restore persisted session tokens if available
+                val activeSession = SessionStore.loadSession(this@HubActivity, ctx.steamId)
+                val enrichedCtx = if (activeSession != null) ctx.withSession(activeSession) else ctx
+
                 // Attempt to load confirmation bundles; this triggers auto-renewal and password fallback
-                ConfirmationService.loadBundlesWithAutoRenew(this@HubActivity, ctx)
+                ConfirmationService.loadBundlesWithAutoRenew(this@HubActivity, enrichedCtx)
             } catch (e: NeedPasswordException) {
                 withContext(Dispatchers.Main) {
                     handleNeedPassword(e.accountName)
