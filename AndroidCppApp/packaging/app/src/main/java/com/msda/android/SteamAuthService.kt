@@ -52,12 +52,6 @@ object SteamAuthService {
     private val rateLimitLock = Any()
     private var nextAllowedRequestAtMs = 0L
 
-    private const val MIN_REQUEST_INTERVAL_MS = 1200L
-    private const val DEFAULT_RETRY_AFTER_MS = 10_000L
-    private const val MAX_RETRY_AFTER_MS = 60_000L
-    private val rateLimitLock = Any()
-    private var nextAllowedRequestAtMs = 0L
-
     fun showPasswordDialog(
         context: Context,
         accountName: String,
@@ -589,41 +583,6 @@ object SteamAuthService {
 
         connection.disconnect()
         return HttpResult(bodyText, setCookies)
-    }
-
-    private fun waitForRateLimitWindow() {
-        val waitMs: Long = synchronized(rateLimitLock) {
-            val now = System.currentTimeMillis()
-            val delay = (nextAllowedRequestAtMs - now).coerceAtLeast(0L)
-            val base = now + delay
-            nextAllowedRequestAtMs = base + MIN_REQUEST_INTERVAL_MS
-            delay
-        }
-
-        if (waitMs > 0) {
-            try {
-                Thread.sleep(waitMs)
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-            }
-        }
-    }
-
-    private fun applyRateLimitBackoff(connection: HttpURLConnection) {
-        val retryAfterHeader = connection.getHeaderField("Retry-After")
-        val retryAfterMs = retryAfterHeader
-            ?.trim()
-            ?.toLongOrNull()
-            ?.times(1000L)
-            ?.coerceIn(1000L, MAX_RETRY_AFTER_MS)
-            ?: DEFAULT_RETRY_AFTER_MS
-
-        synchronized(rateLimitLock) {
-            val target = System.currentTimeMillis() + retryAfterMs
-            if (target > nextAllowedRequestAtMs) {
-                nextAllowedRequestAtMs = target
-            }
-        }
     }
 
     private fun waitForRateLimitWindow() {

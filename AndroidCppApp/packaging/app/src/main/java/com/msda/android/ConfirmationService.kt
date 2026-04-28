@@ -3,7 +3,6 @@ package com.msda.android
 import android.content.Context
 import org.json.JSONObject
 import java.net.HttpURLConnection
-import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URI
@@ -61,8 +60,6 @@ data class ConfirmationBundle(
     val items: List<ConfirmationItem>,
     val partner: TradePartnerSummary?
 )
-
-class NeedPasswordException(val accountName: String) : Exception("Password required for $accountName")
 
 class NeedPasswordException(val accountName: String) : Exception("Password required for $accountName")
 

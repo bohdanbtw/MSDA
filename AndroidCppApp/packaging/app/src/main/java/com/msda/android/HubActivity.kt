@@ -394,38 +394,6 @@ class HubActivity : AppCompatActivity() {
         )
     }
 
-    fun handleNeedPassword(accountName: String) {
-        SteamAuthService.showPasswordDialog(
-            this,
-            accountName,
-            onResult = { result ->
-                if (result.success) {
-                    // Save password for future use
-                    if (result.steamLoginSecure != null && result.sessionId != null) {
-                        SessionStore.saveSession(
-                            this,
-                            result.steamId ?: "",
-                            StoredSteamSession(
-                                steamLoginSecure = result.steamLoginSecure,
-                                sessionId = result.sessionId,
-                                refreshToken = result.refreshToken ?: "",
-                                accessToken = result.accessToken ?: ""
-                            )
-                        )
-                    }
-                    // Refresh the UI
-                    renderAccounts()
-                    txtHubStatus.text = "Session renewed for $accountName"
-                } else {
-                    txtHubStatus.text = "Failed to renew session: ${result.errorMessage}"
-                }
-            },
-            onProgress = { message ->
-                txtHubStatus.text = message
-            }
-        )
-    }
-
     private fun importSelectedMafile(uri: Uri) {
         val fileName = queryDisplayName(uri) ?: "imported.mafile"
         if (!fileName.endsWith(".mafile", ignoreCase = true)) {
