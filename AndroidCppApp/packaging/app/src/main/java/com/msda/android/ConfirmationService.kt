@@ -205,7 +205,8 @@ object ConfirmationService {
                                     steamLoginSecure = newAuth.steamLoginSecure,
                                     sessionId = newAuth.sessionId,
                                     refreshToken = newAuth.refreshToken,
-                                    accessToken = newAuth.accessToken
+                                    accessToken = newAuth.accessToken,
+                                    accountName = auth.accountName
                                 )
                             )
                         }
@@ -241,7 +242,8 @@ object ConfirmationService {
                                     steamLoginSecure = newAuth.steamLoginSecure,
                                     sessionId = newAuth.sessionId,
                                     refreshToken = newAuth.refreshToken,
-                                    accessToken = newAuth.accessToken
+                                    accessToken = newAuth.accessToken,
+                                    accountName = auth.accountName
                                 )
                             )
                             return loadBundlesWithAutoRenew(context, newAuth)
@@ -262,70 +264,7 @@ object ConfirmationService {
             throw IllegalStateException("Steam reported needauth=true. Session cookies are invalid or expired.")
         }
 
-        if (!json.optBoolean("success", false)) {
-            val message = json.optString("message", "unknown")
-            val detail = json.optString("detail", "")
-            throw IllegalStateException("Confirmation load failed: $message $detail")
-        }
-
-        val conf = json.optJSONArray("conf") ?: return emptyList()
-        val items = mutableListOf<ConfirmationItem>()
-
-        for (i in 0 until conf.length()) {
-            val item = conf.optJSONObject(i) ?: continue
-            val summaryArray = item.optJSONArray("summary")
-            val summary = mutableListOf<String>()
-            if (summaryArray != null) {
-                for (s in 0 until summaryArray.length()) {
-                    summary.add(summaryArray.optString(s, ""))
-                }
-            }
-
-            val iconUrl = if (item.isNull("icon")) null else item.optString("icon", "")
-
-            items.add(
-                ConfirmationItem(
-                    id = item.optString("id", ""),
-                    nonce = item.optString("nonce", ""),
-                    type = item.optInt("type", 0),
-                    typeName = item.optString("type_name", "Unknown"),
-                    headline = item.optString("headline", ""),
-                    summary = summary,
-                    iconUrl = iconUrl,
-                    creatorId = item.optString("creator_id", ""),
-                    multi = item.optBoolean("multi", false)
-                )
-            )
-        }
-
-        val grouped = items.groupBy { item ->
-            when {
-                item.type == 2 -> "trade:${item.headline}"
-                item.typeName.contains("Market", ignoreCase = true) -> "market:${item.typeName}"
-                else -> "${item.typeName}:${item.creatorId}"
-            }
-        }
-
-        return grouped.map { (key, groupItems) ->
-            val first = groupItems.first()
-            val partner = if (first.type == 2) {
-                TradePartnerSummary(
-                    nickname = first.headline.ifBlank { "Unknown trader" },
-                    avatarUrl = first.iconUrl,
-                    steamLevel = "Steam Level: --"
-                )
-            } else {
-                null
-            }
-
-            ConfirmationBundle(
-                key = key,
-                title = first.typeName,
-                typeName = first.typeName,
-                items = groupItems,
-                partner = partner
-            )
-        }
+        return loadBundles(context, auth)
     }
 
     fun respondBundle(auth: ConfirmationAuthContext, bundle: ConfirmationBundle, accept: Boolean): Boolean {
