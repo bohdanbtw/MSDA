@@ -12,7 +12,7 @@ if ([string]::IsNullOrWhiteSpace($env:ANDROID_NDK_HOME)) {
     throw "ANDROID_NDK_HOME is not set. Configure it in system environment variables to your Android NDK path."
 }
 
-$toolchainPath = Join-Path $env:ANDROID_NDK_HOME "build\cmake\android.toolchain.cmake"
+$toolchainPath = Join-Path $env:ANDROID_NDK_HOME "build\cmake\android.toolchain.cmake"а
 if (-not (Test-Path $toolchainPath)) {
     throw "Android toolchain not found at '$toolchainPath'. Verify ANDROID_NDK_HOME points to a valid NDK."
 }
