@@ -109,9 +109,12 @@
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\ConfirmationBackgroundWorker.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\HubActivity.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\LockActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\MainActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\PasswordManager.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\QrApprovalService.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SettingsActivity.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SteamAuthService.kt" />
+    <None Include="AndroidCppApp\packaging\gradlew" />
     <None Include="AndroidCppApp\src\android\jni_bridge.cpp" />
     <None Include="AndroidCppApp\tools\launch-from-vs.ps1" />
     <None Include="AndroidCppApp\CMakeLists.txt" />
@@ -131,6 +134,9 @@
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\values-night\themes.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\values\colors.xml" />
     <Xml Include="AndroidCppApp\packaging\app\src\main\res\values\themes.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="AndroidCppApp\packaging\gradle\wrapper\gradle-wrapper.jar.README.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

@@ -59,8 +59,19 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\AppSettings.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BackgroundSyncAlarmReceiver.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BackgroundSyncScheduler.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\BootCompletedReceiver.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\ConfirmationBackgroundWorker.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\ConfirmationService.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\HubActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\LockActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\PasswordManager.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\QrApprovalService.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SessionStore.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SettingsActivity.kt" />
+    <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SteamAuthService.kt" />
     <None Include="AndroidCppApp\packaging\app\src\main\java\com\msda\android\SteamLoginActivity.kt" />
     <None Include="AndroidCppApp\tools\build-android-package.ps1" />
     <None Include="AndroidCppApp\tools\run-android-emulator.ps1" />
