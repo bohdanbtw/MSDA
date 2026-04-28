@@ -52,6 +52,23 @@ if (-not $gradleCmd) {
     throw "Gradle was not found. Install Gradle or add Gradle wrapper into AndroidCppApp\packaging."
 }
 
+Write-Host "[MSDA] Checking build prerequisites..."
+if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+    throw "CMake not found."
+}
+$cmakeVersionLine = & cmake --version 2>&1 | Select-String -Pattern "\d+\.\d+\.\d+"
+if (-not $cmakeVersionLine) {
+    throw "Unable to parse CMake version."
+}
+$cmakeVersion = $cmakeVersionLine.Matches.Value
+$cmakeParts = $cmakeVersion.Split('.')
+$major = [int]$cmakeParts[0]
+$minor = [int]$cmakeParts[1]
+if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 22)) {
+    throw "CMake version $cmakeVersion is too old. Required 3.22 or later."
+}
+Write-Host "[MSDA] CMake version $cmakeVersion OK."
+
 Write-Host "[MSDA] Building Android native library..."
 cmake --preset android-arm64-debug -S $repoRoot
 cmake --build (Join-Path $repoRoot "out\build\android-arm64-debug") --target msda_android
