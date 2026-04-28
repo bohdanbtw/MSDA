@@ -13,4 +13,4 @@ jobs:
     - uses: actions/checkout@v4
     - name: Run build script
       shell: cmd
-      run: ./run_build.bat
+      run: .\run_build.bat
