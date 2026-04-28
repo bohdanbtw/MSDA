@@ -1,5 +1,5 @@
 param(
-    [string]$Configuration = "Debug"
+    [string]$Configuration = "Release"
 )
 
 $ErrorActionPreference = "Stop"
