@@ -1,53 +1,71 @@
 package com.msda.android
 
 import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
+import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
-import javax.crypto.spec.IvParameterSpec
-import javax.crypto.spec.SecretKeySpec
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 object PasswordManager {
     private const val PREFS_NAME = "msda_passwords"
-    private const val MASTER_KEY_NAME = "pw_master_key"
     private const val TAG = "PasswordManager"
-    private const val CIPHER_ALGORITHM = "AES/CBC/PKCS5Padding"
-    private const val KEY_ALGORITHM = "AES"
+    private const val CIPHER_ALGORITHM = "AES/GCM/NoPadding"
+    private const val KEYSTORE_ALIAS = "pw_master_key"
 
     /**
-     * Returns a per‑installation 256‑bit master key.
-     * The key is generated once, stored (Base64‑encoded) in SharedPreferences,
-     * and reused thereafter.
+     * Returns a per‑installation AES key stored in Android Keystore.
+     * The key is generated once and persists across app upgrades.
+     * If retrieval/generation fails, a fallback key is generated,
+     * which may render previously stored passwords unreadable.
      */
-    private fun getOrCreateMasterKey(context: Context): ByteArray {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val encoded = prefs.getString(MASTER_KEY_NAME, null)
-        if (encoded != null) {
-            return try {
-                Base64.decode(encoded, Base64.NO_WRAP)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to decode master key, regenerating", e)
-                // Key is corrupt – generate a new one
-                ByteArray(0) // placeholder value, overridden below
-            }
-        }
+    private fun getOrCreateMasterKey(context: Context): SecretKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore")
+        keyStore.load(null)
 
-        val keyBytes = ByteArray(32) // 256 bits
-        SecureRandom().nextBytes(keyBytes)
-        val encodedKey = Base64.encodeToString(keyBytes, Base64.NO_WRAP)
-        prefs.edit().putString(MASTER_KEY_NAME, encodedKey).apply()
-        return keyBytes
+        return try {
+            if (keyStore.containsAlias(KEYSTORE_ALIAS)) {
+                val entry = keyStore.getEntry(KEYSTORE_ALIAS, null) as? KeyStore.SecretKeyEntry
+                entry?.secretKey ?: throw IllegalStateException("Missing key entry")
+            } else {
+                generateKey()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load master key, generating new one", e)
+            // Delete any existing alias before generating a new one
+            try { keyStore.deleteEntry(KEYSTORE_ALIAS) } catch (_: Exception) {}
+            generateKey()
+        }
+    }
+
+    private fun generateKey(): SecretKey {
+        val keyGenerator = KeyGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore"
+        )
+        val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+            KEYSTORE_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(256)
+            .build()
+        keyGenerator.init(keyGenParameterSpec)
+        return keyGenerator.generateKey()
     }
 
     fun savePassword(context: Context, accountName: String, password: String) {
         try {
-            val keyBytes = getOrCreateMasterKey(context)
-            val iv = ByteArray(16)
+            val secretKey = getOrCreateMasterKey(context)
+            val iv = ByteArray(12) // 96-bit IV for GCM
             SecureRandom().nextBytes(iv)
             val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
-            val keySpec = SecretKeySpec(keyBytes, KEY_ALGORITHM)
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, IvParameterSpec(iv))
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
             val encrypted = cipher.doFinal(password.toByteArray(Charsets.UTF_8))
             val combined = Base64.encodeToString(iv + encrypted, Base64.NO_WRAP)
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -64,15 +82,13 @@ object PasswordManager {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val combinedBase64 = prefs.getString(accountName, null) ?: return null
             val combined = Base64.decode(combinedBase64, Base64.NO_WRAP)
-            if (combined.size < 16) return null
-            val iv = combined.copyOfRange(0, 16)
-            val encrypted = combined.copyOfRange(16, combined.size)
-            val keyBytes = getOrCreateMasterKey(context)
+            if (combined.size < 12) return null
+            val iv = combined.copyOfRange(0, 12)
+            val encrypted = combined.copyOfRange(12, combined.size)
+            val secretKey = getOrCreateMasterKey(context)
             val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
-            val keySpec = SecretKeySpec(keyBytes, KEY_ALGORITHM)
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, IvParameterSpec(iv))
-            val decrypted = cipher.doFinal(encrypted)
-            String(decrypted, Charsets.UTF_8)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
+            String(cipher.doFinal(encrypted), Charsets.UTF_8)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get password for $accountName", e)
             null
