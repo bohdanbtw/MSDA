@@ -24,7 +24,7 @@ object PasswordManager {
      * If retrieval/generation fails, a fallback key is generated,
      * which may render previously stored passwords unreadable.
      */
-    private fun getOrCreateMasterKey(context: Context): SecretKey {
+    private fun getOrCreateMasterKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore")
         keyStore.load(null)
 
@@ -61,7 +61,7 @@ object PasswordManager {
 
     fun savePassword(context: Context, accountName: String, password: String) {
         try {
-            val secretKey = getOrCreateMasterKey(context)
+            val secretKey = getOrCreateMasterKey()
             val iv = ByteArray(12) // 96-bit IV for GCM
             SecureRandom().nextBytes(iv)
             val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
@@ -85,7 +85,7 @@ object PasswordManager {
             if (combined.size < 12) return null
             val iv = combined.copyOfRange(0, 12)
             val encrypted = combined.copyOfRange(12, combined.size)
-            val secretKey = getOrCreateMasterKey(context)
+            val secretKey = getOrCreateMasterKey()
             val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
             cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
             String(cipher.doFinal(encrypted), Charsets.UTF_8)

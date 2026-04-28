@@ -42,7 +42,7 @@
 
         <activity
             android:name=".HubActivity"
-            android:exported="false"
+            android:exported="true"
             android:screenOrientation="portrait" />
 
         <activity
