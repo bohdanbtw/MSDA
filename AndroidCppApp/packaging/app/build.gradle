@@ -11,8 +11,8 @@ android {
         applicationId "com.msda.android"
         minSdk 26
         targetSdk 34
-        versionCode Integer.parseInt(project.properties['app.version.code'].toString())
-        versionName project.properties['app.version.name'].toString()
+        versionCode 130000
+        versionName "1.3.0"
         resValue "string", "settings_app_version", "Version ${versionName}"
     }
 
