@@ -7,11 +7,15 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-set "APK_PATH=%~dp0AndroidCppApp\packaging\app\build\outputs\apk\debug\app-debug.apk"
-if not exist "%APK_PATH%" (
-    echo APK not found at %APK_PATH%, build may have failed or path is wrong.
+set "FOUND_APK="
+for /f "delims=" %%i in ('dir /s /b "%~dp0AndroidCppApp\packaging\app\build\outputs\apk\*app-*.apk" 2^>nul') do (
+    if not defined FOUND_APK set "FOUND_APK=%%i"
+)
+if not defined FOUND_APK (
+    echo APK not found in packaging\app\build\outputs\apk. Build may have failed or output path is wrong.
     exit /b 1
 )
-
+set "APK_PATH=%FOUND_APK%"
+echo APK located at %APK_PATH%
 echo Launching emulator, installing APK, and starting the app...
 powershell -ExecutionPolicy Bypass -File "AndroidCppApp\tools\run-android-emulator.ps1" -ApkPath "%APK_PATH%"
