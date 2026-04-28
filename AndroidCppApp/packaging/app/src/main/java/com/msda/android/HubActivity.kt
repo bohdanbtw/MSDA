@@ -415,6 +415,9 @@ class HubActivity : AppCompatActivity() {
                     // Refresh the UI
                     renderAccounts()
                     txtHubStatus.text = "Session renewed for $accountName"
+
+                    // Automatically attempt to reload confirmation bundles now
+                    checkSessionAndPromptIfNeeded()
                 } else {
                     txtHubStatus.text = "Failed to renew session: ${result.errorMessage}"
                 }
