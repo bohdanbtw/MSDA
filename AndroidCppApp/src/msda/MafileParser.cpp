@@ -174,7 +174,7 @@ std::string MafileParser::extractNumberOrString(const std::string& json, const s
 
 std::string MafileParser::fileNameFromPath(const std::string& filePath) {
     std::filesystem::path p(filePath);
-    return p.filename().string();
+    return p.stem().string();
 }
 
 std::string MafileParser::unescapeJsonString(const std::string& value) {
