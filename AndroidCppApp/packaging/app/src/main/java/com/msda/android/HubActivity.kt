@@ -320,6 +320,20 @@ class HubActivity : AppCompatActivity() {
         val importDir = File(filesDir, "mafiles")
         if (!importDir.exists()) return
 
+        // Resolve the steamId(s) for this account so we can purge stored sessions too.
+        val steamIdsToPurge = try {
+            NativeBridge.getAccounts().lines()
+                .map { it.trim() }.filter { it.isNotBlank() }
+                .mapNotNull { line ->
+                    val parts = line.split('|')
+                    val name = parts.getOrNull(1).orEmpty()
+                    val steamId = parts.getOrNull(2).orEmpty()
+                    if (name.equals(accountName, ignoreCase = true) && steamId.isNotBlank()) steamId else null
+                }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+
         val mafiles = importDir.listFiles { file ->
             file.isFile && file.name.endsWith(".mafile", ignoreCase = true)
         } ?: emptyArray()
@@ -336,6 +350,12 @@ class HubActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // Purge encrypted session + cached password so no orphaned credentials remain
+        steamIdsToPurge.forEach { steamId ->
+            try { SessionStore.delete(this, steamId) } catch (_: Throwable) {}
+        }
+        try { PasswordManager.deletePassword(this, accountName) } catch (_: Throwable) {}
 
         try {
             NativeBridge.importMafilesFromFolder(importDir.absolutePath)

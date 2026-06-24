@@ -2,6 +2,9 @@ package com.msda.android
 
 import android.content.Context
 import android.util.Log
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Centralized session renewal used by every code path (foreground confirmations,
@@ -19,12 +22,34 @@ import android.util.Log
 object SessionManager {
     private const val TAG = "SessionManager"
 
+    // Per-account single-flight lock: prevents the hub bulk-renewal, the periodic worker,
+    // and the foreground confirmation poll from refreshing the SAME account concurrently.
+    // Concurrent refreshes would each rotate the refresh token and could invalidate each
+    // other — fatal when scaling to hundreds of accounts.
+    private val locks = ConcurrentHashMap<String, Mutex>()
+
     /**
      * Attempt to silently renew the session for [auth].
      * Returns the refreshed [ConfirmationAuthContext] on success, or null if no silent
      * path succeeded (caller should then prompt for a password).
      */
     suspend fun renew(context: Context, auth: ConfirmationAuthContext): ConfirmationAuthContext? {
+        val mutex = locks.getOrPut(auth.steamId) { Mutex() }
+        return mutex.withLock {
+            // Another caller may have just renewed this account while we waited for the lock.
+            // Detect that by a changed steamLoginSecure and reuse it instead of hitting Steam again.
+            val fresh = SessionStore.loadSession(context, auth.steamId)
+            if (fresh != null &&
+                fresh.steamLoginSecure.isNotBlank() &&
+                fresh.steamLoginSecure != auth.steamLoginSecure
+            ) {
+                return@withLock auth.withSession(fresh)
+            }
+            renewLocked(context, auth)
+        }
+    }
+
+    private suspend fun renewLocked(context: Context, auth: ConfirmationAuthContext): ConfirmationAuthContext? {
         // 1. Refresh token (preferred, silent, rotating)
         if (auth.refreshToken.isNotBlank()) {
             try {
