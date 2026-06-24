@@ -347,4 +347,105 @@ void AccountManager::updateSessionTokens(const std::string& steamId,
     }
 }
 
+namespace {
+
+std::string escapeJsonValue(const std::string& value) {
+    std::string out;
+    out.reserve(value.size() * 2);
+    for (char ch : value) {
+        switch (ch) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    char buf[7];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(ch));
+                    out += buf;
+                } else {
+                    out += ch;
+                }
+                break;
+        }
+    }
+    return out;
+}
+
+std::string setJsonStringField(const std::string& json, const std::string& key, const std::string& value) {
+    const std::string search = "\"" + key + "\":";
+    std::size_t pos = json.find(search);
+
+    if (pos == std::string::npos) {
+        // Field absent — insert before closing brace
+        std::size_t closePos = json.rfind('}');
+        if (closePos == std::string::npos) return json;
+        // Remove trailing whitespace before close brace
+        std::size_t insertPos = closePos;
+        while (insertPos > 0 && (json[insertPos - 1] == ' ' || json[insertPos - 1] == '\t' ||
+               json[insertPos - 1] == '\r' || json[insertPos - 1] == '\n')) {
+            --insertPos;
+        }
+        return json.substr(0, insertPos) + ",\n  \"" + key + "\": \"" + escapeJsonValue(value) + "\"\n}" + json.substr(closePos + 1);
+    }
+
+    pos += search.length();
+    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
+    if (pos >= json.size() || json[pos] != '"') return json;
+    ++pos; // skip opening quote
+
+    const std::size_t valueStart = pos;
+    while (pos < json.size()) {
+        if (json[pos] == '\\' && pos + 1 < json.size()) { pos += 2; continue; }
+        if (json[pos] == '"') break;
+        ++pos;
+    }
+    if (pos >= json.size()) return json;
+
+    return json.substr(0, valueStart) + escapeJsonValue(value) + json.substr(pos);
+}
+
+} // anonymous namespace (mafile helpers)
+
+bool msda::AccountManager::updateMafileSessionTokens(const std::string& steamId,
+                                                     const std::string& sessionId,
+                                                     const std::string& steamLoginSecure,
+                                                     const std::string& refreshToken,
+                                                     const std::string& accessToken) {
+    for (const auto& account : _accounts) {
+        if (account.steamId != steamId) continue;
+        if (account.sourcePath.empty()) return false;
+
+        std::ifstream in(account.sourcePath, std::ios::binary);
+        if (!in.is_open()) return false;
+        std::ostringstream buf;
+        buf << in.rdbuf();
+        in.close();
+
+        std::string content = buf.str();
+        if (!sessionId.empty())        content = setJsonStringField(content, "sessionid",        sessionId);
+        if (!steamLoginSecure.empty()) content = setJsonStringField(content, "steamLoginSecure", steamLoginSecure);
+        if (!refreshToken.empty())     content = setJsonStringField(content, "refresh_token",    refreshToken);
+        if (!accessToken.empty())      content = setJsonStringField(content, "access_token",     accessToken);
+
+        const std::string tmpPath = account.sourcePath + ".tmp";
+        std::ofstream out(tmpPath, std::ios::binary);
+        if (!out.is_open()) return false;
+        out << content;
+        out.close();
+
+        std::error_code ec;
+        std::filesystem::rename(tmpPath, account.sourcePath, ec);
+        if (ec) {
+            std::filesystem::remove(tmpPath, ec);
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
 } // namespace msda

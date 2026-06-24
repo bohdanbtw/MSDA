@@ -18,15 +18,10 @@ object SessionRenewalManager {
     private const val RENEWAL_INTERVAL_MINUTES = 15L
 
     /**
-     * Start (or update) the periodic session renewal work.
-     * Runs when background sync is enabled to refresh tokens before they expire.
+     * Schedule proactive session renewal every 15 minutes.
+     * Always active when the device has network — independent of background confirmations toggle.
      */
     fun schedule(context: Context) {
-        if (!AppSettings.isBackgroundSyncEnabled(context)) {
-            cancel(context)
-            return
-        }
-
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -77,32 +72,38 @@ object SessionRenewalManager {
                         val savedSession = SessionStore.loadSession(applicationContext, steamId)
                         val auth = if (savedSession != null) baseAuth.withSession(savedSession) else baseAuth
 
-                        val refreshToken = auth.refreshToken
-                        if (refreshToken.isBlank()) continue
-
-                        val refreshed = SteamAuthService.refreshSessionUsingToken(
-                            refreshToken = refreshToken,
-                            steamId = auth.steamId,
-                            existingSessionId = auth.sessionId,
-                            existingSteamLoginSecure = auth.steamLoginSecure
-                        )
-
-                        if (!refreshed.success ||
-                            refreshed.steamLoginSecure.isNullOrBlank() ||
-                            refreshed.sessionId.isNullOrBlank()
-                        ) {
+                        // Skip if session is still fresh (has expiry and not near expiry)
+                        if (!SessionStore.isSessionExpired(applicationContext, steamId)) {
                             continue
                         }
+
+                        val refreshToken = auth.refreshToken
+                        val renewed = if (refreshToken.isNotBlank()) {
+                            // Primary: use GenerateAccessTokenForApp
+                            val r = SteamAuthService.refreshSessionUsingToken(
+                                refreshToken = refreshToken,
+                                steamId = auth.steamId
+                            )
+                            if (r.success) r else tryPasswordFallback(auth, accountName)
+                        } else {
+                            tryPasswordFallback(auth, accountName)
+                        } ?: continue
+
+                        if (!renewed.success ||
+                            renewed.steamLoginSecure.isNullOrBlank() ||
+                            renewed.sessionId.isNullOrBlank()
+                        ) continue
 
                         SessionPersistence.saveSession(
                             applicationContext,
                             steamId,
                             StoredSteamSession(
-                                steamLoginSecure = refreshed.steamLoginSecure,
-                                sessionId = refreshed.sessionId,
-                                refreshToken = refreshed.refreshToken ?: refreshToken,
-                                accessToken = refreshed.accessToken ?: auth.accessToken,
-                                accountName = accountName.ifBlank { auth.accountName }
+                                steamLoginSecure = renewed.steamLoginSecure,
+                                sessionId = renewed.sessionId,
+                                refreshToken = renewed.refreshToken ?: refreshToken,
+                                accessToken = renewed.accessToken ?: auth.accessToken,
+                                accountName = accountName.ifBlank { auth.accountName },
+                                sessionExpiresAtMs = renewed.sessionExpiresAtMs
                             )
                         )
                         renewedCount++
@@ -111,11 +112,27 @@ object SessionRenewalManager {
                     }
                 }
 
-                Log.d(TAG, "Proactive session renewal completed: $renewedCount account(s) refreshed")
+                Log.d(TAG, "Proactive renewal completed: $renewedCount account(s) refreshed")
                 Result.success()
             } catch (e: Exception) {
                 Log.w(TAG, "Session renewal worker failed", e)
                 Result.retry()
+            }
+        }
+
+        private suspend fun tryPasswordFallback(
+            auth: ConfirmationAuthContext,
+            @Suppress("UNUSED_PARAMETER") accountName: String
+        ): SteamAuthResult? {
+            if (auth.accountName.isBlank()) return null
+            val password = PasswordManager.getPassword(applicationContext, auth.accountName) ?: return null
+            return try {
+                SteamAuthService.refreshSessionUsingPassword(
+                    accountName = auth.accountName,
+                    password = password
+                ).takeIf { it.success }
+            } catch (_: Exception) {
+                null
             }
         }
 

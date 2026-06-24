@@ -267,13 +267,16 @@ object QrApprovalService {
 
     private fun persistResolvedToken(context: android.content.Context, auth: ConfirmationAuthContext, accessToken: String) {
         val current = SessionStore.loadSession(context, auth.steamId)
+        val expiresAtMs = SteamAuthService.parseJwtExpMs(accessToken)
         val session = StoredSteamSession(
             steamLoginSecure = current?.steamLoginSecure ?: auth.steamLoginSecure,
             sessionId = current?.sessionId ?: auth.sessionId,
             refreshToken = current?.refreshToken ?: auth.refreshToken,
-            accessToken = accessToken
+            accessToken = accessToken,
+            accountName = current?.accountName ?: auth.accountName,
+            sessionExpiresAtMs = expiresAtMs
         )
-        SessionStore.saveSession(context, auth.steamId, session)
+        SessionPersistence.saveSession(context, auth.steamId, session)
     }
 
     private fun getJson(url: String, accessToken: String? = null): JSONObject {

@@ -18,16 +18,18 @@ object BackgroundSyncScheduler {
     const val ACTION_BACKGROUND_SYNC_ALARM = "com.msda.android.ACTION_BACKGROUND_SYNC_ALARM"
 
     fun configure(context: Context) {
+        // Proactive token renewal runs regardless of background confirmations setting
+        // so sessions stay fresh even when the app is opened after days of inactivity.
+        SessionRenewalManager.schedule(context)
+
         if (!AppSettings.isBackgroundSyncEnabled(context)) {
             WorkManager.getInstance(context).cancelUniqueWork(IMMEDIATE_WORK_NAME)
             cancelAlarm(context)
-            SessionRenewalManager.cancel(context)
             return
         }
 
         enqueueNow(context)
         scheduleNextAlarm(context, ALARM_INTERVAL_MS)
-        SessionRenewalManager.schedule(context)
     }
 
     fun enqueueNow(context: Context) {

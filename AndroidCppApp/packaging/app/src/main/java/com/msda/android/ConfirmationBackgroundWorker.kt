@@ -68,12 +68,16 @@ class ConfirmationBackgroundWorker(
 
                 val payload = NativeBridge.getActiveConfirmationAuthPayload()
                 val base = ConfirmationService.parseAuthPayload(payload) ?: continue
-                val withSession = SessionStore.loadSession(applicationContext, steamId)
+                var activeSession = SessionStore.loadSession(applicationContext, steamId)
                     ?.let { base.withSession(it) }
                     ?: base
 
                 var bundles = try {
-                    ConfirmationService.loadBundlesWithAutoRenew(applicationContext, withSession)
+                    ConfirmationService.loadBundlesWithAutoRenew(
+                        context = applicationContext,
+                        auth = activeSession,
+                        onSessionRenewed = { newAuth -> activeSession = newAuth }
+                    )
                 } catch (_: NeedPasswordException) {
                     continue
                 } catch (_: Throwable) {
@@ -96,14 +100,19 @@ class ConfirmationBackgroundWorker(
 
                     itemsToAutoAccept.forEach { item ->
                         try {
-                            ConfirmationService.respondItem(applicationContext, withSession, item, true)
+                            // Use activeSession which may have been refreshed above
+                            ConfirmationService.respondItem(applicationContext, activeSession, item, true)
                         } catch (_: Throwable) {
                         }
                     }
 
                     if (itemsToAutoAccept.isNotEmpty()) {
                         bundles = try {
-                            ConfirmationService.loadBundlesWithAutoRenew(applicationContext, withSession)
+                            ConfirmationService.loadBundlesWithAutoRenew(
+                                context = applicationContext,
+                                auth = activeSession,
+                                onSessionRenewed = { newAuth -> activeSession = newAuth }
+                            )
                         } catch (_: Throwable) {
                             bundles
                         }
