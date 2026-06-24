@@ -559,14 +559,15 @@ class MainActivity : AppCompatActivity() {
                     return@showPasswordDialog
                 }
 
-                SessionStore.saveSession(
+                SessionPersistence.saveSession(
                     this,
                     steamId,
                     StoredSteamSession(
                         steamLoginSecure = loginSecure,
                         sessionId = sessionId,
                         refreshToken = result.refreshToken.orEmpty(),
-                        accessToken = result.accessToken.orEmpty()
+                        accessToken = result.accessToken.orEmpty(),
+                        accountName = auth.accountName
                     )
                 )
 
@@ -691,6 +692,11 @@ class MainActivity : AppCompatActivity() {
             var error: String? = null
             var bundles: List<ConfirmationBundle>? = try {
                 ConfirmationService.loadBundlesWithAutoRenew(this@MainActivity, auth)
+            } catch (ex: NeedPasswordException) {
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    promptSteamLogin()
+                }
+                return@launch
             } catch (ex: Throwable) {
                 error = ex.message ?: "Unknown confirmation error"
                 null

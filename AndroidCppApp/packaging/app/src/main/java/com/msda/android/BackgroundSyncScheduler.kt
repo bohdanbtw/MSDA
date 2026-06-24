@@ -21,11 +21,13 @@ object BackgroundSyncScheduler {
         if (!AppSettings.isBackgroundSyncEnabled(context)) {
             WorkManager.getInstance(context).cancelUniqueWork(IMMEDIATE_WORK_NAME)
             cancelAlarm(context)
+            SessionRenewalManager.cancel(context)
             return
         }
 
         enqueueNow(context)
         scheduleNextAlarm(context, ALARM_INTERVAL_MS)
+        SessionRenewalManager.schedule(context)
     }
 
     fun enqueueNow(context: Context) {
