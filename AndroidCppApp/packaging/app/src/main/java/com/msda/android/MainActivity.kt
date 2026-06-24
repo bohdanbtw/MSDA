@@ -257,11 +257,14 @@ class MainActivity : AppCompatActivity() {
         setAuthenticatingUi(true)
         txtStatus.text = getString(R.string.status_qr_authorizing)
 
-        Thread {
-            val result = QrApprovalService.approveLoginRequest(this, auth, scannedText)
-            runOnUiThread {
+        CoroutineScope(Dispatchers.IO).launch {
+            val result = QrApprovalService.approveLoginRequest(this@MainActivity, auth, scannedText)
+            withContext(Dispatchers.Main) {
                 steamLoginInProgress = false
                 setAuthenticatingUi(false)
+                if (result.success) {
+                    updateActiveAuthContext()
+                }
                 txtStatus.text = when {
                     result.success -> getString(R.string.status_qr_authorized)
                     result.errorMessage == QrApprovalService.ERROR_NO_REQUESTS -> getString(R.string.status_qr_no_requests)
@@ -271,7 +274,7 @@ class MainActivity : AppCompatActivity() {
                     else -> result.errorMessage ?: getString(R.string.status_confirmation_failed)
                 }
             }
-        }.start()
+        }
     }
 
     private fun setAuthenticatingUi(visible: Boolean) {
@@ -631,6 +634,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        MafileImportHelper.clearSessionStoreForMafile(this, targetFile)
+
         val imported = try {
             NativeBridge.importMafilesFromFolder(importDir.absolutePath)
         } catch (_: Throwable) {
@@ -644,11 +649,48 @@ class MainActivity : AppCompatActivity() {
         }
 
         refreshCodeViews()
-        updateActiveAuthContext()
-        refreshConfirmationsAsync()
 
         if (imported) {
-            promptSteamLogin()
+            handlePostMafileImport()
+        } else {
+            updateActiveAuthContext()
+        }
+    }
+
+    /**
+     * After a mafile import: try silent renewal when possible, otherwise prompt for a password
+     * only when the mafile has no live session and no silent renewal path exists.
+     */
+    private fun handlePostMafileImport() {
+        updateActiveAuthContext()
+        val auth = activeAuthContext
+
+        CoroutineScope(Dispatchers.IO).launch {
+            var effectiveAuth = auth
+
+            if (auth != null && MafileImportHelper.canSilentRenew(this@MainActivity, auth)) {
+                val renewed = SessionManager.renew(this@MainActivity, auth)
+                if (renewed != null) {
+                    effectiveAuth = renewed
+                    withContext(Dispatchers.Main) { activeAuthContext = renewed }
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                when {
+                    effectiveAuth != null && MafileImportHelper.hasUsableSession(effectiveAuth) -> {
+                        refreshConfirmationsAsync()
+                    }
+                    MafileImportHelper.needsInteractiveLogin(this@MainActivity, effectiveAuth) -> {
+                        promptSteamLogin()
+                    }
+                    effectiveAuth != null && MafileImportHelper.canSilentRenew(this@MainActivity, effectiveAuth) -> {
+                        // Silent path existed but renewal failed — ask for password once.
+                        promptSteamLogin()
+                    }
+                    else -> refreshConfirmationsAsync()
+                }
+            }
         }
     }
 
