@@ -152,6 +152,21 @@ object SessionStore {
     fun getAccountName(context: Context, steamId: String): String? =
         loadSession(context, steamId)?.accountName?.takeIf { it.isNotBlank() }
 
+    /** Remove a stored session (used when an account is deleted). */
+    fun delete(context: Context, steamId: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().remove("s_$steamId").commit()
+        // Also clear any leftover legacy plaintext entry
+        context.getSharedPreferences("msda_sessions", Context.MODE_PRIVATE)
+            .edit()
+            .remove("$steamId.steamLoginSecure")
+            .remove("$steamId.sessionid")
+            .remove("$steamId.refreshToken")
+            .remove("$steamId.accessToken")
+            .remove("$steamId.accountName")
+            .apply()
+    }
+
     /** True if the stored session is expired (or expiry unknown and token may be stale). */
     fun isSessionExpired(context: Context, steamId: String): Boolean {
         val session = loadSession(context, steamId) ?: return true
