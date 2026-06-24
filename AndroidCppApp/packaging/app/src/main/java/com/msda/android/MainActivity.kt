@@ -691,7 +691,15 @@ class MainActivity : AppCompatActivity() {
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             var error: String? = null
             var bundles: List<ConfirmationBundle>? = try {
-                ConfirmationService.loadBundlesWithAutoRenew(this@MainActivity, auth)
+                ConfirmationService.loadBundlesWithAutoRenew(
+                    context = this@MainActivity,
+                    auth = auth,
+                    onSessionRenewed = { newAuth ->
+                        // Immediately replace the in-memory auth so accept/decline
+                        // operations use fresh cookies rather than expired ones.
+                        activeAuthContext = newAuth
+                    }
+                )
             } catch (ex: NeedPasswordException) {
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
                     promptSteamLogin()
@@ -702,17 +710,9 @@ class MainActivity : AppCompatActivity() {
                 null
             }
 
-            withContext(kotlinx.coroutines.Dispatchers.Main) {
-                // Auto‑accept logic temporarily removed to allow build
-            }
-
             runOnUiThread {
                 if (error != null) {
                     txtStatus.text = getString(R.string.status_confirmation_load_failed, error)
-                    if (error.contains("needauth", ignoreCase = true)) {
-                        promptSteamLogin()
-                    }
-                    // Keep current list visible on transient errors.
                     return@runOnUiThread
                 }
 

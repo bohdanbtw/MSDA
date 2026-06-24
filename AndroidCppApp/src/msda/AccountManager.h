@@ -25,6 +25,12 @@ public:
                              const std::string& deviceId = "",
                              const std::string& permanentDeviceId = "");
 
+    bool updateMafileSessionTokens(const std::string& steamId,
+                                   const std::string& sessionId,
+                                   const std::string& steamLoginSecure,
+                                   const std::string& refreshToken,
+                                   const std::string& accessToken);
+
 private:
     std::vector<MafileAccount> _accounts;
     std::size_t _activeIndex = static_cast<std::size_t>(-1);

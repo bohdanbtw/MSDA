@@ -15,10 +15,16 @@ object NativeBridge {
     external fun getSecondsToNextCode(): Int
     external fun getActiveConfirmationAuthPayload(): String
 
-    // New: session renewal and fallback (with stable device id)
-    external fun tryRefreshSession(steamId: String, deviceId: String): Boolean
-    external fun reauthWithPassword(steamId: String, password: String, deviceId: String): Boolean
     external fun updateSessionTokens(
+        steamId: String,
+        sessionId: String,
+        steamLoginSecure: String,
+        refreshToken: String,
+        accessToken: String
+    ): Boolean
+
+    /** Updates session fields in the .mafile on disk for long-term persistence. */
+    external fun updateMafileSessionTokens(
         steamId: String,
         sessionId: String,
         steamLoginSecure: String,
