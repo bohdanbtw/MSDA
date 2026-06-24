@@ -13,9 +13,15 @@ public:
 
     const std::vector<MafileAccount>& accounts() const;
     const MafileAccount* activeAccount() const;
+    const MafileAccount* accountForSteamId(const std::string& steamId) const;
     std::string activeCode() const;
     int secondsToNextCode() const;
     std::string activeConfirmationAuthPayload() const;
+
+    // By-steamId accessors that do NOT mutate the active index. Used by background
+    // workers so they never race with the foreground UI over the active account.
+    std::string confirmationAuthPayloadForSteamId(const std::string& steamId) const;
+    std::string codeForSteamId(const std::string& steamId) const;
 
     void updateSessionTokens(const std::string& steamId,
                              const std::string& sessionId,

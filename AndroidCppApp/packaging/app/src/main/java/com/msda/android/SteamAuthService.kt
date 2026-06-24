@@ -165,17 +165,33 @@ object SteamAuthService {
         }
     }
 
+    /**
+     * Silent password re-login for a specific account.
+     *
+     * Resolves the account context and Guard code by [steamId] (without mutating the
+     * native active account) so background renewal of one account never disturbs the
+     * account the user is currently viewing.
+     */
     suspend fun refreshSessionUsingPassword(
         accountName: String,
-        password: String
+        password: String,
+        steamId: String = ""
     ): SteamAuthResult {
         return withContext(Dispatchers.IO) {
             try {
-                val authPayload = NativeBridge.getActiveConfirmationAuthPayload()
-                val ctx = ConfirmationService.parseAuthPayload(authPayload)
+                val payload = if (steamId.isNotBlank()) {
+                    NativeBridge.getConfirmationAuthPayloadForSteamId(steamId)
+                } else {
+                    NativeBridge.getActiveConfirmationAuthPayload()
+                }
+                val ctx = ConfirmationService.parseAuthPayload(payload)
                     ?: return@withContext SteamAuthResult(false, errorMessage = "Failed to parse account data")
 
-                val twoFactorCode = NativeBridge.getActiveCode().trim()
+                val twoFactorCode = if (steamId.isNotBlank()) {
+                    NativeBridge.getCodeForSteamId(steamId).trim()
+                } else {
+                    NativeBridge.getActiveCode().trim()
+                }
                 if (twoFactorCode.isBlank()) {
                     return@withContext SteamAuthResult(false, errorMessage = "Guard code is unavailable")
                 }
@@ -185,7 +201,6 @@ object SteamAuthService {
                     password = password,
                     twoFactorCode = twoFactorCode,
                     steamId = ctx.steamId,
-                    existingSteamLoginSecure = ctx.steamLoginSecure,
                     existingSessionId = ctx.sessionId,
                     onProgress = null
                 )
@@ -227,7 +242,6 @@ object SteamAuthService {
                     password = password,
                     twoFactorCode = twoFactorCode,
                     steamId = authCtx.steamId,
-                    existingSteamLoginSecure = authCtx.steamLoginSecure,
                     existingSessionId = authCtx.sessionId,
                     onProgress = onProgress
                 )
@@ -273,7 +287,6 @@ object SteamAuthService {
         password: String,
         twoFactorCode: String,
         steamId: String,
-        existingSteamLoginSecure: String,
         existingSessionId: String,
         onProgress: ((String) -> Unit)?
     ): SteamAuthResult {
@@ -369,15 +382,29 @@ object SteamAuthService {
             }
 
             emitProgress(onProgress, "Authenticating… finalizing session")
-            finalizeLoginSession(
-                refreshToken = refreshToken,
-                resolvedSteamId = resolvedSteamId,
-                accessToken = accessToken,
-                initialSessionId = initialSessionId,
-                existingSessionId = existingSessionId,
-                existingSteamLoginSecure = existingSteamLoginSecure,
-                cookieManager = cookieManager
-            )
+
+            // Prefer building a clean mobile session via GenerateAccessTokenForApp so the
+            // result always carries a JWT access token with a tracked expiry — identical to
+            // how silent renewal works. This guarantees proactive renewal can run later.
+            val mobileSession = refreshSessionUsingToken(refreshToken, resolvedSteamId)
+            if (mobileSession.success &&
+                !mobileSession.steamLoginSecure.isNullOrBlank() &&
+                !mobileSession.sessionId.isNullOrBlank()
+            ) {
+                mobileSession.copy(
+                    refreshToken = mobileSession.refreshToken?.ifBlank { refreshToken } ?: refreshToken
+                )
+            } else {
+                // Fallback: classic finalizelogin + cookie transfer
+                finalizeLoginSession(
+                    refreshToken = refreshToken,
+                    resolvedSteamId = resolvedSteamId,
+                    accessToken = accessToken,
+                    initialSessionId = initialSessionId,
+                    existingSessionId = existingSessionId,
+                    cookieManager = cookieManager
+                )
+            }
         } catch (e: Exception) {
             SteamAuthResult(false, errorMessage = e.message ?: "Network error")
         } finally {
@@ -396,7 +423,6 @@ object SteamAuthService {
         accessToken: String,
         initialSessionId: String,
         existingSessionId: String,
-        existingSteamLoginSecure: String,
         cookieManager: CookieManager
     ): SteamAuthResult {
         val sessionId = ensureInitialSession(cookieManager)

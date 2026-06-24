@@ -364,26 +364,44 @@ class HubActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Silently renew every account whose session is expired or has unknown expiry.
+     * Runs race-free (by steamId, never changes the native active account) and never
+     * shows a password dialog here — the per-account password prompt happens inside
+     * MainActivity when the user actually opens an account that cannot be silently renewed.
+     */
     private fun checkSessionAndPromptIfNeeded() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val payload = NativeBridge.getActiveConfirmationAuthPayload()
-                if (payload.isNullOrBlank()) return@launch
-                val ctx = ConfirmationService.parseAuthPayload(payload) ?: return@launch
-                if (ctx.accountName.isBlank()) return@launch
+                val accountsRaw = NativeBridge.getAccounts()
+                val lines = accountsRaw.lines().map { it.trim() }.filter { it.isNotBlank() }
 
-                // Restore persisted session tokens if available
-                val activeSession = SessionStore.loadSession(this@HubActivity, ctx.steamId)
-                val enrichedCtx = if (activeSession != null) ctx.withSession(activeSession) else ctx
+                for (line in lines) {
+                    val steamId = line.split('|').getOrNull(2).orEmpty()
+                    if (steamId.isBlank()) continue
 
-                // Attempt to load confirmation bundles; this triggers auto-renewal and password fallback
-                ConfirmationService.loadBundlesWithAutoRenew(this@HubActivity, enrichedCtx)
-            } catch (e: NeedPasswordException) {
-                withContext(Dispatchers.Main) {
-                    handleNeedPassword(e.accountName)
+                    try {
+                        val payload = NativeBridge.getConfirmationAuthPayloadForSteamId(steamId)
+                        val base = ConfirmationService.parseAuthPayload(payload) ?: continue
+                        val saved = SessionStore.loadSession(this@HubActivity, steamId)
+                        val auth = if (saved != null) base.withSession(saved) else base
+
+                        val expiryUnknown = (saved?.sessionExpiresAtMs ?: 0L) <= 0L
+                        val shouldRenew = SessionStore.isSessionExpired(this@HubActivity, steamId) || expiryUnknown
+                        if (!shouldRenew) continue
+
+                        // Only attempt if a silent path exists; never prompt from the hub
+                        if (auth.refreshToken.isBlank() &&
+                            PasswordManager.getPassword(this@HubActivity, auth.accountName).isNullOrBlank()
+                        ) continue
+
+                        SessionManager.renew(this@HubActivity, auth)
+                    } catch (_: Throwable) {
+                        // Ignore per-account failures; user can still open the account manually
+                    }
                 }
             } catch (_: Exception) {
-                // Any other error, ignore
+                // Ignore
             }
         }
     }
@@ -394,7 +412,6 @@ class HubActivity : AppCompatActivity() {
             accountName,
             onResult = { result ->
                 if (result.success) {
-                    // Save password for future use
                     if (result.steamLoginSecure != null && result.sessionId != null) {
                         SessionPersistence.saveSession(
                             this,
@@ -404,19 +421,13 @@ class HubActivity : AppCompatActivity() {
                                 sessionId = result.sessionId,
                                 refreshToken = result.refreshToken ?: "",
                                 accessToken = result.accessToken ?: "",
-                                accountName = accountName
+                                accountName = accountName,
+                                sessionExpiresAtMs = result.sessionExpiresAtMs
                             )
                         )
                     }
-                    // Save password if user chose to
-                    if (result.steamLoginSecure != null) {
-                        // Password was already saved in showPasswordSaveDialog
-                    }
-                    // Refresh the UI
                     renderAccounts()
                     txtHubStatus.text = "Session renewed for $accountName"
-
-                    // Automatically attempt to reload confirmation bundles now
                     checkSessionAndPromptIfNeeded()
                 } else {
                     txtHubStatus.text = "Failed to renew session: ${result.errorMessage}"

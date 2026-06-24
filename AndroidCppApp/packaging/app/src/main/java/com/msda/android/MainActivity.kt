@@ -567,7 +567,8 @@ class MainActivity : AppCompatActivity() {
                         sessionId = sessionId,
                         refreshToken = result.refreshToken.orEmpty(),
                         accessToken = result.accessToken.orEmpty(),
-                        accountName = auth.accountName
+                        accountName = auth.accountName,
+                        sessionExpiresAtMs = result.sessionExpiresAtMs
                     )
                 )
 
@@ -940,9 +941,15 @@ class MainActivity : AppCompatActivity() {
     private fun respondToBundle(bundle: ConfirmationBundle, accept: Boolean) {
         val auth = activeAuthContext ?: return
 
-        Thread {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             val ok = try {
-                ConfirmationService.respondBundle(this, auth, bundle, accept)
+                ConfirmationService.respondBundleWithRenew(
+                    context = this@MainActivity,
+                    auth = auth,
+                    bundle = bundle,
+                    accept = accept,
+                    onSessionRenewed = { newAuth -> activeAuthContext = newAuth }
+                )
             } catch (_: Throwable) {
                 false
             }
@@ -956,15 +963,21 @@ class MainActivity : AppCompatActivity() {
 
                 refreshConfirmationsAsync()
             }
-        }.start()
+        }
     }
 
     private fun respondToItem(item: ConfirmationItem, accept: Boolean) {
         val auth = activeAuthContext ?: return
 
-        Thread {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             val ok = try {
-                ConfirmationService.respondItem(this, auth, item, accept)
+                ConfirmationService.respondItemWithRenew(
+                    context = this@MainActivity,
+                    auth = auth,
+                    item = item,
+                    accept = accept,
+                    onSessionRenewed = { newAuth -> activeAuthContext = newAuth }
+                )
             } catch (_: Throwable) {
                 false
             }
@@ -978,7 +991,7 @@ class MainActivity : AppCompatActivity() {
 
                 refreshConfirmationsAsync()
             }
-        }.start()
+        }
     }
 
     private fun queryDisplayName(uri: Uri): String? {

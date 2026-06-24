@@ -3,8 +3,10 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -213,6 +215,13 @@ namespace msda {
 bool AccountManager::importFromFolder(const std::string& folderPath) {
     namespace fs = std::filesystem;
 
+    // Remember which account was active so a background re-import does not
+    // silently switch the foreground UI to a different account.
+    std::string previousActiveSteamId;
+    if (_activeIndex < _accounts.size()) {
+        previousActiveSteamId = _accounts[_activeIndex].steamId;
+    }
+
     _accounts.clear();
     _activeIndex = static_cast<std::size_t>(-1);
 
@@ -250,6 +259,14 @@ bool AccountManager::importFromFolder(const std::string& folderPath) {
 
     if (!_accounts.empty()) {
         _activeIndex = 0;
+        if (!previousActiveSteamId.empty()) {
+            for (std::size_t i = 0; i < _accounts.size(); ++i) {
+                if (_accounts[i].steamId == previousActiveSteamId) {
+                    _activeIndex = i;
+                    break;
+                }
+            }
+        }
     }
 
     return true;
@@ -276,6 +293,18 @@ const MafileAccount* AccountManager::activeAccount() const {
     return &_accounts[_activeIndex];
 }
 
+const MafileAccount* AccountManager::accountForSteamId(const std::string& steamId) const {
+    if (steamId.empty()) {
+        return nullptr;
+    }
+    for (const auto& account : _accounts) {
+        if (account.steamId == steamId) {
+            return &account;
+        }
+    }
+    return nullptr;
+}
+
 std::string AccountManager::activeCode() const {
     const auto* active = activeAccount();
     if (active == nullptr) {
@@ -284,6 +313,15 @@ std::string AccountManager::activeCode() const {
 
     const auto now = static_cast<std::uint64_t>(std::time(nullptr));
     return generateSteamGuardCode(active->sharedSecret, now);
+}
+
+std::string AccountManager::codeForSteamId(const std::string& steamId) const {
+    const auto* account = accountForSteamId(steamId);
+    if (account == nullptr) {
+        return {};
+    }
+    const auto now = static_cast<std::uint64_t>(std::time(nullptr));
+    return generateSteamGuardCode(account->sharedSecret, now);
 }
 
 int AccountManager::secondsToNextCode() const {
@@ -308,23 +346,38 @@ bool AccountManager::isMafilePath(const std::string& path) {
     return lower == ".mafile";
 }
 
+namespace {
+
+std::string buildAuthPayload(const msda::MafileAccount& account) {
+    std::ostringstream out;
+    out << account.steamId << "|"
+        << account.identitySecret << "|"
+        << account.deviceId << "|"
+        << account.sessionId << "|"
+        << account.steamLoginSecure << "|"
+        << account.accountName << "|"
+        << account.sharedSecret << "|"
+        << account.refreshToken << "|"
+        << account.accessToken;
+    return out.str();
+}
+
+} // anonymous namespace (payload builder)
+
 std::string AccountManager::activeConfirmationAuthPayload() const {
     const auto* active = activeAccount();
     if (active == nullptr) {
         return {};
     }
+    return buildAuthPayload(*active);
+}
 
-    std::ostringstream out;
-    out << active->steamId << "|"
-        << active->identitySecret << "|"
-        << active->deviceId << "|"
-        << active->sessionId << "|"
-        << active->steamLoginSecure << "|"
-        << active->accountName << "|"
-        << active->sharedSecret << "|"
-        << active->refreshToken << "|"
-        << active->accessToken;
-    return out.str();
+std::string AccountManager::confirmationAuthPayloadForSteamId(const std::string& steamId) const {
+    const auto* account = accountForSteamId(steamId);
+    if (account == nullptr) {
+        return {};
+    }
+    return buildAuthPayload(*account);
 }
 
 void AccountManager::updateSessionTokens(const std::string& steamId,
@@ -380,32 +433,48 @@ std::string setJsonStringField(const std::string& json, const std::string& key, 
     std::size_t pos = json.find(search);
 
     if (pos == std::string::npos) {
-        // Field absent — insert before closing brace
+        // Field absent — insert before the closing brace
         std::size_t closePos = json.rfind('}');
-        if (closePos == std::string::npos) return json;
-        // Remove trailing whitespace before close brace
+        if (closePos == std::string::npos) {
+            // Not a JSON object at all; wrap one
+            return "{\n  \"" + key + "\": \"" + escapeJsonValue(value) + "\"\n}";
+        }
         std::size_t insertPos = closePos;
         while (insertPos > 0 && (json[insertPos - 1] == ' ' || json[insertPos - 1] == '\t' ||
                json[insertPos - 1] == '\r' || json[insertPos - 1] == '\n')) {
             --insertPos;
         }
-        return json.substr(0, insertPos) + ",\n  \"" + key + "\": \"" + escapeJsonValue(value) + "\"\n}" + json.substr(closePos + 1);
+        // If the object is empty ("{}"), do not prepend a comma
+        const bool emptyObject = (insertPos > 0 && json[insertPos - 1] == '{');
+        const std::string separator = emptyObject ? "" : ",";
+        return json.substr(0, insertPos) + separator + "\n  \"" + key + "\": \"" +
+               escapeJsonValue(value) + "\"\n}" + json.substr(closePos + 1);
     }
 
     pos += search.length();
     while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
-    if (pos >= json.size() || json[pos] != '"') return json;
-    ++pos; // skip opening quote
-
-    const std::size_t valueStart = pos;
-    while (pos < json.size()) {
-        if (json[pos] == '\\' && pos + 1 < json.size()) { pos += 2; continue; }
-        if (json[pos] == '"') break;
-        ++pos;
-    }
     if (pos >= json.size()) return json;
 
-    return json.substr(0, valueStart) + escapeJsonValue(value) + json.substr(pos);
+    if (json[pos] == '"') {
+        // Existing string value — replace its contents
+        ++pos; // skip opening quote
+        const std::size_t valueStart = pos;
+        while (pos < json.size()) {
+            if (json[pos] == '\\' && pos + 1 < json.size()) { pos += 2; continue; }
+            if (json[pos] == '"') break;
+            ++pos;
+        }
+        if (pos >= json.size()) return json;
+        return json.substr(0, valueStart) + escapeJsonValue(value) + json.substr(pos);
+    }
+
+    // Existing primitive value (null / number / true / false) — replace whole value
+    const std::size_t valueStart = pos;
+    while (pos < json.size() && json[pos] != ',' && json[pos] != '}' &&
+           json[pos] != '\r' && json[pos] != '\n') {
+        ++pos;
+    }
+    return json.substr(0, valueStart) + "\"" + escapeJsonValue(value) + "\"" + json.substr(pos);
 }
 
 } // anonymous namespace (mafile helpers)
