@@ -151,6 +151,28 @@ Java_com_msda_android_NativeBridge_getActiveConfirmationAuthPayload(
     return stdToJstring(env, g_manager.activeConfirmationAuthPayload());
 }
 
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_msda_android_NativeBridge_getConfirmationAuthPayloadForSteamId(
+    JNIEnv* env,
+    jobject /*thiz*/,
+    jstring steamId) {
+
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (steamId == nullptr) return stdToJstring(env, "");
+    return stdToJstring(env, g_manager.confirmationAuthPayloadForSteamId(jstringToStd(env, steamId)));
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_msda_android_NativeBridge_getCodeForSteamId(
+    JNIEnv* env,
+    jobject /*thiz*/,
+    jstring steamId) {
+
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (steamId == nullptr) return stdToJstring(env, "");
+    return stdToJstring(env, g_manager.codeForSteamId(jstringToStd(env, steamId)));
+}
+
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_msda_android_NativeBridge_updateSessionTokens(

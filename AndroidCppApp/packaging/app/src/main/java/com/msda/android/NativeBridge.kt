@@ -15,6 +15,10 @@ object NativeBridge {
     external fun getSecondsToNextCode(): Int
     external fun getActiveConfirmationAuthPayload(): String
 
+    // By-steamId accessors that do not change the active account (race-free for background workers)
+    external fun getConfirmationAuthPayloadForSteamId(steamId: String): String
+    external fun getCodeForSteamId(steamId: String): String
+
     external fun updateSessionTokens(
         steamId: String,
         sessionId: String,

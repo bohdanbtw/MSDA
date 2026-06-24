@@ -48,7 +48,7 @@ class ConfirmationBackgroundWorker(
         }
     }
 
-    private fun loadPendingConfirmationsCount(): Int {
+    private suspend fun loadPendingConfirmationsCount(): Int {
         val accountsRaw = try {
             NativeBridge.getAccounts()
         } catch (_: Throwable) {
@@ -59,14 +59,12 @@ class ConfirmationBackgroundWorker(
         val lines = accountsRaw.lines().map { it.trim() }.filter { it.isNotBlank() }
         for (line in lines) {
             val parts = line.split('|')
-            val index = parts.firstOrNull()?.toIntOrNull() ?: continue
             val steamId = parts.getOrNull(2).orEmpty()
             if (steamId.isBlank()) continue
 
             try {
-                if (!NativeBridge.setActiveAccount(index)) continue
-
-                val payload = NativeBridge.getActiveConfirmationAuthPayload()
+                // By-steamId payload — race-free, does not change the active account
+                val payload = NativeBridge.getConfirmationAuthPayloadForSteamId(steamId)
                 val base = ConfirmationService.parseAuthPayload(payload) ?: continue
                 var activeSession = SessionStore.loadSession(applicationContext, steamId)
                     ?.let { base.withSession(it) }
@@ -100,8 +98,13 @@ class ConfirmationBackgroundWorker(
 
                     itemsToAutoAccept.forEach { item ->
                         try {
-                            // Use activeSession which may have been refreshed above
-                            ConfirmationService.respondItem(applicationContext, activeSession, item, true)
+                            ConfirmationService.respondItemWithRenew(
+                                context = applicationContext,
+                                auth = activeSession,
+                                item = item,
+                                accept = true,
+                                onSessionRenewed = { newAuth -> activeSession = newAuth }
+                            )
                         } catch (_: Throwable) {
                         }
                     }

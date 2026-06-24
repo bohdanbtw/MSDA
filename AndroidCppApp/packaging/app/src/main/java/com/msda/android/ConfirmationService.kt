@@ -174,12 +174,14 @@ object ConfirmationService {
     }
 
     /**
-     * Load confirmation bundles with automatic session renewal on needauth.
+     * Load confirmation bundles with automatic session renewal.
      *
-     * Renewal chain: refresh_token → cached password → NeedPasswordException.
-     * [onSessionRenewed] is invoked with the fresh [ConfirmationAuthContext] after any
-     * successful silent renewal, so callers can update their in-memory auth reference.
-     * [renewalDepth] prevents unbounded recursion (max 1 renewal attempt).
+     * Proactively renews the session before the request if the stored access token is
+     * known to be expired (avoids a guaranteed-failed call), then reactively renews on
+     * `needauth`. Renewal goes through [SessionManager] (refresh_token → cached password).
+     *
+     * [onSessionRenewed] is invoked with the fresh context after any silent renewal so
+     * callers can update their in-memory auth. [renewalDepth] caps recursion at one retry.
      */
     suspend fun loadBundlesWithAutoRenew(
         context: Context?,
@@ -192,94 +194,85 @@ object ConfirmationService {
         require(auth.sessionId.isNotBlank()) { "sessionid is missing in mafile" }
         require(auth.steamLoginSecure.isNotBlank()) { "steamLoginSecure is missing in mafile" }
 
-        val query = withConfirmationQuery(auth, "conf")
+        // Proactive renewal: if we know the token is expired, renew before calling Steam.
+        var effectiveAuth = auth
+        if (context != null && renewalDepth == 0 && SessionStore.isSessionExpired(context, auth.steamId)) {
+            val renewed = SessionManager.renew(context, auth)
+            if (renewed != null) {
+                effectiveAuth = renewed
+                onSessionRenewed?.invoke(renewed)
+            }
+        }
+
+        val query = withConfirmationQuery(effectiveAuth, "conf")
         val url = "https://steamcommunity.com/mobileconf/getlist?$query"
-        val json = getJson(url, auth, context)
+        val json = getJson(url, effectiveAuth, context)
 
         if (json.optBoolean("needauth", false)) {
             // Guard against infinite renewal loops
             if (renewalDepth >= 1) {
-                if (context != null && auth.accountName.isNotBlank()) throw NeedPasswordException(auth.accountName)
+                if (context != null && effectiveAuth.accountName.isNotBlank()) throw NeedPasswordException(effectiveAuth.accountName)
                 throw IllegalStateException("Session renewal failed after retry")
             }
 
-            // 1. Try refresh token (GenerateAccessTokenForApp — no client_id needed)
-            if (auth.refreshToken.isNotBlank()) {
-                try {
-                    val refreshed = SteamAuthService.refreshSessionUsingToken(
-                        refreshToken = auth.refreshToken,
-                        steamId = auth.steamId
-                    )
-                    if (refreshed.success && !refreshed.steamLoginSecure.isNullOrBlank() && !refreshed.sessionId.isNullOrBlank()) {
-                        val newAuth = auth.copy(
-                            steamLoginSecure = refreshed.steamLoginSecure,
-                            sessionId = refreshed.sessionId,
-                            accessToken = refreshed.accessToken ?: auth.accessToken,
-                            refreshToken = refreshed.refreshToken ?: auth.refreshToken
-                        )
-                        if (context != null) {
-                            SessionPersistence.saveSession(
-                                context, auth.steamId,
-                                StoredSteamSession(
-                                    steamLoginSecure = newAuth.steamLoginSecure,
-                                    sessionId = newAuth.sessionId,
-                                    refreshToken = newAuth.refreshToken,
-                                    accessToken = newAuth.accessToken,
-                                    accountName = auth.accountName,
-                                    sessionExpiresAtMs = refreshed.sessionExpiresAtMs
-                                )
-                            )
-                        }
-                        onSessionRenewed?.invoke(newAuth)
-                        return loadBundlesWithAutoRenew(context, newAuth, onSessionRenewed, renewalDepth + 1)
-                    }
-                } catch (_: Throwable) {
-                    // Fall through to password
+            if (context != null) {
+                val renewed = SessionManager.renew(context, effectiveAuth)
+                if (renewed != null) {
+                    onSessionRenewed?.invoke(renewed)
+                    return loadBundlesWithAutoRenew(context, renewed, onSessionRenewed, renewalDepth + 1)
                 }
+                if (effectiveAuth.accountName.isNotBlank()) throw NeedPasswordException(effectiveAuth.accountName)
             }
-
-            // 2. Try cached password (full LoginV2)
-            if (context != null && auth.accountName.isNotBlank()) {
-                val cachedPassword = PasswordManager.getPassword(context, auth.accountName)
-                if (!cachedPassword.isNullOrBlank()) {
-                    try {
-                        val loginResult = SteamAuthService.refreshSessionUsingPassword(
-                            accountName = auth.accountName,
-                            password = cachedPassword
-                        )
-                        if (loginResult.success && !loginResult.steamLoginSecure.isNullOrBlank() && !loginResult.sessionId.isNullOrBlank()) {
-                            val newAuth = auth.copy(
-                                steamLoginSecure = loginResult.steamLoginSecure,
-                                sessionId = loginResult.sessionId,
-                                accessToken = loginResult.accessToken ?: auth.accessToken,
-                                refreshToken = loginResult.refreshToken ?: auth.refreshToken
-                            )
-                            SessionPersistence.saveSession(
-                                context, auth.steamId,
-                                StoredSteamSession(
-                                    steamLoginSecure = newAuth.steamLoginSecure,
-                                    sessionId = newAuth.sessionId,
-                                    refreshToken = newAuth.refreshToken,
-                                    accessToken = newAuth.accessToken,
-                                    accountName = auth.accountName,
-                                    sessionExpiresAtMs = loginResult.sessionExpiresAtMs
-                                )
-                            )
-                            onSessionRenewed?.invoke(newAuth)
-                            return loadBundlesWithAutoRenew(context, newAuth, onSessionRenewed, renewalDepth + 1)
-                        }
-                    } catch (_: Throwable) {
-                        // Fall through to password dialog
-                    }
-                }
-            }
-
-            // 3. All silent paths exhausted — request user credentials
-            if (context != null && auth.accountName.isNotBlank()) throw NeedPasswordException(auth.accountName)
             throw IllegalStateException("Steam reported needauth=true. Session cookies are invalid or expired.")
         }
 
-        return loadBundles(context, auth)
+        return loadBundles(context, effectiveAuth)
+    }
+
+    /**
+     * Accept/decline a bundle with automatic session renewal on failure.
+     * Returns the (possibly renewed) auth context alongside the success flag so the caller
+     * can keep using fresh cookies.
+     */
+    suspend fun respondBundleWithRenew(
+        context: Context,
+        auth: ConfirmationAuthContext,
+        bundle: ConfirmationBundle,
+        accept: Boolean,
+        onSessionRenewed: ((ConfirmationAuthContext) -> Unit)? = null
+    ): Boolean {
+        return try {
+            val ok = respondBundle(context, auth, bundle, accept)
+            if (ok) return true
+            // Failure may be a stale session — renew once and retry
+            val renewed = SessionManager.renew(context, auth) ?: return false
+            onSessionRenewed?.invoke(renewed)
+            respondBundle(context, renewed, bundle, accept)
+        } catch (_: Throwable) {
+            val renewed = SessionManager.renew(context, auth) ?: return false
+            onSessionRenewed?.invoke(renewed)
+            try { respondBundle(context, renewed, bundle, accept) } catch (_: Throwable) { false }
+        }
+    }
+
+    suspend fun respondItemWithRenew(
+        context: Context,
+        auth: ConfirmationAuthContext,
+        item: ConfirmationItem,
+        accept: Boolean,
+        onSessionRenewed: ((ConfirmationAuthContext) -> Unit)? = null
+    ): Boolean {
+        return try {
+            val ok = respondItem(context, auth, item, accept)
+            if (ok) return true
+            val renewed = SessionManager.renew(context, auth) ?: return false
+            onSessionRenewed?.invoke(renewed)
+            respondItem(context, renewed, item, accept)
+        } catch (_: Throwable) {
+            val renewed = SessionManager.renew(context, auth) ?: return false
+            onSessionRenewed?.invoke(renewed)
+            try { respondItem(context, renewed, item, accept) } catch (_: Throwable) { false }
+        }
     }
 
     fun respondBundle(auth: ConfirmationAuthContext, bundle: ConfirmationBundle, accept: Boolean): Boolean {
