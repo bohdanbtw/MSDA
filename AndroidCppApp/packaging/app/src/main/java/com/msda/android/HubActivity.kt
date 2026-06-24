@@ -489,6 +489,8 @@ class HubActivity : AppCompatActivity() {
             return
         }
 
+        MafileImportHelper.clearSessionStoreForMafile(this, targetFile)
+
         val imported = try {
             NativeBridge.importMafilesFromFolder(importDir.absolutePath)
         } catch (_: Throwable) {
@@ -502,6 +504,9 @@ class HubActivity : AppCompatActivity() {
         }
 
         renderAccounts()
+        if (imported) {
+            checkSessionAndPromptIfNeeded()
+        }
     }
 
     private fun queryDisplayName(uri: Uri): String? {

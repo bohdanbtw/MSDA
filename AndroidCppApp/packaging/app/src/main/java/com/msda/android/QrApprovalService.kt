@@ -1,6 +1,6 @@
 package com.msda.android
 
-import org.json.JSONArray
+import android.content.Context
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URI
@@ -27,7 +27,6 @@ object QrApprovalService {
     private const val GET_AUTH_SESSIONS_URL = "$AUTH_BASE/GetAuthSessionsForAccount/v1"
     private const val GET_AUTH_SESSION_INFO_URL = "$AUTH_BASE/GetAuthSessionInfo/v1"
     private const val UPDATE_AUTH_SESSION_URL = "$AUTH_BASE/UpdateAuthSessionWithMobileConfirmation/v1"
-    private const val GENERATE_ACCESS_TOKEN_URL = "$AUTH_BASE/GenerateAccessTokenForApp/v1"
 
     private const val MOBILE_USER_AGENT = "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
     private const val MOBILE_ORIGIN = "https://steamcommunity.com"
@@ -38,14 +37,19 @@ object QrApprovalService {
         return lower.contains("steam") || lower.contains("s.team") || lower.contains("steammobile")
     }
 
-    fun approveLoginRequest(context: android.content.Context, auth: ConfirmationAuthContext, scannedText: String): QrApprovalResult {
+    suspend fun approveLoginRequest(
+        context: Context,
+        auth: ConfirmationAuthContext,
+        scannedText: String
+    ): QrApprovalResult {
         if (!looksLikeSteamLoginQr(scannedText)) {
             return QrApprovalResult(false, ERROR_INVALID_QR)
         }
 
-        val resolved = resolveMobileAccessToken(auth)
+        val effectiveAuth = resolveAuthForQr(context, auth)
             ?: return QrApprovalResult(false, ERROR_TOKEN_MISSING)
-        val accessToken = resolved.accessToken
+        val accessToken = extractAccessToken(effectiveAuth)
+            ?: return QrApprovalResult(false, ERROR_TOKEN_MISSING)
 
         return try {
             val qrClientId = resolveClientIdFromQr(scannedText, accessToken)
@@ -61,25 +65,67 @@ object QrApprovalService {
             if (sessionIds.size > 1) {
                 return QrApprovalResult(false, ERROR_MULTIPLE_REQUESTS)
             }
-            if (auth.sharedSecret.isBlank()) {
+            if (effectiveAuth.sharedSecret.isBlank()) {
                 return QrApprovalResult(false, ERROR_TOKEN_MISSING)
             }
 
             val clientId = sessionIds.single()
             getAuthSessionInfo(accessToken, clientId)
-            approveAuthSession(auth, accessToken, clientId)
-            persistResolvedToken(context, auth, resolved)
+            approveAuthSession(effectiveAuth, accessToken, clientId)
+            syncSessionAfterQrApproval(context, effectiveAuth, accessToken)
             QrApprovalResult(true)
         } catch (ex: Throwable) {
             QrApprovalResult(false, ex.message ?: "QR approval failed")
         }
     }
 
-    private data class ResolvedToken(
-        val accessToken: String,
-        val refreshToken: String,
-        val expiresAtMs: Long
-    )
+    /**
+     * Prefer a still-valid JWT; otherwise renew through [SessionManager] so refresh-token
+     * rotation shares the same single-flight lock as every other renewal path.
+     */
+    private suspend fun resolveAuthForQr(context: Context, auth: ConfirmationAuthContext): ConfirmationAuthContext? {
+        if (hasValidAccessToken(auth)) {
+            return auth
+        }
+        return SessionManager.renew(context, auth)
+    }
+
+    private fun hasValidAccessToken(auth: ConfirmationAuthContext): Boolean {
+        val jwt = extractAccessToken(auth) ?: return false
+        val expiresAtMs = SteamAuthService.parseJwtExpMs(jwt)
+        if (expiresAtMs <= 0L) return true
+        val skewMs = 5 * 60 * 1000L
+        return System.currentTimeMillis() < (expiresAtMs - skewMs)
+    }
+
+    private fun extractAccessToken(auth: ConfirmationAuthContext): String? {
+        return auth.accessToken.extractJwt() ?: auth.steamLoginSecure.extractJwt()
+    }
+
+    private fun syncSessionAfterQrApproval(
+        context: Context,
+        auth: ConfirmationAuthContext,
+        accessToken: String
+    ) {
+        val current = SessionStore.loadSession(context, auth.steamId)
+        val steamLoginSecure = if (auth.steamId.isNotBlank()) {
+            "${auth.steamId}%7C%7C${accessToken}"
+        } else {
+            current?.steamLoginSecure ?: auth.steamLoginSecure
+        }
+        SessionPersistence.saveSession(
+            context,
+            auth.steamId,
+            StoredSteamSession(
+                steamLoginSecure = steamLoginSecure,
+                sessionId = current?.sessionId ?: auth.sessionId,
+                refreshToken = auth.refreshToken.ifBlank { current?.refreshToken.orEmpty() },
+                accessToken = accessToken,
+                accountName = current?.accountName ?: auth.accountName,
+                sessionExpiresAtMs = SteamAuthService.parseJwtExpMs(accessToken)
+            )
+        )
+    }
 
     private fun resolveClientIdFromQr(scannedText: String, accessToken: String): ULong? {
         val directFromText = extractClientIdFromText(scannedText)
@@ -204,38 +250,6 @@ object QrApprovalService {
         return null
     }
 
-    private fun resolveMobileAccessToken(auth: ConfirmationAuthContext): ResolvedToken? {
-        val direct = auth.accessToken.extractJwt().orEmpty()
-        if (direct.isNotBlank()) {
-            return ResolvedToken(direct, auth.refreshToken, SteamAuthService.parseJwtExpMs(direct))
-        }
-
-        val cookieJwt = auth.steamLoginSecure.extractJwt().orEmpty()
-        if (cookieJwt.isNotBlank()) {
-            return ResolvedToken(cookieJwt, auth.refreshToken, SteamAuthService.parseJwtExpMs(cookieJwt))
-        }
-
-        if (auth.refreshToken.isBlank()) {
-            return null
-        }
-
-        val response = postJson(
-            url = GENERATE_ACCESS_TOKEN_URL,
-            body = listOf(
-                "refresh_token" to auth.refreshToken,
-                "steamid" to auth.steamId,
-                "renewal_type" to "1"
-            )
-        )
-
-        val responseJson = response.optJSONObject("response") ?: response
-        val newAccessToken = responseJson.optString("access_token", "").extractJwt() ?: return null
-        // Capture the rotated refresh token so the stored one never goes stale
-        val rotatedRefresh = responseJson.optString("refresh_token", "").trim()
-            .ifBlank { auth.refreshToken }
-        return ResolvedToken(newAccessToken, rotatedRefresh, SteamAuthService.parseJwtExpMs(newAccessToken))
-    }
-
     private fun approveAuthSession(auth: ConfirmationAuthContext, accessToken: String, clientId: ULong) {
         val signature = computeConfirmationSignature(clientId, auth.steamId, auth.sharedSecret)
         val json = postJson(
@@ -274,26 +288,6 @@ object QrApprovalService {
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(secret, "HmacSHA256"))
         return mac.doFinal(data)
-    }
-
-    private fun persistResolvedToken(context: android.content.Context, auth: ConfirmationAuthContext, resolved: ResolvedToken) {
-        val current = SessionStore.loadSession(context, auth.steamId)
-        // Rebuild steamLoginSecure from the fresh access token so the confirmation cookie
-        // is never left stale after a QR-triggered token refresh.
-        val steamLoginSecure = if (auth.steamId.isNotBlank() && resolved.accessToken.isNotBlank()) {
-            "${auth.steamId}%7C%7C${resolved.accessToken}"
-        } else {
-            current?.steamLoginSecure ?: auth.steamLoginSecure
-        }
-        val session = StoredSteamSession(
-            steamLoginSecure = steamLoginSecure,
-            sessionId = current?.sessionId ?: auth.sessionId,
-            refreshToken = resolved.refreshToken.ifBlank { current?.refreshToken ?: auth.refreshToken },
-            accessToken = resolved.accessToken,
-            accountName = current?.accountName ?: auth.accountName,
-            sessionExpiresAtMs = resolved.expiresAtMs
-        )
-        SessionPersistence.saveSession(context, auth.steamId, session)
     }
 
     private fun getJson(url: String, accessToken: String? = null): JSONObject {
