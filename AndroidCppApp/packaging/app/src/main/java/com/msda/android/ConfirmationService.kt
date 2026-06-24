@@ -187,7 +187,12 @@ object ConfirmationService {
             // Try refresh token first
             if (auth.refreshToken.isNotBlank()) {
                 try {
-                    val refreshed = SteamAuthService.refreshSessionUsingToken(auth.refreshToken)
+                    val refreshed = SteamAuthService.refreshSessionUsingToken(
+                        refreshToken = auth.refreshToken,
+                        steamId = auth.steamId,
+                        existingSessionId = auth.sessionId,
+                        existingSteamLoginSecure = auth.steamLoginSecure
+                    )
                     if (refreshed.success && refreshed.steamLoginSecure != null && refreshed.sessionId != null) {
                         // Update auth context with new session info and retry
                         val newAuth = auth.copy(
@@ -198,7 +203,7 @@ object ConfirmationService {
                         )
                         // Persist updated session
                         if (context != null) {
-                            SessionStore.saveSession(
+                            SessionPersistence.saveSession(
                                 context,
                                 auth.steamId,
                                 StoredSteamSession(
@@ -235,7 +240,7 @@ object ConfirmationService {
                                 refreshToken = loginResult.refreshToken ?: auth.refreshToken
                             )
                             // Persist updated session
-                            SessionStore.saveSession(
+                            SessionPersistence.saveSession(
                                 context,
                                 auth.steamId,
                                 StoredSteamSession(

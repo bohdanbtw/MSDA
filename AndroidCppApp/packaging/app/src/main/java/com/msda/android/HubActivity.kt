@@ -396,7 +396,7 @@ class HubActivity : AppCompatActivity() {
                 if (result.success) {
                     // Save password for future use
                     if (result.steamLoginSecure != null && result.sessionId != null) {
-                        SessionStore.saveSession(
+                        SessionPersistence.saveSession(
                             this,
                             result.steamId ?: "",
                             StoredSteamSession(

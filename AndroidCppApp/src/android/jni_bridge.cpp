@@ -264,3 +264,28 @@ Java_com_msda_android_NativeBridge_reauthWithPassword(
                                   jstringToStd(env, deviceId));
     return JNI_TRUE;
 }
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_msda_android_NativeBridge_updateSessionTokens(
+    JNIEnv* env,
+    jobject /*thiz*/,
+    jstring steamId,
+    jstring sessionId,
+    jstring steamLoginSecure,
+    jstring refreshToken,
+    jstring accessToken) {
+
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (steamId == nullptr) return JNI_FALSE;
+
+    g_manager.updateSessionTokens(
+        jstringToStd(env, steamId),
+        sessionId != nullptr ? jstringToStd(env, sessionId) : "",
+        steamLoginSecure != nullptr ? jstringToStd(env, steamLoginSecure) : "",
+        refreshToken != nullptr ? jstringToStd(env, refreshToken) : "",
+        accessToken != nullptr ? jstringToStd(env, accessToken) : "",
+        "",
+        ""
+    );
+    return JNI_TRUE;
+}

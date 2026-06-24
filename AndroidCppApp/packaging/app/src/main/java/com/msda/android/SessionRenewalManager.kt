@@ -1,21 +1,28 @@
 package com.msda.android
 
 import android.content.Context
-import androidx.work.*
-import androidx.work.ListenableWorker.Result
-import org.json.JSONArray
+import android.util.Log
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 
 object SessionRenewalManager {
+    private const val TAG = "SessionRenewalManager"
     private const val UNIQUE_WORK_NAME = "session_renewal_periodic"
     private const val RENEWAL_INTERVAL_MINUTES = 15L
 
     /**
      * Start (or update) the periodic session renewal work.
-     * Only active when background confirmations are enabled.
+     * Runs when background sync is enabled to refresh tokens before they expire.
      */
     fun schedule(context: Context) {
-        if (!AppSettings.isBackgroundConfirmationsEnabled(context)) {
+        if (!AppSettings.isBackgroundSyncEnabled(context)) {
             cancel(context)
             return
         }
@@ -45,30 +52,80 @@ object SessionRenewalManager {
     class SessionRefreshWorker(
         appContext: Context,
         params: WorkerParameters
-    ) : Worker(appContext, params) {
+    ) : CoroutineWorker(appContext, params) {
 
-        override fun doWork(): Result {
+        override suspend fun doWork(): Result {
             return try {
-                val accountsJson = NativeBridge.getAccounts()
-                val jsonArray = JSONArray(accountsJson)
-                var successCount = 0
+                initializeNativeAccounts()
+                var renewedCount = 0
 
-                for (i in 0 until jsonArray.length()) {
-                    val obj = jsonArray.getJSONObject(i)
-                    val steamId = obj.optString("steamId", "")
-                    val deviceId = obj.optString("deviceId", "")
+                val accountsRaw = NativeBridge.getAccounts()
+                val lines = accountsRaw.lines().map { it.trim() }.filter { it.isNotBlank() }
 
-                    if (steamId.isNotEmpty() && deviceId.isNotEmpty()) {
-                        val refreshed = NativeBridge.tryRefreshSession(steamId, deviceId)
-                        if (refreshed) successCount++
+                for (line in lines) {
+                    val parts = line.split('|')
+                    val index = parts.firstOrNull()?.toIntOrNull() ?: continue
+                    val accountName = parts.getOrNull(1).orEmpty()
+                    val steamId = parts.getOrNull(2).orEmpty()
+                    if (steamId.isBlank()) continue
+
+                    try {
+                        if (!NativeBridge.setActiveAccount(index)) continue
+
+                        val payload = NativeBridge.getActiveConfirmationAuthPayload()
+                        val baseAuth = ConfirmationService.parseAuthPayload(payload) ?: continue
+                        val savedSession = SessionStore.loadSession(applicationContext, steamId)
+                        val auth = if (savedSession != null) baseAuth.withSession(savedSession) else baseAuth
+
+                        val refreshToken = auth.refreshToken
+                        if (refreshToken.isBlank()) continue
+
+                        val refreshed = SteamAuthService.refreshSessionUsingToken(
+                            refreshToken = refreshToken,
+                            steamId = auth.steamId,
+                            existingSessionId = auth.sessionId,
+                            existingSteamLoginSecure = auth.steamLoginSecure
+                        )
+
+                        if (!refreshed.success ||
+                            refreshed.steamLoginSecure.isNullOrBlank() ||
+                            refreshed.sessionId.isNullOrBlank()
+                        ) {
+                            continue
+                        }
+
+                        SessionPersistence.saveSession(
+                            applicationContext,
+                            steamId,
+                            StoredSteamSession(
+                                steamLoginSecure = refreshed.steamLoginSecure,
+                                sessionId = refreshed.sessionId,
+                                refreshToken = refreshed.refreshToken ?: refreshToken,
+                                accessToken = refreshed.accessToken ?: auth.accessToken,
+                                accountName = accountName.ifBlank { auth.accountName }
+                            )
+                        )
+                        renewedCount++
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to renew session for $steamId", e)
                     }
                 }
 
-                // Logging can be added here if desired
+                Log.d(TAG, "Proactive session renewal completed: $renewedCount account(s) refreshed")
                 Result.success()
             } catch (e: Exception) {
-                // Network errors, missing accounts, etc. – retry later
+                Log.w(TAG, "Session renewal worker failed", e)
                 Result.retry()
+            }
+        }
+
+        private fun initializeNativeAccounts() {
+            try {
+                val importDir = java.io.File(applicationContext.filesDir, "mafiles")
+                if (importDir.exists() && importDir.isDirectory) {
+                    NativeBridge.importMafilesFromFolder(importDir.absolutePath)
+                }
+            } catch (_: Throwable) {
             }
         }
     }

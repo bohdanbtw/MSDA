@@ -70,9 +70,15 @@ class ConfirmationBackgroundWorker(
                 val base = ConfirmationService.parseAuthPayload(payload) ?: continue
                 val withSession = SessionStore.loadSession(applicationContext, steamId)
                     ?.let { base.withSession(it) }
-                    ?: continue
+                    ?: base
 
-                var bundles = ConfirmationService.loadBundles(applicationContext, withSession)
+                var bundles = try {
+                    ConfirmationService.loadBundlesWithAutoRenew(applicationContext, withSession)
+                } catch (_: NeedPasswordException) {
+                    continue
+                } catch (_: Throwable) {
+                    continue
+                }
 
                 val marketEnabled = AppSettings.isMarketAutoConfirmEnabled(applicationContext, steamId)
                 val tradeEnabled = AppSettings.isTradeAutoConfirmEnabled(applicationContext, steamId)
@@ -97,7 +103,7 @@ class ConfirmationBackgroundWorker(
 
                     if (itemsToAutoAccept.isNotEmpty()) {
                         bundles = try {
-                            ConfirmationService.loadBundles(applicationContext, withSession)
+                            ConfirmationService.loadBundlesWithAutoRenew(applicationContext, withSession)
                         } catch (_: Throwable) {
                             bundles
                         }

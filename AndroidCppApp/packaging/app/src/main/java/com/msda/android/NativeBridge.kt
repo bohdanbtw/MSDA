@@ -18,6 +18,13 @@ object NativeBridge {
     // New: session renewal and fallback (with stable device id)
     external fun tryRefreshSession(steamId: String, deviceId: String): Boolean
     external fun reauthWithPassword(steamId: String, password: String, deviceId: String): Boolean
+    external fun updateSessionTokens(
+        steamId: String,
+        sessionId: String,
+        steamLoginSecure: String,
+        refreshToken: String,
+        accessToken: String
+    ): Boolean
 
     // New: stable device identifier (Kotlin side)
     fun getPermanentDeviceId(context: Context): String =

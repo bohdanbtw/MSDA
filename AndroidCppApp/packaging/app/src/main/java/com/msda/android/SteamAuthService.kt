@@ -2,6 +2,7 @@ package com.msda.android
 
 import android.app.AlertDialog
 import android.content.Context
+import android.util.Log
 import android.widget.EditText
 import android.widget.LinearLayout
 import kotlinx.coroutines.CoroutineScope
@@ -22,8 +23,6 @@ import java.security.spec.RSAPublicKeySpec
 import java.util.Base64
 import java.util.UUID
 import javax.crypto.Cipher
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withContext
 
 data class SteamAuthResult(
     val success: Boolean,
@@ -139,7 +138,7 @@ object SteamAuthService {
                 if (result.success) {
                     // Save session immediately
                     if (result.steamId != null && result.steamLoginSecure != null && result.sessionId != null) {
-                        SessionStore.saveSession(
+                        SessionPersistence.saveSession(
                             context,
                             result.steamId,
                             StoredSteamSession(
@@ -151,39 +150,18 @@ object SteamAuthService {
                             )
                         )
                     }
-                    // Show password save confirmation
-                    showPasswordSaveDialog(context, accountName, password, result, onResult)
+                    // Auto-save password for silent session renewal on expiry
+                    try {
+                        PasswordManager.savePassword(context, accountName, password)
+                    } catch (e: Exception) {
+                        Log.w("SteamAuthService", "Failed to auto-save password for $accountName", e)
+                    }
+                    onResult(result)
                 } else {
                     onResult(result)
                 }
             }
         }
-    }
-
-    private fun showPasswordSaveDialog(
-        context: Context,
-        accountName: String,
-        password: String,
-        loginResult: SteamAuthResult,
-        onResult: (SteamAuthResult) -> Unit
-    ) {
-        AlertDialog.Builder(context)
-            .setTitle("Save Password?")
-            .setMessage("Save your password securely for automatic login on next session expiry?\n\nYour password will be encrypted and stored on this device.")
-            .setPositiveButton("Save") { dialog, _ ->
-                dialog.dismiss()
-                try {
-                    PasswordManager.savePassword(context, accountName, password)
-                    onResult(loginResult)
-                } catch (e: Exception) {
-                    onResult(loginResult.copy(errorMessage = "Password saved but encryption failed: ${e.message}"))
-                }
-            }
-            .setNegativeButton("Don't Save") { dialog, _ ->
-                dialog.dismiss()
-                onResult(loginResult)
-            }
-            .show()
     }
 
     private suspend fun emitProgress(onProgress: ((String) -> Unit)?, message: String) {
@@ -302,82 +280,13 @@ object SteamAuthService {
             }
 
             emitProgress(onProgress, "Authentificating… finalizing session")
-            val finalizeBody = formBody(
-                "nonce" to refreshToken,
-                "sessionid" to initialSessionId
-            )
-            val finalizeRoot = postJson(STEAM_FINALIZE_URL, finalizeBody)
-
-            var headerSteamLoginSecure: String? = null
-            var headerSessionId: String? = null
-
-            val transferInfo = finalizeRoot.optJSONArray("transfer_info")
-                ?: finalizeRoot.optJSONObject("response")?.optJSONArray("transfer_info")
-
-            if (transferInfo != null) {
-                for (i in 0 until transferInfo.length()) {
-                    val transferEntry = transferInfo.optJSONObject(i) ?: continue
-                    val transferUrl = transferEntry.optString("url", "")
-                    if (transferUrl.isBlank()) continue
-
-                    val params = transferEntry.optJSONObject("params")
-                        ?: transferEntry.optJSONObject("transfer_info_params")
-                    val nonce = params?.optString("nonce", "").orEmpty()
-                    val auth = params?.optString("auth", "").orEmpty()
-
-                    val transferBody = formBody(
-                        "steamID" to resolvedSteamId,
-                        "steamid" to resolvedSteamId,
-                        "nonce" to nonce,
-                        "auth" to auth
-                    )
-
-                    val transferResult = postText(transferUrl, transferBody, "$STEAM_BASE/")
-                    if (headerSteamLoginSecure.isNullOrBlank()) {
-                        headerSteamLoginSecure = extractCookieFromSetCookieHeaders(transferResult.setCookies, "steamLoginSecure")
-                    }
-                    if (headerSessionId.isNullOrBlank()) {
-                        headerSessionId = extractCookieFromSetCookieHeaders(transferResult.setCookies, "sessionid")
-                    }
-                }
-            }
-
-            val cookies = cookieManager.cookieStore.cookies
-            var steamLoginSecure = findCookieValue(cookies, "steamLoginSecure")
-            var sessionId = findCookieValue(cookies, "sessionid")
-
-            if (steamLoginSecure.isNullOrBlank()) {
-                steamLoginSecure = headerSteamLoginSecure
-            }
-            if (sessionId.isNullOrBlank()) {
-                sessionId = headerSessionId
-            }
-
-            if (steamLoginSecure.isNullOrBlank() && accessToken.isNotBlank()) {
-                steamLoginSecure = "$resolvedSteamId%7C%7C$accessToken"
-            }
-
-            if (sessionId.isNullOrBlank()) {
-                sessionId = initialSessionId.ifBlank { existingSessionId }
-            }
-            if (steamLoginSecure.isNullOrBlank()) {
-                steamLoginSecure = existingSteamLoginSecure
-            }
-
-            if (steamLoginSecure.isNullOrBlank()) {
-                return SteamAuthResult(
-                    false,
-                    errorMessage = "LoginV2 succeeded but no session token was produced"
-                )
-            }
-
-            SteamAuthResult(
-                success = true,
-                steamId = resolvedSteamId,
-                steamLoginSecure = steamLoginSecure,
-                sessionId = sessionId,
+            finalizeSessionFromRefreshToken(
                 refreshToken = refreshToken,
-                accessToken = accessToken
+                resolvedSteamId = resolvedSteamId,
+                accessToken = accessToken,
+                existingSessionId = initialSessionId.ifBlank { existingSessionId },
+                existingSteamLoginSecure = existingSteamLoginSecure,
+                cookieManager = cookieManager
             )
         } catch (e: Exception) {
             SteamAuthResult(false, errorMessage = e.message ?: "Network error")
@@ -386,8 +295,106 @@ object SteamAuthService {
         }
     }
 
-    suspend fun refreshSessionUsingToken(refreshToken: String): SteamAuthResult {
+    private fun finalizeSessionFromRefreshToken(
+        refreshToken: String,
+        resolvedSteamId: String,
+        accessToken: String,
+        existingSessionId: String,
+        existingSteamLoginSecure: String,
+        cookieManager: CookieManager
+    ): SteamAuthResult {
+        val initialSessionId = ensureInitialSession(cookieManager)
+
+        val finalizeBody = formBody(
+            "nonce" to refreshToken,
+            "sessionid" to initialSessionId
+        )
+        val finalizeRoot = postJson(STEAM_FINALIZE_URL, finalizeBody)
+
+        var headerSteamLoginSecure: String? = null
+        var headerSessionId: String? = null
+
+        val transferInfo = finalizeRoot.optJSONArray("transfer_info")
+            ?: finalizeRoot.optJSONObject("response")?.optJSONArray("transfer_info")
+
+        if (transferInfo != null) {
+            for (i in 0 until transferInfo.length()) {
+                val transferEntry = transferInfo.optJSONObject(i) ?: continue
+                val transferUrl = transferEntry.optString("url", "")
+                if (transferUrl.isBlank()) continue
+
+                val params = transferEntry.optJSONObject("params")
+                    ?: transferEntry.optJSONObject("transfer_info_params")
+                val nonce = params?.optString("nonce", "").orEmpty()
+                val auth = params?.optString("auth", "").orEmpty()
+
+                val transferBody = formBody(
+                    "steamID" to resolvedSteamId,
+                    "steamid" to resolvedSteamId,
+                    "nonce" to nonce,
+                    "auth" to auth
+                )
+
+                val transferResult = postText(transferUrl, transferBody, "$STEAM_BASE/")
+                if (headerSteamLoginSecure.isNullOrBlank()) {
+                    headerSteamLoginSecure = extractCookieFromSetCookieHeaders(transferResult.setCookies, "steamLoginSecure")
+                }
+                if (headerSessionId.isNullOrBlank()) {
+                    headerSessionId = extractCookieFromSetCookieHeaders(transferResult.setCookies, "sessionid")
+                }
+            }
+        }
+
+        val cookies = cookieManager.cookieStore.cookies
+        var steamLoginSecure = findCookieValue(cookies, "steamLoginSecure")
+        var sessionId = findCookieValue(cookies, "sessionid")
+
+        if (steamLoginSecure.isNullOrBlank()) {
+            steamLoginSecure = headerSteamLoginSecure
+        }
+        if (sessionId.isNullOrBlank()) {
+            sessionId = headerSessionId
+        }
+
+        if (steamLoginSecure.isNullOrBlank() && accessToken.isNotBlank()) {
+            steamLoginSecure = "$resolvedSteamId%7C%7C$accessToken"
+        }
+
+        if (sessionId.isNullOrBlank()) {
+            sessionId = initialSessionId.ifBlank { existingSessionId }
+        }
+        if (steamLoginSecure.isNullOrBlank()) {
+            steamLoginSecure = existingSteamLoginSecure
+        }
+
+        if (steamLoginSecure.isNullOrBlank()) {
+            return SteamAuthResult(
+                false,
+                errorMessage = "LoginV2 succeeded but no session token was produced"
+            )
+        }
+
+        return SteamAuthResult(
+            success = true,
+            steamId = resolvedSteamId,
+            steamLoginSecure = steamLoginSecure,
+            sessionId = sessionId,
+            refreshToken = refreshToken,
+            accessToken = accessToken
+        )
+    }
+
+    suspend fun refreshSessionUsingToken(
+        refreshToken: String,
+        steamId: String = "",
+        existingSessionId: String = "",
+        existingSteamLoginSecure: String = ""
+    ): SteamAuthResult {
         return withContext(Dispatchers.IO) {
+            val cookieManager = CookieManager(null, CookiePolicy.ACCEPT_ALL)
+            val previousHandler = CookieHandler.getDefault()
+            CookieHandler.setDefault(cookieManager)
+
             try {
                 val refreshBody = formBody(
                     "refresh_token" to refreshToken,
@@ -408,31 +415,26 @@ object SteamAuthService {
                     )
                 }
 
-                // Extract steamid from refresh token if possible (format: steamid||base64data)
-                val steamId = if (refreshToken.contains("||")) {
-                    refreshToken.split("||").getOrNull(0).orEmpty()
-                } else {
-                    ""
+                val resolvedSteamId = steamId.ifBlank {
+                    if (refreshToken.contains("||")) {
+                        refreshToken.split("||").getOrNull(0).orEmpty()
+                    } else {
+                        ""
+                    }
                 }
 
-                // Construct new session tokens from access token
-                // Steam uses access_token in the steamLoginSecure format: steamid||accesstoken
-                val newSteamLoginSecure = if (steamId.isNotBlank()) {
-                    "$steamId%7C%7C$newAccessToken"
-                } else {
-                    newAccessToken
-                }
-
-                SteamAuthResult(
-                    success = true,
-                    steamId = steamId.ifBlank { null },
-                    steamLoginSecure = newSteamLoginSecure,
-                    sessionId = createSessionId(),
+                finalizeSessionFromRefreshToken(
                     refreshToken = newRefreshToken,
-                    accessToken = newAccessToken
+                    resolvedSteamId = resolvedSteamId,
+                    accessToken = newAccessToken,
+                    existingSessionId = existingSessionId,
+                    existingSteamLoginSecure = existingSteamLoginSecure,
+                    cookieManager = cookieManager
                 )
             } catch (e: Exception) {
                 SteamAuthResult(false, errorMessage = e.message ?: "Token refresh network error")
+            } finally {
+                CookieHandler.setDefault(previousHandler)
             }
         }
     }
