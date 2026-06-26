@@ -18,6 +18,7 @@
     <string name="status_confirmation_load_failed">Confirmation load failed: %1$s</string>
     <string name="status_login_required">Steam login required for confirmations</string>
     <string name="status_login_saved">Steam session saved</string>
+    <string name="status_session_refreshing">Session saved, waiting for Steam to activate it…</string>
     <string name="status_login_cancelled">Steam login cancelled</string>
     <string name="status_login_capture_failed">Steam login cookies were not captured yet</string>
     <string name="status_login_failed">Steam login failed: %1$s</string>
@@ -127,6 +128,13 @@
     <string name="auto_confirm_trade_gift_enabled">Trade and gift-trade auto-confirm enabled for this account</string>
     <string name="auto_confirm_all_types_enabled">Market, trade and gift-trade auto-confirm enabled for this account</string>
     <string name="auto_confirm_all_disabled">Auto-confirm disabled for this account</string>
+    <string name="auto_confirm_background_hint">Auto-confirm works while this screen is open. For confirmations when the app is closed, enable «Allow background confirmations check» in Settings.</string>
+    <string name="auto_confirm_enable_background_title">Enable background checks?</string>
+    <string name="auto_confirm_enable_background_message">Auto-confirm while MSDA is closed requires background confirmation checks in Settings. Enable it now?</string>
+    <string name="auto_confirm_enable_background_now">Enable</string>
+    <string name="auto_confirm_background_enabled_toast">Background confirmation checks enabled</string>
+    <string name="background_sync_hint">Required for auto-confirm and push notifications while the app is in the background.</string>
+    <string name="confirmation_network_error">Network timeout while contacting Steam. Your session may still be valid — tap refresh or try again in a moment.</string>
     <string name="export_mafiles_success">Export successful</string>
     <string name="export_mafiles_failed">Export failed</string>
     <string name="export_mafiles_empty">No accounts to export</string>

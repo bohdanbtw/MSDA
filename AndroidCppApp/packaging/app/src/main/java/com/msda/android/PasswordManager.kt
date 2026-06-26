@@ -71,7 +71,7 @@ object PasswordManager {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(accountName, combined)
-                .apply()
+                .commit()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save password for $accountName", e)
         }
@@ -80,7 +80,8 @@ object PasswordManager {
     fun getPassword(context: Context, accountName: String): String? {
         return try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val combinedBase64 = prefs.getString(accountName, null) ?: return null
+            val storedKey = prefs.all.keys.firstOrNull { it.equals(accountName, ignoreCase = true) } ?: accountName
+            val combinedBase64 = prefs.getString(storedKey, null) ?: return null
             val combined = Base64.decode(combinedBase64, Base64.NO_WRAP)
             if (combined.size < 12) return null
             val iv = combined.copyOfRange(0, 12)

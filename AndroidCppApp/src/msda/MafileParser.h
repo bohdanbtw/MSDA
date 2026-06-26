@@ -15,6 +15,8 @@ private:
     static std::optional<std::string> readAllText(const std::string& filePath);
     static std::string extractStringValue(const std::string& json, const std::string& key);
     static std::string extractNumberOrString(const std::string& json, const std::string& key);
+    static std::optional<std::string> extractJsonObject(const std::string& json, const std::string& key);
+    static std::string firstNonEmpty(std::initializer_list<std::string> values);
     static std::string fileNameFromPath(const std::string& filePath);
     static std::string unescapeJsonString(const std::string& value);
 };

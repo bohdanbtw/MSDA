@@ -31,6 +31,7 @@ object AppSettings {
     private const val KEY_PROXY_USERNAME_PREFIX = "proxy_username_"
     private const val KEY_PROXY_PASSWORD_PREFIX = "proxy_password_"
     private const val KEY_PERMANENT_DEVICE_ID = "permanent_device_id"
+    private const val KEY_USE_NEBULA_SESSION_STACK = "use_nebula_session_stack"
 
     fun getThemeMode(context: Context): String {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -116,6 +117,13 @@ object AppSettings {
             .edit()
             .putBoolean("$KEY_GIFT_TRADE_AUTO_CONFIRM_PREFIX$steamId", enabled)
             .apply()
+    }
+
+    fun isAnyAutoConfirmEnabled(context: Context, steamId: String): Boolean {
+        if (steamId.isBlank()) return false
+        return isMarketAutoConfirmEnabled(context, steamId) ||
+            isTradeAutoConfirmEnabled(context, steamId) ||
+            isGiftTradeAutoConfirmEnabled(context, steamId)
     }
 
     fun hasPinLock(context: Context): Boolean {
@@ -228,6 +236,18 @@ object AppSettings {
             .remove("$KEY_PROXY_PORT_PREFIX$steamId")
             .remove("$KEY_PROXY_USERNAME_PREFIX$steamId")
             .remove("$KEY_PROXY_PASSWORD_PREFIX$steamId")
+            .apply()
+    }
+
+    fun isNebulaSessionStackEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_USE_NEBULA_SESSION_STACK, true)
+    }
+
+    fun setNebulaSessionStackEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_USE_NEBULA_SESSION_STACK, enabled)
             .apply()
     }
 

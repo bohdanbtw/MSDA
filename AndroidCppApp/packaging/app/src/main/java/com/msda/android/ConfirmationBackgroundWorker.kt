@@ -13,6 +13,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.msda.android.steam.AuthContextMerger
+import com.msda.android.steam.NativeAuthBridge
 
 class ConfirmationBackgroundWorker(
     appContext: Context,
@@ -64,11 +66,8 @@ class ConfirmationBackgroundWorker(
 
             try {
                 // By-steamId payload — race-free, does not change the active account
-                val payload = NativeBridge.getConfirmationAuthPayloadForSteamId(steamId)
-                val base = ConfirmationService.parseAuthPayload(payload) ?: continue
-                var activeSession = SessionStore.loadSession(applicationContext, steamId)
-                    ?.let { base.withSession(it) }
-                    ?: base
+                val base = NativeAuthBridge.confirmationAuthForSteamId(applicationContext, steamId) ?: continue
+                var activeSession = base
 
                 var bundles = try {
                     ConfirmationService.loadBundlesWithAutoRenew(
@@ -87,29 +86,17 @@ class ConfirmationBackgroundWorker(
                 val giftTradeEnabled = AppSettings.isGiftTradeAutoConfirmEnabled(applicationContext, steamId)
 
                 if (marketEnabled || tradeEnabled || giftTradeEnabled) {
-                    val itemsToAutoAccept = bundles
-                        .flatMap { it.items }
-                        .filter { item ->
-                            (marketEnabled && isStrictMarketConfirmation(item)) ||
-                                (tradeEnabled && isStrictTradeConfirmation(item)) ||
-                                (giftTradeEnabled && isGiftTradeConfirmation(item))
-                        }
-                        .distinctBy { it.id }
+                    val accepted = ConfirmationAutoAccept.acceptMatching(
+                        context = applicationContext,
+                        auth = activeSession,
+                        bundles = bundles,
+                        marketEnabled = marketEnabled,
+                        tradeEnabled = tradeEnabled,
+                        giftTradeEnabled = giftTradeEnabled,
+                        onSessionRenewed = { newAuth -> activeSession = newAuth }
+                    )
 
-                    itemsToAutoAccept.forEach { item ->
-                        try {
-                            ConfirmationService.respondItemWithRenew(
-                                context = applicationContext,
-                                auth = activeSession,
-                                item = item,
-                                accept = true,
-                                onSessionRenewed = { newAuth -> activeSession = newAuth }
-                            )
-                        } catch (_: Throwable) {
-                        }
-                    }
-
-                    if (itemsToAutoAccept.isNotEmpty()) {
+                    if (accepted > 0) {
                         bundles = try {
                             ConfirmationService.loadBundlesWithAutoRenew(
                                 context = applicationContext,
@@ -128,47 +115,6 @@ class ConfirmationBackgroundWorker(
         }
 
         return total
-    }
-
-    private fun isStrictMarketConfirmation(item: ConfirmationItem): Boolean {
-        return item.type != 2 && item.typeName.contains("market", ignoreCase = true)
-    }
-
-    private fun isStrictTradeConfirmation(item: ConfirmationItem): Boolean {
-        return item.type == 2 || item.typeName.contains("trade", ignoreCase = true)
-    }
-
-    private fun isGiftTradeConfirmation(item: ConfirmationItem): Boolean {
-        if (!isStrictTradeConfirmation(item)) {
-            return false
-        }
-
-        val text = (listOf(item.headline) + item.summary)
-            .joinToString(" ")
-            .lowercase()
-
-        val giftSignals = listOf(
-            "gift",
-            "you will receive",
-            "you'll receive",
-            "for free",
-            "without exchange",
-            "no items from your inventory",
-            "no items from you",
-            "0 items from you",
-            "nothing to give",
-            "sent you a gift"
-        )
-        val lossSignals = listOf(
-            "you will give",
-            "you'll give",
-            "you are giving",
-            "from your inventory",
-            "in exchange",
-            "for your"
-        )
-
-        return giftSignals.any { text.contains(it) } && lossSignals.none { text.contains(it) }
     }
 
     private fun canPostNotifications(): Boolean {

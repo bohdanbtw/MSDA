@@ -1,46 +1,28 @@
 package com.msda.android
 
 import android.content.Context
-import android.util.Log
-
-private const val TAG = "SessionPersistence"
+import com.msda.android.steam.MafileRepository
+import com.msda.android.steam.SteamSessionData
+import kotlinx.coroutines.runBlocking
 
 object SessionPersistence {
     /**
-     * Save session to encrypted SharedPreferences, sync to native in-memory state,
-     * and write session tokens back to the mafile on disk for persistence across reinstalls.
+     * Save session to encrypted SharedPreferences and mirror to mafile session blocks.
+     * Kotlin mafile state is the source of truth for the Nebula session stack.
      */
     fun saveSession(context: Context, steamId: String, session: StoredSteamSession) {
         SessionStore.saveSession(context, steamId, session)
-        syncToNative(steamId, session)
-        writeBackToMafile(steamId, session)
-    }
-
-    private fun syncToNative(steamId: String, session: StoredSteamSession) {
-        try {
-            NativeBridge.updateSessionTokens(
-                steamId,
-                session.sessionId,
-                session.steamLoginSecure,
-                session.refreshToken,
-                session.accessToken
+        runBlocking {
+            MafileRepository(context).writeSession(
+                SteamSessionData(
+                    steamId = steamId,
+                    accountName = session.accountName,
+                    sessionId = session.sessionId,
+                    steamLoginSecure = session.steamLoginSecure,
+                    refreshToken = session.refreshToken,
+                    accessToken = session.accessToken
+                )
             )
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to sync session to native for $steamId", e)
-        }
-    }
-
-    private fun writeBackToMafile(steamId: String, session: StoredSteamSession) {
-        try {
-            NativeBridge.updateMafileSessionTokens(
-                steamId,
-                session.sessionId,
-                session.steamLoginSecure,
-                session.refreshToken,
-                session.accessToken
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to write session back to mafile for $steamId", e)
         }
     }
 }
