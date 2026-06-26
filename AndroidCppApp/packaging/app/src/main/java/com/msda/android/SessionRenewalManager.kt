@@ -10,6 +10,9 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.msda.android.steam.AuthContextMerger
+import com.msda.android.steam.NativeAuthBridge
+import com.msda.android.steam.SessionHandler
 import java.util.concurrent.TimeUnit
 
 /**
@@ -68,24 +71,18 @@ object SessionRenewalManager {
 
                     try {
                         // By-steamId payload — does NOT change the native active account
-                        val payload = NativeBridge.getConfirmationAuthPayloadForSteamId(steamId)
-                        val baseAuth = ConfirmationService.parseAuthPayload(payload) ?: continue
-                        val savedSession = SessionStore.loadSession(applicationContext, steamId)
-                        val auth = if (savedSession != null) baseAuth.withSession(savedSession) else baseAuth
+                        val auth = NativeAuthBridge.confirmationAuthForSteamId(applicationContext, steamId)
+                            ?: continue
 
-                        // Renew when the token is expired/near-expiry, OR when expiry is
-                        // unknown (legacy/migrated sessions) to bootstrap exp tracking once.
-                        val expiryUnknown = (savedSession?.sessionExpiresAtMs ?: 0L) <= 0L
-                        val shouldRenew = SessionStore.isSessionExpired(applicationContext, steamId) || expiryUnknown
-                        if (!shouldRenew) continue
+                        if (!AuthContextMerger.isSessionNearExpiry(applicationContext, steamId)) continue
 
                         // Nothing to renew with — skip silently (user must log in once)
                         if (auth.refreshToken.isBlank() &&
                             PasswordManager.getPassword(applicationContext, auth.accountName).isNullOrBlank()
                         ) continue
 
-                        val renewed = SessionManager.renew(applicationContext, auth)
-                        if (renewed != null) renewedCount++
+                        runCatching { SessionHandler.ensureValid(applicationContext, auth) }
+                            .onSuccess { renewedCount++ }
                     } catch (e: Exception) {
                         Log.w(TAG, "Failed to renew session for $steamId", e)
                     }

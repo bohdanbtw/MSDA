@@ -7,6 +7,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -353,12 +354,12 @@ std::string buildAuthPayload(const msda::MafileAccount& account) {
     out << account.steamId << "|"
         << account.identitySecret << "|"
         << account.deviceId << "|"
-        << account.sessionId << "|"
-        << account.steamLoginSecure << "|"
+        << "" << "|"  // Session is owned by Kotlin SessionHandler/MafileRepository.
+        << "" << "|"
         << account.accountName << "|"
         << account.sharedSecret << "|"
-        << account.refreshToken << "|"
-        << account.accessToken;
+        << "" << "|"
+        << "";
     return out.str();
 }
 
@@ -477,6 +478,95 @@ std::string setJsonStringField(const std::string& json, const std::string& key, 
     return json.substr(0, valueStart) + "\"" + escapeJsonValue(value) + "\"" + json.substr(pos);
 }
 
+std::optional<std::pair<std::size_t, std::size_t>> findJsonObjectSpan(const std::string& json,
+                                                                       const std::string& key) {
+    const std::string search = "\"" + key + "\"";
+    std::size_t pos = json.find(search);
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    pos = json.find('{', pos + search.length());
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+    for (std::size_t i = pos; i < json.size(); ++i) {
+        const char ch = json[i];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch == '\\') {
+                escaped = true;
+            } else if (ch == '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch == '"') {
+            inString = true;
+            continue;
+        }
+        if (ch == '{') {
+            ++depth;
+        } else if (ch == '}') {
+            --depth;
+            if (depth == 0) {
+                return std::make_pair(pos, i - pos + 1);
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::string setJsonStringFieldAny(const std::string& json,
+                                  const std::initializer_list<std::string>& keys,
+                                  const std::string& value) {
+    std::string updated = json;
+    for (const auto& key : keys) {
+        if (updated.find("\"" + key + "\":") != std::string::npos) {
+            return setJsonStringField(updated, key, value);
+        }
+    }
+    if (!keys.size()) {
+        return updated;
+    }
+    return setJsonStringField(updated, *keys.begin(), value);
+}
+
+std::string updateSessionDataBlock(const std::string& json,
+                                   const std::string& sessionId,
+                                   const std::string& steamLoginSecure,
+                                   const std::string& refreshToken,
+                                   const std::string& accessToken) {
+    const auto span = findJsonObjectSpan(json, "SessionData");
+    if (!span.has_value()) {
+        return json;
+    }
+
+    const auto [start, length] = span.value();
+    std::string block = json.substr(start, length);
+    if (!sessionId.empty()) {
+        block = setJsonStringFieldAny(block, {"SessionID", "sessionid", "session_id"}, sessionId);
+    }
+    if (!steamLoginSecure.empty()) {
+        block = setJsonStringFieldAny(block, {"steamLoginSecure"}, steamLoginSecure);
+    }
+    if (!refreshToken.empty()) {
+        block = setJsonStringFieldAny(block, {"RefreshToken", "refresh_token", "refreshtoken", "OAuthToken"}, refreshToken);
+    }
+    if (!accessToken.empty()) {
+        block = setJsonStringFieldAny(block, {"AccessToken", "access_token", "accesstoken", "access"}, accessToken);
+    }
+
+    return json.substr(0, start) + block + json.substr(start + length);
+}
+
 } // anonymous namespace (mafile helpers)
 
 bool msda::AccountManager::updateMafileSessionTokens(const std::string& steamId,
@@ -499,6 +589,7 @@ bool msda::AccountManager::updateMafileSessionTokens(const std::string& steamId,
         if (!steamLoginSecure.empty()) content = setJsonStringField(content, "steamLoginSecure", steamLoginSecure);
         if (!refreshToken.empty())     content = setJsonStringField(content, "refresh_token",    refreshToken);
         if (!accessToken.empty())      content = setJsonStringField(content, "access_token",     accessToken);
+        content = updateSessionDataBlock(content, sessionId, steamLoginSecure, refreshToken, accessToken);
 
         const std::string tmpPath = account.sourcePath + ".tmp";
         std::ofstream out(tmpPath, std::ios::binary);

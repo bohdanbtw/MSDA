@@ -26,6 +26,10 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.msda.android.steam.AdmissionHelper
+import com.msda.android.steam.AuthContextMerger
+import com.msda.android.steam.NativeAuthBridge
+import com.msda.android.steam.MafileRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_ACCOUNT_INDEX = "extra_account_index"
         const val EXTRA_ACCOUNT_NAME = "extra_account_name"
+        const val EXTRA_STEAM_ID = "extra_steam_id"
     }
 
     private lateinit var txtStatus: TextView
@@ -58,7 +63,9 @@ class MainActivity : AppCompatActivity() {
     private var activeAuthContext: ConfirmationAuthContext? = null
     private var currentAccountIndex: Int = -1
     private var currentAccountName: String = ""
+    private var currentSteamId: String = ""
     private var steamLoginInProgress = false
+    private var lastLoginSuccessAtMs = 0L
     private var proxyCheckInProgress = false
     private var lastSuccessfulBundles: List<ConfirmationBundle> = emptyList()
     private val expandedBundleKeys = mutableSetOf<String>()
@@ -116,21 +123,27 @@ class MainActivity : AppCompatActivity() {
         val btnAutoConfirm = findViewById<android.widget.Button>(R.id.btnAutoConfirm)
         val txtAppTitle = findViewById<TextView>(R.id.txtAppTitle)
 
-        val selectedIndex = intent.getIntExtra(EXTRA_ACCOUNT_INDEX, -1)
-        if (selectedIndex >= 0) {
-            currentAccountIndex = selectedIndex
-            currentAccountName = intent.getStringExtra(EXTRA_ACCOUNT_NAME).orEmpty()
-            NativeBridge.setActiveAccount(selectedIndex)
-            if (currentAccountName.isNotBlank()) {
-                txtAppTitle.text = currentAccountName
-            }
-        }
-
+        // Load persisted mafiles FIRST so native state is populated before we set the
+        // active account — otherwise importMafilesFromFolder() could reset it back to 0.
         val startupLoaded = loadPersistedMafiles()
         txtStatus.text = if (startupLoaded) {
             getString(R.string.status_saved_mafiles_loaded)
         } else {
             getString(R.string.status_started)
+        }
+
+        val selectedIndex = intent.getIntExtra(EXTRA_ACCOUNT_INDEX, -1)
+        currentSteamId = intent.getStringExtra(EXTRA_STEAM_ID).orEmpty()
+        if (selectedIndex >= 0) {
+            currentAccountIndex = selectedIndex
+            currentAccountName = intent.getStringExtra(EXTRA_ACCOUNT_NAME).orEmpty()
+            NativeBridge.setActiveAccount(selectedIndex)
+            if (currentSteamId.isBlank()) {
+                currentSteamId = resolveSteamIdForAccountIndex(selectedIndex)
+            }
+            if (currentAccountName.isNotBlank()) {
+                txtAppTitle.text = currentAccountName
+            }
         }
 
         refreshCodeViews()
@@ -187,7 +200,11 @@ class MainActivity : AppCompatActivity() {
             if (selectedIndex >= 0) {
                 currentAccountIndex = selectedIndex
                 currentAccountName = intent.getStringExtra(EXTRA_ACCOUNT_NAME).orEmpty()
+                currentSteamId = intent.getStringExtra(EXTRA_STEAM_ID).orEmpty()
                 NativeBridge.setActiveAccount(selectedIndex)
+                if (currentSteamId.isBlank()) {
+                    currentSteamId = resolveSteamIdForAccountIndex(selectedIndex)
+                }
                 val txtAppTitle = findViewById<TextView>(R.id.txtAppTitle)
                 if (currentAccountName.isNotBlank()) {
                     txtAppTitle.text = currentAccountName
@@ -245,6 +262,7 @@ class MainActivity : AppCompatActivity() {
         updateActiveAuthContext()
         
         val auth = activeAuthContext
+            ?: NativeAuthBridge.confirmationAuthForSteamId(this, currentSteamId)
         if (auth == null) {
             txtStatus.text = getString(R.string.status_login_unavailable)
             return
@@ -264,6 +282,7 @@ class MainActivity : AppCompatActivity() {
                 setAuthenticatingUi(false)
                 if (result.success) {
                     updateActiveAuthContext()
+                    refreshConfirmationsAsync(initialDelayMs = 1_000L)
                 }
                 txtStatus.text = when {
                     result.success -> getString(R.string.status_qr_authorized)
@@ -376,9 +395,15 @@ class MainActivity : AppCompatActivity() {
             isChecked = AppSettings.isGiftTradeAutoConfirmEnabled(this@MainActivity, auth.steamId)
         }
 
+        val hint = TextView(this).apply {
+            text = getString(R.string.auto_confirm_background_hint)
+            setPadding(0, 0, 0, 24)
+        }
+
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 24, 40, 0)
+            addView(hint)
             addView(marketSwitch)
             addView(tradeSwitch)
             addView(giftTradeSwitch)
@@ -393,6 +418,7 @@ class MainActivity : AppCompatActivity() {
                 AppSettings.setTradeAutoConfirmEnabled(this, auth.steamId, tradeSwitch.isChecked)
                 AppSettings.setGiftTradeAutoConfirmEnabled(this, auth.steamId, giftTradeSwitch.isChecked)
 
+                val anyEnabled = marketSwitch.isChecked || tradeSwitch.isChecked || giftTradeSwitch.isChecked
                 txtStatus.text = when {
                     marketSwitch.isChecked && tradeSwitch.isChecked && giftTradeSwitch.isChecked -> getString(R.string.auto_confirm_all_types_enabled)
                     marketSwitch.isChecked && tradeSwitch.isChecked -> getString(R.string.auto_confirm_market_trade_enabled)
@@ -404,9 +430,28 @@ class MainActivity : AppCompatActivity() {
                     else -> getString(R.string.auto_confirm_all_disabled)
                 }
 
-                if (marketSwitch.isChecked || tradeSwitch.isChecked || giftTradeSwitch.isChecked) {
-                    BackgroundSyncScheduler.configure(this)
+                if (anyEnabled) {
+                    if (!AppSettings.isBackgroundConfirmationsEnabled(this)) {
+                        promptEnableBackgroundForAutoConfirm()
+                    } else {
+                        BackgroundSyncScheduler.configure(this)
+                    }
                 }
+            }
+            .show()
+    }
+
+    private fun promptEnableBackgroundForAutoConfirm() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.auto_confirm_enable_background_title)
+            .setMessage(R.string.auto_confirm_enable_background_message)
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                BackgroundSyncScheduler.configure(this)
+            }
+            .setPositiveButton(R.string.auto_confirm_enable_background_now) { _, _ ->
+                AppSettings.setBackgroundConfirmationsEnabled(this, true)
+                BackgroundSyncScheduler.configure(this)
+                Toast.makeText(this, R.string.auto_confirm_background_enabled_toast, Toast.LENGTH_SHORT).show()
             }
             .show()
     }
@@ -504,19 +549,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateActiveAuthContext() {
-        val payload = try {
-            NativeBridge.getActiveConfirmationAuthPayload()
-        } catch (_: Throwable) {
-            ""
+        if (currentSteamId.isBlank() && currentAccountIndex >= 0) {
+            currentSteamId = resolveSteamIdForAccountIndex(currentAccountIndex)
         }
-
-        val parsed = ConfirmationService.parseAuthPayload(payload)
-        activeAuthContext = if (parsed == null) {
-            null
+        activeAuthContext = if (currentSteamId.isNotBlank()) {
+            NativeAuthBridge.confirmationAuthForSteamId(this, currentSteamId)
         } else {
-            val savedSession = SessionStore.loadSession(this, parsed.steamId)
-            if (savedSession != null) parsed.withSession(savedSession) else parsed
+            NativeAuthBridge.activeConfirmationAuth(this)
         }
+        val auth = activeAuthContext ?: return
+        if (MafileImportHelper.hasUsableSession(auth)) {
+            MafileRepository(this).readSession(auth.steamId)?.let { session ->
+                AdmissionHelper.seedMobileSessionCookies(auth.steamId, session)
+            }
+        }
+    }
+
+    private fun resolveSteamIdForAccountIndex(index: Int): String {
+        val lines = runCatching { NativeBridge.getAccounts() }.getOrDefault("")
+            .lines()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        return lines.getOrNull(index)?.split('|')?.getOrNull(2)?.trim().orEmpty()
     }
 
     private fun promptSteamLogin() {
@@ -575,9 +629,17 @@ class MainActivity : AppCompatActivity() {
                     )
                 )
 
-                updateActiveAuthContext()
+                activeAuthContext = auth.copy(
+                    steamId = steamId,
+                    sessionId = sessionId,
+                    steamLoginSecure = loginSecure,
+                    refreshToken = result.refreshToken.orEmpty(),
+                    accessToken = result.accessToken.orEmpty()
+                )
+                currentSteamId = steamId
+                lastLoginSuccessAtMs = System.currentTimeMillis()
                 txtStatus.text = getString(R.string.status_login_saved)
-                refreshConfirmationsAsync()
+                refreshConfirmationsAsync(initialDelayMs = 2_000L)
             },
             onProgress = { progressText ->
                 txtAuthProgress.text = progressText
@@ -672,7 +734,10 @@ class MainActivity : AppCompatActivity() {
                 val renewed = SessionManager.renew(this@MainActivity, auth)
                 if (renewed != null) {
                     effectiveAuth = renewed
-                    withContext(Dispatchers.Main) { activeAuthContext = renewed }
+                    withContext(Dispatchers.Main) {
+                        activeAuthContext = renewed
+                        lastLoginSuccessAtMs = System.currentTimeMillis()
+                    }
                 }
             }
 
@@ -719,7 +784,7 @@ class MainActivity : AppCompatActivity() {
         progressCodeWindow.progress = (30 - safeRemaining).coerceIn(0, 30)
     }
 
-    private fun refreshConfirmationsAsync() {
+    private fun refreshConfirmationsAsync(initialDelayMs: Long = 0L, loginRetryAttempt: Int = 0) {
         if (steamLoginInProgress) {
             return
         }
@@ -730,27 +795,65 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Use coroutine for suspend function
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            if (initialDelayMs > 0L) {
+                kotlinx.coroutines.delay(initialDelayMs)
+            }
+            val latestAuth = activeAuthContext ?: auth
             var error: String? = null
             var bundles: List<ConfirmationBundle>? = try {
                 ConfirmationService.loadBundlesWithAutoRenew(
                     context = this@MainActivity,
-                    auth = auth,
+                    auth = latestAuth,
                     onSessionRenewed = { newAuth ->
-                        // Immediately replace the in-memory auth so accept/decline
-                        // operations use fresh cookies rather than expired ones.
                         activeAuthContext = newAuth
                     }
                 )
             } catch (ex: NeedPasswordException) {
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    promptSteamLogin()
+                    val msSinceLogin = System.currentTimeMillis() - lastLoginSuccessAtMs
+                    if (msSinceLogin < 60_000L && loginRetryAttempt < 5) {
+                        txtStatus.text = getString(R.string.status_session_refreshing)
+                        refreshConfirmationsAsync(initialDelayMs = 3_000L, loginRetryAttempt = loginRetryAttempt + 1)
+                    } else {
+                        promptSteamLogin()
+                    }
                 }
                 return@launch
             } catch (ex: Throwable) {
-                error = ex.message ?: "Unknown confirmation error"
+                error = formatConfirmationLoadError(ex)
                 null
+            }
+
+            if (error == null && bundles != null) {
+                val steamId = (activeAuthContext ?: latestAuth).steamId
+                val marketEnabled = AppSettings.isMarketAutoConfirmEnabled(this@MainActivity, steamId)
+                val tradeEnabled = AppSettings.isTradeAutoConfirmEnabled(this@MainActivity, steamId)
+                val giftEnabled = AppSettings.isGiftTradeAutoConfirmEnabled(this@MainActivity, steamId)
+                if (marketEnabled || tradeEnabled || giftEnabled) {
+                    var workingAuth = activeAuthContext ?: latestAuth
+                    val accepted = ConfirmationAutoAccept.acceptMatching(
+                        context = this@MainActivity,
+                        auth = workingAuth,
+                        bundles = bundles,
+                        marketEnabled = marketEnabled,
+                        tradeEnabled = tradeEnabled,
+                        giftTradeEnabled = giftEnabled,
+                        onSessionRenewed = { renewed -> workingAuth = renewed; activeAuthContext = renewed }
+                    )
+                    if (accepted > 0) {
+                        bundles = try {
+                            ConfirmationService.loadBundlesWithAutoRenew(
+                                context = this@MainActivity,
+                                auth = workingAuth,
+                                onSessionRenewed = { renewed -> activeAuthContext = renewed }
+                            )
+                        } catch (ex: Throwable) {
+                            error = formatConfirmationLoadError(ex)
+                            bundles
+                        }
+                    }
+                }
             }
 
             runOnUiThread {
@@ -764,49 +867,25 @@ class MainActivity : AppCompatActivity() {
                 val existingKeys = stable.map { it.key }.toSet()
                 expandedBundleKeys.retainAll(existingKeys)
                 renderBundles(stable)
+                if (stable.isNotEmpty()) {
+                    txtStatus.text = getString(R.string.status_login_saved)
+                }
             }
         }
     }
 
-    private fun isStrictMarketConfirmation(item: ConfirmationItem): Boolean {
-        return item.type != 2 && item.typeName.contains("market", ignoreCase = true)
-    }
-
-    private fun isStrictTradeConfirmation(item: ConfirmationItem): Boolean {
-        return item.type == 2 || item.typeName.contains("trade", ignoreCase = true)
-    }
-
-    private fun isGiftTradeConfirmation(item: ConfirmationItem): Boolean {
-        if (!isStrictTradeConfirmation(item)) {
-            return false
+    private fun formatConfirmationLoadError(ex: Throwable): String {
+        val message = ex.message.orEmpty().lowercase()
+        return if (
+            message.contains("ssl") ||
+            message.contains("handshake") ||
+            message.contains("timed out") ||
+            message.contains("timeout")
+        ) {
+            applicationContext.getString(R.string.confirmation_network_error)
+        } else {
+            ex.message ?: "Unknown confirmation error"
         }
-
-        val text = (listOf(item.headline) + item.summary)
-            .joinToString(" ")
-            .lowercase()
-
-        val giftSignals = listOf(
-            "gift",
-            "you will receive",
-            "you'll receive",
-            "for free",
-            "without exchange",
-            "no items from your inventory",
-            "no items from you",
-            "0 items from you",
-            "nothing to give",
-            "sent you a gift"
-        )
-        val lossSignals = listOf(
-            "you will give",
-            "you'll give",
-            "you are giving",
-            "from your inventory",
-            "in exchange",
-            "for your"
-        )
-
-        return giftSignals.any { text.contains(it) } && lossSignals.none { text.contains(it) }
     }
 
     private fun renderBundles(bundles: List<ConfirmationBundle>) {

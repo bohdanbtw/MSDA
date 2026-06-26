@@ -62,6 +62,15 @@
             android:layout_marginTop="6dp"
             android:text="@string/background_sync" />
 
+        <TextView
+            android:id="@+id/txtBackgroundSyncHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/background_sync_hint"
+            android:textSize="12sp"
+            android:alpha="0.75" />
+
         <Switch
             android:id="@+id/switchPushConfirmations"
             android:layout_width="match_parent"

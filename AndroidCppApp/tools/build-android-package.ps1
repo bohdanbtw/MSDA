@@ -138,7 +138,19 @@ try {
     $env:GRADLE_USER_HOME = Join-Path $repoRoot "out\gradle-home"
     New-Item -ItemType Directory -Path $env:GRADLE_USER_HOME -Force | Out-Null
 
-    $gradleTasks = @(':app:assembleDebug')
+    if ($Configuration -notin @('Release', 'Debug')) {
+        throw "Unsupported Configuration '$Configuration'. Use Release or Debug."
+    }
+
+    $keystoreProps = Join-Path $packagingRoot "keystore.properties"
+    $keystoreFile = Join-Path $packagingRoot "release.jks"
+    if ($Configuration -eq 'Release') {
+        if (-not (Test-Path $keystoreProps) -or -not (Test-Path $keystoreFile)) {
+            throw "Release signing is not configured. Run AndroidCppApp\tools\setup-release-signing.ps1 first."
+        }
+    }
+
+    $gradleTasks = @(":app:assemble$Configuration")
     $hasConnectedDevice = $false
 
     if (Get-Command adb -ErrorAction SilentlyContinue) {
@@ -153,10 +165,12 @@ try {
     }
 
     if ($hasConnectedDevice) {
-        $gradleTasks += ':app:installDebug'
+        $gradleTasks += ":app:install$Configuration"
     } else {
-        Write-Host "[MSDA] No connected Android device/emulator detected. Skipping :app:installDebug."
+        Write-Host "[MSDA] No connected Android device/emulator detected. Skipping :app:install$Configuration."
     }
+
+    Write-Host "[MSDA] Gradle configuration: $Configuration"
 
     $gradleJvmArg = "-Dorg.gradle.java.home=$env:JAVA_HOME"
 

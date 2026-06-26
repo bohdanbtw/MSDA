@@ -27,5 +27,8 @@ copilot-instructions.md
 *.apk
 *.aab
 *.keystore
+*.jks
+AndroidCppApp/packaging/keystore.properties
+AndroidCppApp/packaging/local.properties
 latest_screenshot.png
 .aider*
