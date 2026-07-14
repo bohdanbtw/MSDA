@@ -1,19 +1,3 @@
-# v1.4.1
-
-## What's Changed
-
-- **No more Steam rate-limit spam** — The confirmation list no longer refreshes automatically every few seconds. That polling could trigger Steam’s 12-hour request timeout.
-- **Manual confirmations only** — Tap the refresh button next to “Active confirmations” (or use Load confirmations in the menu) when you want to check Steam.
-- **Auto-confirm removed** — Market / trade / gift auto-confirm and related settings are gone, so the app does not accept confirmations in the background.
-- **Background sync removed** — Background confirmation checks, push polling, and automatic multi-account session renewal on hub open are disabled.
-- **Still works on demand** — Login, 2FA codes, QR approval, and manual accept/decline are unchanged. After you accept or decline, the list refreshes once.
-
-## What you get now
-
-- Open an account → tap refresh when you need confirmations → accept/decline as usual.
-- Leaving the app open no longer hammers Steam with request loops.
-- Same mafile format; existing accounts remain compatible.
-
 # v1.4.0
 
 ## What's Changed
@@ -40,12 +24,3 @@
 - Background refresh helps the session stay alive even if you don’t open the app for several days (unless Steam revokes the session — e.g. password change or “deauthorize all devices”).
 - Auto-confirm: works on the open account screen; for closed app, enable **Settings → Allow background confirmations check** (the app will offer this when you turn on AUTO).
 - Same mafile format as before; existing accounts and backups remain compatible.
-
-# v1.3.0
-
-## What's Changed
-
-- **C++ core optimizations** — Native library runs faster and uses less memory thanks to streamlined hot paths and in‑lining improvements.
-- **KeyStore‑based security** — Passwords and secrets are now protected by Android's hardware‑backed KeyStore, making offline extraction practically impossible.
-- **Build fixes** — The build script no longer throws a `Join‑Path` positional‑parameter error when `ANDROID_NDK_HOME` is set. Version code is correctly aligned with the release.
-- **Versioning** — Updated `app.version.code` to `5`; bumped target API level compatibility.

@@ -1,10 +1,8 @@
 package com.msda.android
 
-import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.text.InputFilter
 import android.text.InputType
@@ -14,7 +12,6 @@ import android.widget.RadioGroup
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.biometric.BiometricManager
@@ -27,22 +24,14 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 class SettingsActivity : AppCompatActivity() {
-    private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (!granted) {
-                AppSettings.setPushConfirmationsEnabled(this, false)
-                findViewById<Switch>(R.id.switchPushConfirmations).isChecked = false
-            }
-        }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         applyThemePreference()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
+        BackgroundSyncScheduler.disable(this)
+
         val group = findViewById<RadioGroup>(R.id.radioThemeGroup)
-        val switchBackground = findViewById<Switch>(R.id.switchBackgroundSync)
-        val switchPush = findViewById<Switch>(R.id.switchPushConfirmations)
         val txtPinLockStatus = findViewById<TextView>(R.id.txtPinLockStatus)
         val btnSetPin = findViewById<Button>(R.id.btnSetPinLock)
         val btnRemovePin = findViewById<Button>(R.id.btnRemovePinLock)
@@ -55,9 +44,6 @@ class SettingsActivity : AppCompatActivity() {
             "dark" -> group.check(R.id.radioThemeDark)
             else -> group.check(R.id.radioThemeSystem)
         }
-
-        switchBackground.isChecked = AppSettings.isBackgroundConfirmationsEnabled(this)
-        switchPush.isChecked = AppSettings.isPushConfirmationsEnabled(this)
 
         refreshSecurityViews(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
 
@@ -79,19 +65,6 @@ class SettingsActivity : AppCompatActivity() {
                 else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
             }
             restartToHub()
-        }
-
-        switchBackground.setOnCheckedChangeListener { _, isChecked ->
-            AppSettings.setBackgroundConfirmationsEnabled(this, isChecked)
-            BackgroundSyncScheduler.configure(this)
-        }
-
-        switchPush.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-            AppSettings.setPushConfirmationsEnabled(this, isChecked)
-            BackgroundSyncScheduler.configure(this)
         }
 
         btnSetPin.setOnClickListener {
