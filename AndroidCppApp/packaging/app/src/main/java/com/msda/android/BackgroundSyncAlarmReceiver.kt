@@ -6,11 +6,7 @@ import android.content.Intent
 
 class BackgroundSyncAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action != BackgroundSyncScheduler.ACTION_BACKGROUND_SYNC_ALARM) {
-            return
-        }
-
-        BackgroundSyncScheduler.enqueueNow(context)
-        BackgroundSyncScheduler.scheduleNextAlarm(context)
+        // Background confirmation polling is disabled.
+        BackgroundSyncScheduler.disable(context)
     }
 }

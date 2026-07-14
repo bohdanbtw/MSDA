@@ -11,9 +11,6 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import com.msda.android.ConfirmationService
-import com.msda.android.NeedPasswordException
-import com.msda.android.steam.AuthContextMerger
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.SessionHandler
 import java.io.File
@@ -56,7 +53,7 @@ class HubActivity : AppCompatActivity() {
         }
 
         renderAccounts()
-        BackgroundSyncScheduler.configure(this)
+        BackgroundSyncScheduler.disable(this)
         checkSessionAndPromptIfNeeded()
 
         btnAddAccount.setOnClickListener {
@@ -70,7 +67,7 @@ class HubActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         applyThemePreference()
-        BackgroundSyncScheduler.configure(this)
+        BackgroundSyncScheduler.disable(this)
         renderAccounts()
         checkSessionAndPromptIfNeeded()
     }
@@ -387,42 +384,9 @@ class HubActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Silently renew every account whose session is expired or has unknown expiry.
-     * Runs race-free (by steamId, never changes the native active account) and never
-     * shows a password dialog here — the per-account password prompt happens inside
-     * MainActivity when the user actually opens an account that cannot be silently renewed.
-     */
     private fun checkSessionAndPromptIfNeeded() {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val accountsRaw = NativeBridge.getAccounts()
-                val lines = accountsRaw.lines().map { it.trim() }.filter { it.isNotBlank() }
-
-                for (line in lines) {
-                    val steamId = line.split('|').getOrNull(2).orEmpty()
-                    if (steamId.isBlank()) continue
-
-                    try {
-                        val base = NativeAuthBridge.confirmationAuthForSteamId(this@HubActivity, steamId) ?: continue
-                        val auth = base
-
-                        if (!AuthContextMerger.isSessionNearExpiry(this@HubActivity, steamId)) continue
-
-                        // Only attempt if a silent path exists; never prompt from the hub
-                        if (auth.refreshToken.isBlank() &&
-                            PasswordManager.getPassword(this@HubActivity, auth.accountName).isNullOrBlank()
-                        ) continue
-
-                        runCatching { SessionHandler.ensureValid(this@HubActivity, auth) }
-                    } catch (_: Throwable) {
-                        // Ignore per-account failures; user can still open the account manually
-                    }
-                }
-            } catch (_: Exception) {
-                // Ignore
-            }
-        }
+        // Intentionally empty: do not renew sessions for every account on hub open.
+        // Session refresh happens on demand when the user loads confirmations.
     }
 
     fun handleNeedPassword(accountName: String) {
@@ -447,7 +411,6 @@ class HubActivity : AppCompatActivity() {
                     }
                     renderAccounts()
                     txtHubStatus.text = "Session renewed for $accountName"
-                    checkSessionAndPromptIfNeeded()
                 } else {
                     txtHubStatus.text = "Failed to renew session: ${result.errorMessage}"
                 }
