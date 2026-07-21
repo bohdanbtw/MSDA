@@ -30,6 +30,16 @@ object AppSettings {
     private const val KEY_PROXY_PORT_PREFIX = "proxy_port_"
     private const val KEY_PROXY_USERNAME_PREFIX = "proxy_username_"
     private const val KEY_PROXY_PASSWORD_PREFIX = "proxy_password_"
+    private const val KEY_DEFAULT_PROXY_ENABLED = "default_proxy_enabled"
+    private const val KEY_DEFAULT_PROXY_TYPE = "default_proxy_type"
+    private const val KEY_DEFAULT_PROXY_HOST = "default_proxy_host"
+    private const val KEY_DEFAULT_PROXY_PORT = "default_proxy_port"
+    private const val KEY_DEFAULT_PROXY_USERNAME = "default_proxy_username"
+    private const val KEY_DEFAULT_PROXY_PASSWORD = "default_proxy_password"
+    private const val KEY_ACCOUNT_LABEL_PREFIX = "account_label_"
+    private const val KEY_WIDGET_STEAM_ID_PREFIX = "widget_steam_id_"
+    private const val KEY_WIDGET_ACCOUNT_INDEX_PREFIX = "widget_account_index_"
+    private const val KEY_WIDGET_ACCOUNT_NAME_PREFIX = "widget_account_name_"
     private const val KEY_PERMANENT_DEVICE_ID = "permanent_device_id"
     private const val KEY_USE_NEBULA_SESSION_STACK = "use_nebula_session_stack"
 
@@ -236,6 +246,111 @@ object AppSettings {
             .remove("$KEY_PROXY_PORT_PREFIX$steamId")
             .remove("$KEY_PROXY_USERNAME_PREFIX$steamId")
             .remove("$KEY_PROXY_PASSWORD_PREFIX$steamId")
+            .apply()
+    }
+
+    fun getDefaultProxyConfig(context: Context): AccountProxyConfig {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return AccountProxyConfig(
+            enabled = prefs.getBoolean(KEY_DEFAULT_PROXY_ENABLED, false),
+            type = prefs.getString(KEY_DEFAULT_PROXY_TYPE, "http")?.lowercase().orEmpty().ifBlank { "http" },
+            host = prefs.getString(KEY_DEFAULT_PROXY_HOST, "").orEmpty(),
+            port = prefs.getInt(KEY_DEFAULT_PROXY_PORT, 0),
+            username = prefs.getString(KEY_DEFAULT_PROXY_USERNAME, "").orEmpty(),
+            password = prefs.getString(KEY_DEFAULT_PROXY_PASSWORD, "").orEmpty()
+        )
+    }
+
+    fun setDefaultProxyConfig(context: Context, config: AccountProxyConfig) {
+        val normalizedType = if (config.type.equals("socks", ignoreCase = true)) "socks" else "http"
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_DEFAULT_PROXY_ENABLED, config.enabled)
+            .putString(KEY_DEFAULT_PROXY_TYPE, normalizedType)
+            .putString(KEY_DEFAULT_PROXY_HOST, config.host.trim())
+            .putInt(KEY_DEFAULT_PROXY_PORT, config.port)
+            .putString(KEY_DEFAULT_PROXY_USERNAME, config.username.trim())
+            .putString(KEY_DEFAULT_PROXY_PASSWORD, config.password)
+            .apply()
+    }
+
+    fun clearDefaultProxyConfig(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_DEFAULT_PROXY_ENABLED)
+            .remove(KEY_DEFAULT_PROXY_TYPE)
+            .remove(KEY_DEFAULT_PROXY_HOST)
+            .remove(KEY_DEFAULT_PROXY_PORT)
+            .remove(KEY_DEFAULT_PROXY_USERNAME)
+            .remove(KEY_DEFAULT_PROXY_PASSWORD)
+            .apply()
+    }
+
+    /**
+     * Per-account proxy wins when enabled and valid; otherwise falls back to the shared default.
+     */
+    fun resolveProxyConfig(context: Context, steamId: String): AccountProxyConfig {
+        val account = getAccountProxyConfig(context, steamId)
+        if (ProxyChecker.isConfigured(account)) {
+            return account
+        }
+        return getDefaultProxyConfig(context)
+    }
+
+    fun getAccountLabel(context: Context, steamId: String): String {
+        if (steamId.isBlank()) return ""
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("$KEY_ACCOUNT_LABEL_PREFIX$steamId", "").orEmpty().trim()
+    }
+
+    fun setAccountLabel(context: Context, steamId: String, label: String) {
+        if (steamId.isBlank()) return
+        val normalized = label.trim()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        if (normalized.isEmpty()) {
+            prefs.remove("$KEY_ACCOUNT_LABEL_PREFIX$steamId")
+        } else {
+            prefs.putString("$KEY_ACCOUNT_LABEL_PREFIX$steamId", normalized)
+        }
+        prefs.apply()
+    }
+
+    fun getWidgetSteamId(context: Context, appWidgetId: Int): String {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("$KEY_WIDGET_STEAM_ID_PREFIX$appWidgetId", "").orEmpty()
+    }
+
+    fun getWidgetAccountIndex(context: Context, appWidgetId: Int): Int {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt("$KEY_WIDGET_ACCOUNT_INDEX_PREFIX$appWidgetId", -1)
+    }
+
+    fun getWidgetAccountName(context: Context, appWidgetId: Int): String {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("$KEY_WIDGET_ACCOUNT_NAME_PREFIX$appWidgetId", "").orEmpty()
+    }
+
+    fun setWidgetAccount(
+        context: Context,
+        appWidgetId: Int,
+        steamId: String,
+        accountIndex: Int,
+        accountName: String
+    ) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("$KEY_WIDGET_STEAM_ID_PREFIX$appWidgetId", steamId)
+            .putInt("$KEY_WIDGET_ACCOUNT_INDEX_PREFIX$appWidgetId", accountIndex)
+            .putString("$KEY_WIDGET_ACCOUNT_NAME_PREFIX$appWidgetId", accountName)
+            .apply()
+    }
+
+    fun clearWidgetAccount(context: Context, appWidgetId: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove("$KEY_WIDGET_STEAM_ID_PREFIX$appWidgetId")
+            .remove("$KEY_WIDGET_ACCOUNT_INDEX_PREFIX$appWidgetId")
+            .remove("$KEY_WIDGET_ACCOUNT_NAME_PREFIX$appWidgetId")
             .apply()
     }
 

@@ -140,6 +140,16 @@
                 android:text="@string/confirmations_header"
                 android:textStyle="bold" />
 
+            <Button
+                android:id="@+id/btnConfirmAll"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="4dp"
+                android:minWidth="0dp"
+                android:text="@string/confirm_all_visible"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
             <ImageButton
                 android:id="@+id/btnRefreshConfirmations"
                 android:layout_width="40dp"
