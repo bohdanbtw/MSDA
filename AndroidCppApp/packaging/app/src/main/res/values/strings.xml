@@ -117,9 +117,11 @@
     <string name="proxy_saved">Proxy settings saved</string>
     <string name="proxy_invalid">Enter a valid proxy host and port</string>
     <string name="proxy_checking">Checking proxy…</string>
-    <string name="allow_market_confirmations_on_account">Allow market confirmations on this account</string>
-    <string name="allow_trade_confirmations_on_account">Allow trade confirmations on this account</string>
-    <string name="allow_gift_trade_confirmations_on_account">Allow gift trade confirmations on this account</string>
+    <string name="allow_trade_confirmations_on_account">Auto-accept trades when loading confirmations</string>
+    <string name="trade_auto_confirm_enabled">Trade auto-confirm on: trades will be accepted when you load confirmations</string>
+    <string name="trade_auto_confirm_disabled">Trade auto-confirm off</string>
+    <string name="auto_confirm_trades_hint">Does not run in the background. Trades are accepted only from the list after you press Load / refresh.</string>
+    <string name="status_auto_accepted_trades">Auto-accepted %1$d trade(s)</string>
     <string name="export_mafiles_success">Export successful</string>
     <string name="export_mafiles_failed">Export failed</string>
     <string name="export_mafiles_empty">No accounts to export</string>
