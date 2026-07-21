@@ -40,9 +40,8 @@ class SettingsActivity : AppCompatActivity() {
         val btnExport = findViewById<Button>(R.id.btnExportMafiles)
         val btnDefaultProxy = findViewById<Button>(R.id.btnDefaultProxy)
         val txtDefaultProxyStatus = findViewById<TextView>(R.id.txtDefaultProxyStatus)
-        val btnCheckUpdates = findViewById<Button>(R.id.btnCheckUpdates)
-        val btnOpenRelease = findViewById<Button>(R.id.btnOpenRelease)
-        val txtGithubLink = findViewById<TextView>(R.id.txtGithubLink)
+        val layoutVersionFooter = findViewById<android.widget.LinearLayout>(R.id.layoutVersionFooter)
+        val txtUpdateAvailable = findViewById<TextView>(R.id.txtUpdateAvailable)
 
         when (AppSettings.getThemeMode(this)) {
             "light" -> group.check(R.id.radioThemeLight)
@@ -109,16 +108,32 @@ class SettingsActivity : AppCompatActivity() {
             showDefaultProxyDialog(txtDefaultProxyStatus)
         }
 
-        btnCheckUpdates.setOnClickListener {
-            UpdateChecker.checkManually(this)
+        var latestReleaseUrl = "https://github.com/bohdanbtw/MSDA/releases/latest"
+        layoutVersionFooter.setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(latestReleaseUrl)))
         }
 
-        btnOpenRelease.setOnClickListener {
-            openLatestRelease()
+        refreshUpdateHint(txtUpdateAvailable) { url ->
+            latestReleaseUrl = url
         }
+    }
 
-        txtGithubLink.setOnClickListener {
-            openGitHubRepository()
+    private fun refreshUpdateHint(
+        txtUpdateAvailable: TextView,
+        onLatestUrl: (String) -> Unit
+    ) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            try {
+                val latest = UpdateChecker.fetchLatestRelease() ?: return@launch
+                if (isFinishing) return@launch
+                onLatestUrl(latest.htmlUrl.ifBlank { "https://github.com/bohdanbtw/MSDA/releases/latest" })
+                val local = UpdateChecker.currentVersionName(this@SettingsActivity)
+                if (UpdateChecker.isNewer(latest.versionName, local)) {
+                    txtUpdateAvailable.visibility = android.view.View.VISIBLE
+                }
+            } catch (_: Throwable) {
+                // Keep footer quiet when GitHub is unreachable; tap still opens releases/latest.
+            }
         }
     }
 
@@ -339,25 +354,4 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun openGitHubRepository() {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            data = Uri.parse("https://github.com/bohdanbtw/MSDA")
-        }
-        startActivity(intent)
-    }
-
-    private fun openLatestRelease() {
-        Toast.makeText(this, R.string.update_checking, Toast.LENGTH_SHORT).show()
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-            val url = try {
-                UpdateChecker.fetchLatestRelease()?.htmlUrl
-                    ?: "https://github.com/bohdanbtw/MSDA/releases/latest"
-            } catch (_: Throwable) {
-                "https://github.com/bohdanbtw/MSDA/releases/latest"
-            }
-            if (!isFinishing) {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            }
-        }
-    }
 }
