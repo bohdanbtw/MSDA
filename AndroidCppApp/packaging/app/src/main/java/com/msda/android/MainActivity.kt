@@ -113,6 +113,7 @@ class MainActivity : AppCompatActivity() {
 
         val btnScanQr = findViewById<ImageButton>(R.id.btnScanQr)
         val btnQuickActions = findViewById<ImageButton>(R.id.btnQuickActions)
+        val btnAutoConfirm = findViewById<android.widget.Button>(R.id.btnAutoConfirm)
         val txtAppTitle = findViewById<TextView>(R.id.txtAppTitle)
 
         // Load persisted mafiles FIRST so native state is populated before we set the
@@ -150,6 +151,10 @@ class MainActivity : AppCompatActivity() {
 
         btnScanQr.setOnClickListener {
             startQrScanner()
+        }
+
+        btnAutoConfirm.setOnClickListener {
+            showTradeAutoConfirmDialog()
         }
 
         imgProxyStatus.setOnClickListener {
@@ -316,10 +321,11 @@ class MainActivity : AppCompatActivity() {
         menu.menu.add(0, 1, 0, getString(R.string.back_to_hub))
         menu.menu.add(0, 2, 1, getString(R.string.import_mafile))
         menu.menu.add(0, 6, 2, getString(R.string.export_single_mafile))
-        menu.menu.add(0, 8, 3, getString(R.string.proxy_settings))
-        menu.menu.add(0, 3, 4, getString(R.string.login_steam))
-        menu.menu.add(0, 4, 5, getString(R.string.load_confirmations))
-        menu.menu.add(0, 5, 6, getString(R.string.settings))
+        menu.menu.add(0, 7, 3, getString(R.string.auto_market_confirmations))
+        menu.menu.add(0, 8, 4, getString(R.string.proxy_settings))
+        menu.menu.add(0, 3, 5, getString(R.string.login_steam))
+        menu.menu.add(0, 4, 6, getString(R.string.load_confirmations))
+        menu.menu.add(0, 5, 7, getString(R.string.settings))
 
         menu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
@@ -334,6 +340,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 6 -> {
                     exportCurrentAccountMafile()
+                    true
+                }
+                7 -> {
+                    showTradeAutoConfirmDialog()
                     true
                 }
                 8 -> {
@@ -358,6 +368,46 @@ class MainActivity : AppCompatActivity() {
         }
 
         menu.show()
+    }
+
+    private fun showTradeAutoConfirmDialog() {
+        updateActiveAuthContext()
+        val auth = activeAuthContext
+        if (auth == null || auth.steamId.isBlank()) {
+            txtStatus.text = getString(R.string.status_login_unavailable)
+            return
+        }
+
+        val tradeSwitch = Switch(this).apply {
+            text = getString(R.string.allow_trade_confirmations_on_account)
+            isChecked = AppSettings.isTradeAutoConfirmEnabled(this@MainActivity, auth.steamId)
+        }
+
+        val hint = TextView(this).apply {
+            text = getString(R.string.auto_confirm_trades_hint)
+            setPadding(0, 16, 0, 8)
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 24, 40, 0)
+            addView(hint)
+            addView(tradeSwitch)
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.auto_market_confirmations))
+            .setView(container)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                AppSettings.setTradeAutoConfirmEnabled(this, auth.steamId, tradeSwitch.isChecked)
+                txtStatus.text = if (tradeSwitch.isChecked) {
+                    getString(R.string.trade_auto_confirm_enabled)
+                } else {
+                    getString(R.string.trade_auto_confirm_disabled)
+                }
+            }
+            .show()
     }
 
     private fun exportCurrentAccountMafile() {
@@ -705,12 +755,15 @@ class MainActivity : AppCompatActivity() {
                 kotlinx.coroutines.delay(initialDelayMs)
             }
             val latestAuth = activeAuthContext ?: auth
+            var workingAuth = latestAuth
             var error: String? = null
-            val bundles: List<ConfirmationBundle>? = try {
+            var autoAccepted = 0
+            var bundles: List<ConfirmationBundle>? = try {
                 ConfirmationService.loadBundlesWithAutoRenew(
                     context = this@MainActivity,
-                    auth = latestAuth,
+                    auth = workingAuth,
                     onSessionRenewed = { newAuth ->
+                        workingAuth = newAuth
                         activeAuthContext = newAuth
                     }
                 )
@@ -724,6 +777,49 @@ class MainActivity : AppCompatActivity() {
                 null
             }
 
+            // Auto-accept trades only from this manually loaded list (no background polling).
+            if (error == null && bundles != null &&
+                AppSettings.isTradeAutoConfirmEnabled(this@MainActivity, workingAuth.steamId)
+            ) {
+                val tradeItems = bundles
+                    .flatMap { it.items }
+                    .filter { isTradeConfirmation(it) }
+                    .distinctBy { it.id }
+
+                for (item in tradeItems) {
+                    try {
+                        val ok = ConfirmationService.respondItemWithRenew(
+                            context = this@MainActivity,
+                            auth = workingAuth,
+                            item = item,
+                            accept = true,
+                            onSessionRenewed = { renewed ->
+                                workingAuth = renewed
+                                activeAuthContext = renewed
+                            }
+                        )
+                        if (ok) autoAccepted++
+                    } catch (_: Throwable) {
+                    }
+                }
+
+                if (autoAccepted > 0) {
+                    bundles = try {
+                        ConfirmationService.loadBundlesWithAutoRenew(
+                            context = this@MainActivity,
+                            auth = workingAuth,
+                            onSessionRenewed = { renewed ->
+                                workingAuth = renewed
+                                activeAuthContext = renewed
+                            }
+                        )
+                    } catch (ex: Throwable) {
+                        error = formatConfirmationLoadError(ex)
+                        bundles
+                    }
+                }
+            }
+
             runOnUiThread {
                 if (error != null) {
                     txtStatus.text = getString(R.string.status_confirmation_load_failed, error)
@@ -735,13 +831,21 @@ class MainActivity : AppCompatActivity() {
                 val existingKeys = stable.map { it.key }.toSet()
                 expandedBundleKeys.retainAll(existingKeys)
                 renderBundles(stable)
-                txtStatus.text = if (stable.isEmpty()) {
-                    getString(R.string.status_confirmations_empty)
-                } else {
-                    getString(R.string.status_confirmations_loaded, stable.sumOf { it.items.size })
+                txtStatus.text = when {
+                    autoAccepted > 0 && stable.isEmpty() ->
+                        getString(R.string.status_auto_accepted_trades, autoAccepted)
+                    autoAccepted > 0 ->
+                        getString(R.string.status_auto_accepted_trades, autoAccepted) +
+                            " · " + getString(R.string.status_confirmations_loaded, stable.sumOf { it.items.size })
+                    stable.isEmpty() -> getString(R.string.status_confirmations_empty)
+                    else -> getString(R.string.status_confirmations_loaded, stable.sumOf { it.items.size })
                 }
             }
         }
+    }
+
+    private fun isTradeConfirmation(item: ConfirmationItem): Boolean {
+        return item.type == 2 || item.typeName.contains("trade", ignoreCase = true)
     }
 
     private fun formatConfirmationLoadError(ex: Throwable): String {
