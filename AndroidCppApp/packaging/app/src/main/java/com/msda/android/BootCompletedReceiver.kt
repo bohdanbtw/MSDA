@@ -9,6 +9,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
         val action = intent?.action.orEmpty()
         if (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             BackgroundSyncScheduler.disable(context)
+            Code2FAWidgetProvider.requestUpdateAll(context)
         }
     }
 }

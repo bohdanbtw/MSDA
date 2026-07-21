@@ -35,11 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.InetSocketAddress
-import java.net.Proxy
 import java.net.URL
-import java.util.Base64
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -57,7 +53,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var authProgressRow: LinearLayout
     private lateinit var txtAuthProgress: TextView
     private lateinit var btnRefreshConfirmations: ImageButton
+    private lateinit var btnConfirmAll: android.widget.Button
     private lateinit var imgProxyStatus: ImageView
+    private lateinit var txtAppTitle: TextView
 
     private val uiHandler = Handler(Looper.getMainLooper())
     private var activeAuthContext: ConfirmationAuthContext? = null
@@ -109,12 +107,13 @@ class MainActivity : AppCompatActivity() {
         authProgressRow = findViewById(R.id.authProgressRow)
         txtAuthProgress = findViewById(R.id.txtAuthProgress)
         btnRefreshConfirmations = findViewById(R.id.btnRefreshConfirmations)
+        btnConfirmAll = findViewById(R.id.btnConfirmAll)
         imgProxyStatus = findViewById(R.id.imgProxyStatus)
 
         val btnScanQr = findViewById<ImageButton>(R.id.btnScanQr)
         val btnQuickActions = findViewById<ImageButton>(R.id.btnQuickActions)
         val btnAutoConfirm = findViewById<android.widget.Button>(R.id.btnAutoConfirm)
-        val txtAppTitle = findViewById<TextView>(R.id.txtAppTitle)
+        txtAppTitle = findViewById(R.id.txtAppTitle)
 
         // Load persisted mafiles FIRST so native state is populated before we set the
         // active account — otherwise importMafilesFromFolder() could reset it back to 0.
@@ -134,9 +133,7 @@ class MainActivity : AppCompatActivity() {
             if (currentSteamId.isBlank()) {
                 currentSteamId = resolveSteamIdForAccountIndex(selectedIndex)
             }
-            if (currentAccountName.isNotBlank()) {
-                txtAppTitle.text = currentAccountName
-            }
+            refreshAccountTitle()
         }
 
         refreshCodeViews()
@@ -147,6 +144,10 @@ class MainActivity : AppCompatActivity() {
 
         txtCode.setOnClickListener {
             copyCurrentCodeToClipboard()
+        }
+
+        txtAppTitle.setOnClickListener {
+            showAccountLabelDialog()
         }
 
         btnScanQr.setOnClickListener {
@@ -162,6 +163,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnQuickActions.setOnClickListener { showQuickActionsMenu(it) }
+
+        btnConfirmAll.setOnClickListener {
+            confirmAcceptAllVisible()
+        }
 
         btnRefreshConfirmations.setOnClickListener {
             txtStatus.text = getString(R.string.status_loading_confirmations)
@@ -202,10 +207,7 @@ class MainActivity : AppCompatActivity() {
                 if (currentSteamId.isBlank()) {
                     currentSteamId = resolveSteamIdForAccountIndex(selectedIndex)
                 }
-                val txtAppTitle = findViewById<TextView>(R.id.txtAppTitle)
-                if (currentAccountName.isNotBlank()) {
-                    txtAppTitle.text = currentAccountName
-                }
+                refreshAccountTitle()
                 refreshCodeViews()
                 updateActiveAuthContext()
                 refreshProxyIndicatorAsync()
@@ -214,6 +216,20 @@ class MainActivity : AppCompatActivity() {
                 renderBundles(emptyList())
                 txtStatus.text = "Loaded account: $currentAccountName"
             }
+        }
+    }
+
+    private fun refreshAccountTitle() {
+        if (!::txtAppTitle.isInitialized) return
+        if (currentAccountName.isBlank()) {
+            txtAppTitle.text = getString(R.string.app_name)
+            return
+        }
+        val label = AppSettings.getAccountLabel(this, currentSteamId)
+        txtAppTitle.text = if (label.isNotBlank()) {
+            getString(R.string.hub_account_title_with_label, currentAccountName, label)
+        } else {
+            currentAccountName
         }
     }
 
@@ -321,11 +337,12 @@ class MainActivity : AppCompatActivity() {
         menu.menu.add(0, 1, 0, getString(R.string.back_to_hub))
         menu.menu.add(0, 2, 1, getString(R.string.import_mafile))
         menu.menu.add(0, 6, 2, getString(R.string.export_single_mafile))
-        menu.menu.add(0, 7, 3, getString(R.string.auto_market_confirmations))
-        menu.menu.add(0, 8, 4, getString(R.string.proxy_settings))
-        menu.menu.add(0, 3, 5, getString(R.string.login_steam))
-        menu.menu.add(0, 4, 6, getString(R.string.load_confirmations))
-        menu.menu.add(0, 5, 7, getString(R.string.settings))
+        menu.menu.add(0, 9, 3, getString(R.string.account_label_edit))
+        menu.menu.add(0, 7, 4, getString(R.string.auto_market_confirmations))
+        menu.menu.add(0, 8, 5, getString(R.string.proxy_settings))
+        menu.menu.add(0, 3, 6, getString(R.string.login_steam))
+        menu.menu.add(0, 4, 7, getString(R.string.load_confirmations))
+        menu.menu.add(0, 5, 8, getString(R.string.settings))
 
         menu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
@@ -340,6 +357,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 6 -> {
                     exportCurrentAccountMafile()
+                    true
+                }
+                9 -> {
+                    showAccountLabelDialog()
                     true
                 }
                 7 -> {
@@ -867,10 +888,12 @@ class MainActivity : AppCompatActivity() {
 
         if (bundles.isEmpty()) {
             confirmationsContainer.visibility = View.GONE
+            btnConfirmAll.visibility = View.GONE
             return
         }
 
         confirmationsContainer.visibility = View.VISIBLE
+        btnConfirmAll.visibility = View.VISIBLE
 
         for (bundle in bundles) {
             confirmationsContainer.addView(createBundleView(bundle))
@@ -1086,6 +1109,76 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun confirmAcceptAllVisible() {
+        val bundles = lastSuccessfulBundles
+        val count = bundles.sumOf { it.items.size }
+        if (count <= 0) {
+            Toast.makeText(this, getString(R.string.confirm_all_empty), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.confirm_all_title)
+            .setMessage(getString(R.string.confirm_all_message, count))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.confirm_all_visible) { _, _ ->
+                acceptAllVisibleConfirmations(bundles)
+            }
+            .show()
+    }
+
+    private fun acceptAllVisibleConfirmations(bundles: List<ConfirmationBundle>) {
+        val auth = activeAuthContext ?: return
+        txtStatus.text = getString(R.string.confirm_all_in_progress)
+        btnConfirmAll.isEnabled = false
+
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            var accepted = 0
+            var total = 0
+            var workingAuth = auth
+            for (bundle in bundles) {
+                total += bundle.items.size
+                val ok = try {
+                    ConfirmationService.respondBundleWithRenew(
+                        context = this@MainActivity,
+                        auth = workingAuth,
+                        bundle = bundle,
+                        accept = true,
+                        onSessionRenewed = { renewed ->
+                            workingAuth = renewed
+                            activeAuthContext = renewed
+                        }
+                    )
+                } catch (_: Throwable) {
+                    false
+                }
+                if (ok) {
+                    accepted += bundle.items.size
+                }
+            }
+
+            runOnUiThread {
+                btnConfirmAll.isEnabled = true
+                txtStatus.text = getString(R.string.confirm_all_done, accepted, total)
+                refreshConfirmationsAsync()
+            }
+        }
+    }
+
+    private fun showAccountLabelDialog() {
+        val steamId = currentSteamId.ifBlank {
+            activeAuthContext?.steamId.orEmpty()
+        }
+        if (steamId.isBlank()) {
+            txtStatus.text = getString(R.string.status_login_unavailable)
+            return
+        }
+        AccountLabelHelper.showEditDialog(this, steamId) {
+            refreshAccountTitle()
+            Code2FAWidgetProvider.requestUpdateAll(this)
+        }
+    }
+
     private fun queryDisplayName(uri: Uri): String? {
         val cursor = contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
             ?: return null
@@ -1106,13 +1199,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun showProxySettingsDialog() {
         updateActiveAuthContext()
-        val steamId = activeAuthContext?.steamId.orEmpty()
+        val steamId = activeAuthContext?.steamId.orEmpty().ifBlank { currentSteamId }
         if (steamId.isBlank()) {
             txtStatus.text = getString(R.string.status_login_unavailable)
             return
         }
 
         val current = AppSettings.getAccountProxyConfig(this, steamId)
+        val resolved = AppSettings.resolveProxyConfig(this, steamId)
 
         val enabledSwitch = Switch(this).apply {
             text = getString(R.string.proxy_enable_on_account)
@@ -1162,6 +1256,15 @@ class MainActivity : AppCompatActivity() {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
 
+        val txtIp = TextView(this).apply {
+            text = when {
+                ProxyChecker.isConfigured(current) -> getString(R.string.proxy_using_account)
+                ProxyChecker.isConfigured(resolved) -> getString(R.string.proxy_using_default)
+                else -> getString(R.string.proxy_status_disabled)
+            }
+            setPadding(0, 16, 0, 0)
+        }
+
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 24, 40, 0)
@@ -1171,6 +1274,7 @@ class MainActivity : AppCompatActivity() {
             addView(portInput)
             addView(userInput)
             addView(passInput)
+            addView(txtIp)
         }
 
         android.app.AlertDialog.Builder(this)
@@ -1179,6 +1283,7 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton(android.R.string.cancel, null)
             .setNeutralButton(R.string.proxy_clear) { _, _ ->
                 AppSettings.clearAccountProxyConfig(this, steamId)
+                Toast.makeText(this, getString(R.string.proxy_saved), Toast.LENGTH_SHORT).show()
                 refreshProxyIndicatorAsync()
             }
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1190,38 +1295,65 @@ class MainActivity : AppCompatActivity() {
                 val type = if (typeGroup.checkedRadioButtonId == socksOption.id) "socks" else "http"
 
                 if (enabled && (host.isBlank() || port !in 1..65535)) {
-                    txtStatus.text = getString(R.string.proxy_invalid)
+                    Toast.makeText(this, getString(R.string.proxy_invalid), Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
 
-                AppSettings.setAccountProxyConfig(
-                    this,
-                    steamId,
-                    AccountProxyConfig(
-                        enabled = enabled,
-                        type = type,
-                        host = host,
-                        port = port,
-                        username = user,
-                        password = pass
-                    )
+                val config = AccountProxyConfig(
+                    enabled = enabled,
+                    type = type,
+                    host = host,
+                    port = port,
+                    username = user,
+                    password = pass
                 )
+                AppSettings.setAccountProxyConfig(this, steamId, config)
                 txtStatus.text = getString(R.string.proxy_saved)
-                refreshProxyIndicatorAsync()
+                if (enabled) {
+                    runProxyCheckAfterSave(config)
+                } else {
+                    Toast.makeText(this, getString(R.string.proxy_saved), Toast.LENGTH_SHORT).show()
+                    refreshProxyIndicatorAsync()
+                }
             }
             .show()
     }
 
+    private fun runProxyCheckAfterSave(config: AccountProxyConfig) {
+        txtStatus.text = getString(R.string.proxy_checking)
+        Toast.makeText(this, getString(R.string.proxy_checking), Toast.LENGTH_SHORT).show()
+        Thread {
+            val result = ProxyChecker.check(config)
+            runOnUiThread {
+                if (result.ok) {
+                    val msg = if (!result.publicIp.isNullOrBlank()) {
+                        getString(R.string.proxy_check_ok_with_ip, result.publicIp)
+                    } else {
+                        getString(R.string.proxy_check_ok)
+                    }
+                    txtStatus.text = msg
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                    setProxyIndicator(true, msg)
+                } else {
+                    val msg = getString(R.string.proxy_check_fail_detail)
+                    txtStatus.text = msg
+                    Toast.makeText(this, getString(R.string.proxy_check_fail), Toast.LENGTH_LONG).show()
+                    setProxyIndicator(false, msg)
+                }
+            }
+        }.start()
+    }
+
     private fun refreshProxyIndicatorAsync() {
         val auth = activeAuthContext
-        val steamId = auth?.steamId.orEmpty()
+        val steamId = auth?.steamId.orEmpty().ifBlank { currentSteamId }
         if (steamId.isBlank()) {
             hideProxyIndicator(getString(R.string.proxy_status_unknown))
             return
         }
 
-        val config = AppSettings.getAccountProxyConfig(this, steamId)
-        if (!config.enabled || config.host.isBlank() || config.port !in 1..65535) {
+        val config = AppSettings.resolveProxyConfig(this, steamId)
+        if (!ProxyChecker.isConfigured(config)) {
             hideProxyIndicator(getString(R.string.proxy_status_disabled))
             return
         }
@@ -1235,13 +1367,20 @@ class MainActivity : AppCompatActivity() {
         txtStatus.text = getString(R.string.proxy_checking)
 
         Thread {
-            val ok = isProxyWorking(config)
+            val result = ProxyChecker.check(config)
             runOnUiThread {
                 proxyCheckInProgress = false
-                if (ok) {
-                    setProxyIndicator(true, getString(R.string.proxy_status_working))
+                if (result.ok) {
+                    val desc = if (!result.publicIp.isNullOrBlank()) {
+                        getString(R.string.proxy_check_ok_with_ip, result.publicIp)
+                    } else {
+                        getString(R.string.proxy_status_working)
+                    }
+                    setProxyIndicator(true, desc)
+                    txtStatus.text = desc
                 } else {
                     setProxyIndicator(false, getString(R.string.proxy_status_failed))
+                    txtStatus.text = getString(R.string.proxy_status_failed)
                 }
             }
         }.start()
@@ -1256,27 +1395,5 @@ class MainActivity : AppCompatActivity() {
     private fun hideProxyIndicator(description: String) {
         imgProxyStatus.visibility = View.GONE
         imgProxyStatus.contentDescription = description
-    }
-
-    private fun isProxyWorking(config: AccountProxyConfig): Boolean {
-        return try {
-            val proxyType = if (config.type.equals("socks", ignoreCase = true)) Proxy.Type.SOCKS else Proxy.Type.HTTP
-            val proxy = Proxy(proxyType, InetSocketAddress(config.host, config.port))
-            val connection = URL("https://steamcommunity.com").openConnection(proxy) as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 5000
-            connection.readTimeout = 5000
-            connection.setRequestProperty("User-Agent", "MSDA/1.2.0")
-
-            if (proxyType == Proxy.Type.HTTP && config.username.isNotBlank()) {
-                val token = Base64.getEncoder().encodeToString("${config.username}:${config.password}".toByteArray())
-                connection.setRequestProperty("Proxy-Authorization", "Basic $token")
-            }
-
-            val code = connection.responseCode
-            code in 200..399
-        } catch (_: Throwable) {
-            false
-        }
     }
 }

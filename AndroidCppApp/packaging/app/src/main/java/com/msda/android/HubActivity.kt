@@ -1,5 +1,7 @@
 package com.msda.android
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,6 +10,7 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -55,6 +58,7 @@ class HubActivity : AppCompatActivity() {
         renderAccounts()
         BackgroundSyncScheduler.disable(this)
         checkSessionAndPromptIfNeeded()
+        UpdateChecker.checkOnLaunch(this)
 
         btnAddAccount.setOnClickListener {
             importMafileLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
@@ -119,6 +123,7 @@ class HubActivity : AppCompatActivity() {
             else -> line
         }
         val steamId = if (parts.size >= 3) parts[2] else ""
+        val label = if (steamId.isNotBlank()) AppSettings.getAccountLabel(this, steamId) else ""
 
         val rowContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -135,7 +140,11 @@ class HubActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
 
             addView(TextView(this@HubActivity).apply {
-                text = name
+                text = if (label.isNotBlank()) {
+                    getString(R.string.hub_account_title_with_label, name, label)
+                } else {
+                    name
+                }
                 textSize = 16f
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
             })
@@ -143,6 +152,17 @@ class HubActivity : AppCompatActivity() {
             if (steamId.isNotBlank()) {
                 addView(TextView(this@HubActivity).apply {
                     text = steamId
+                })
+                addView(TextView(this@HubActivity).apply {
+                    text = getString(R.string.account_label_edit)
+                    textSize = 12f
+                    setTextColor(0xFF6688AA.toInt())
+                    setOnClickListener {
+                        AccountLabelHelper.showEditDialog(this@HubActivity, steamId) {
+                            renderAccounts()
+                            Code2FAWidgetProvider.requestUpdateAll(this@HubActivity)
+                        }
+                    }
                 })
             }
 
@@ -156,6 +176,11 @@ class HubActivity : AppCompatActivity() {
                             .putExtra(MainActivity.EXTRA_STEAM_ID, steamId)
                     )
                 }
+            }
+
+            setOnLongClickListener {
+                copyAccountCode(index, name, steamId)
+                true
             }
         }
 
@@ -190,11 +215,11 @@ class HubActivity : AppCompatActivity() {
                 android.view.MotionEvent.ACTION_MOVE -> {
                     val currentX = event.x
                     val deltaX = startX - currentX
-                    
+
                     if (kotlin.math.abs(deltaX) > 10) {
                         if (deltaX >= 0) {
                             deleteButton.visibility = View.VISIBLE
-                            
+
                             val revealProgress = (deltaX / deleteButtonWidth).coerceIn(0f, 1f)
                             accountContent.translationX = -(revealProgress * deleteButtonWidth)
                             deleteButton.translationX = deleteButtonWidth - (revealProgress * deleteButtonWidth)
@@ -212,7 +237,7 @@ class HubActivity : AppCompatActivity() {
                     val endX = event.x
                     val deltaX = kotlin.math.abs(startX - endX)
                     val revealPercentage = ((-accountContent.translationX) / deleteButtonWidth).coerceIn(0f, 1f)
-                    
+
                     if (deltaX > 10) {
                         if (revealPercentage >= 0.5f) {
                             isExpanded = true
@@ -241,10 +266,34 @@ class HubActivity : AppCompatActivity() {
         return rowContainer
     }
 
+    private fun copyAccountCode(index: Int, name: String, steamId: String) {
+        val code = try {
+            when {
+                steamId.isNotBlank() -> NativeBridge.getCodeForSteamId(steamId).trim()
+                index >= 0 -> {
+                    NativeBridge.setActiveAccount(index)
+                    NativeBridge.getActiveCode().trim()
+                }
+                else -> ""
+            }
+        } catch (_: Throwable) {
+            ""
+        }
+
+        if (code.isBlank()) {
+            Toast.makeText(this, getString(R.string.code_copy_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("MSDA 2FA Code", code))
+        Toast.makeText(this, getString(R.string.code_copied_for_account, name), Toast.LENGTH_SHORT).show()
+    }
+
     private fun snapToExpanded(deleteButton: android.widget.Button, content: LinearLayout, deleteButtonWidth: Float) {
         val contentAnimator = android.animation.ObjectAnimator.ofFloat(content, "translationX", content.translationX, -deleteButtonWidth)
         val buttonAnimator = android.animation.ObjectAnimator.ofFloat(deleteButton, "translationX", deleteButton.translationX, 0f)
-        
+
         android.animation.AnimatorSet().apply {
             duration = 200
             playTogether(contentAnimator, buttonAnimator)
@@ -255,50 +304,13 @@ class HubActivity : AppCompatActivity() {
     private fun snapToCollapsed(deleteButton: android.widget.Button, content: LinearLayout) {
         val contentAnimator = android.animation.ObjectAnimator.ofFloat(content, "translationX", content.translationX, 0f)
         val buttonAnimator = android.animation.ObjectAnimator.ofFloat(deleteButton, "translationX", deleteButton.translationX, 200f)
-        
+
         android.animation.AnimatorSet().apply {
             duration = 200
             playTogether(contentAnimator, buttonAnimator)
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
                     deleteButton.visibility = View.GONE
-                }
-            })
-            start()
-        }
-    }
-
-    private fun animateRevealDelete(deleteButton: android.widget.Button, content: LinearLayout) {
-        deleteButton.visibility = View.VISIBLE
-        deleteButton.translationX = 200f
-
-        val animationSet = android.animation.AnimatorSet()
-        
-        val deleteButtonSlide = android.animation.ObjectAnimator.ofFloat(deleteButton, "translationX", 200f, 0f)
-        val contentSlide = android.animation.ObjectAnimator.ofFloat(content, "translationX", 0f, -200f)
-        val deleteButtonFade = android.animation.ObjectAnimator.ofFloat(deleteButton, "alpha", 0f, 1f)
-        
-        animationSet.apply {
-            duration = 350
-            playTogether(deleteButtonSlide, contentSlide, deleteButtonFade)
-            start()
-        }
-    }
-
-    private fun animateHideDelete(deleteButton: android.widget.Button, content: LinearLayout) {
-        val animationSet = android.animation.AnimatorSet()
-        
-        val deleteButtonSlide = android.animation.ObjectAnimator.ofFloat(deleteButton, "translationX", 0f, 200f)
-        val contentSlide = android.animation.ObjectAnimator.ofFloat(content, "translationX", -200f, 0f)
-        val deleteButtonFade = android.animation.ObjectAnimator.ofFloat(deleteButton, "alpha", 1f, 0f)
-        
-        animationSet.apply {
-            duration = 350
-            playTogether(deleteButtonSlide, contentSlide, deleteButtonFade)
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    deleteButton.visibility = View.GONE
-                    deleteButton.translationX = 0f
                 }
             })
             start()
@@ -320,7 +332,6 @@ class HubActivity : AppCompatActivity() {
         val importDir = File(filesDir, "mafiles")
         if (!importDir.exists()) return
 
-        // Resolve the steamId(s) for this account so we can purge stored sessions too.
         val steamIdsToPurge = try {
             NativeBridge.getAccounts().lines()
                 .map { it.trim() }.filter { it.isNotBlank() }
@@ -351,9 +362,10 @@ class HubActivity : AppCompatActivity() {
             }
         }
 
-        // Purge encrypted session + cached password so no orphaned credentials remain
         steamIdsToPurge.forEach { steamId ->
             try { SessionStore.delete(this, steamId) } catch (_: Throwable) {}
+            try { AppSettings.clearAccountProxyConfig(this, steamId) } catch (_: Throwable) {}
+            try { AppSettings.setAccountLabel(this, steamId, "") } catch (_: Throwable) {}
         }
         try { PasswordManager.deletePassword(this, accountName) } catch (_: Throwable) {}
 
@@ -364,6 +376,7 @@ class HubActivity : AppCompatActivity() {
 
         txtHubStatus.text = "Account deleted: $accountName"
         renderAccounts()
+        Code2FAWidgetProvider.requestUpdateAll(this)
     }
 
     private fun loadPersistedMafiles(): Boolean {
@@ -386,7 +399,6 @@ class HubActivity : AppCompatActivity() {
 
     private fun checkSessionAndPromptIfNeeded() {
         // Intentionally empty: do not renew sessions for every account on hub open.
-        // Session refresh happens on demand when the user loads confirmations.
     }
 
     fun handleNeedPassword(accountName: String) {

@@ -27,7 +27,7 @@ object SteamHttpClient {
                 chain.proceed(request)
             }
 
-        val proxyConfig = AppSettings.getAccountProxyConfig(context, steamId)
+        val proxyConfig = AppSettings.resolveProxyConfig(context, steamId)
         if (proxyConfig.enabled && proxyConfig.host.isNotBlank() && proxyConfig.port in 1..65535) {
             val proxyType = if (proxyConfig.type.equals("socks", ignoreCase = true)) Proxy.Type.SOCKS else Proxy.Type.HTTP
             builder.proxy(Proxy(proxyType, InetSocketAddress(proxyConfig.host, proxyConfig.port)))

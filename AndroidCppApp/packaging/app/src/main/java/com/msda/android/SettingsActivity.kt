@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.biometric.BiometricManager
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDateTime
@@ -37,6 +38,10 @@ class SettingsActivity : AppCompatActivity() {
         val btnRemovePin = findViewById<Button>(R.id.btnRemovePinLock)
         val switchBiometric = findViewById<Switch>(R.id.switchBiometricUnlock)
         val btnExport = findViewById<Button>(R.id.btnExportMafiles)
+        val btnDefaultProxy = findViewById<Button>(R.id.btnDefaultProxy)
+        val txtDefaultProxyStatus = findViewById<TextView>(R.id.txtDefaultProxyStatus)
+        val btnCheckUpdates = findViewById<Button>(R.id.btnCheckUpdates)
+        val btnOpenRelease = findViewById<Button>(R.id.btnOpenRelease)
         val txtGithubLink = findViewById<TextView>(R.id.txtGithubLink)
 
         when (AppSettings.getThemeMode(this)) {
@@ -46,6 +51,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         refreshSecurityViews(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
+        refreshDefaultProxyStatus(txtDefaultProxyStatus)
 
         group.setOnCheckedChangeListener { _, checkedId ->
             val newMode = when (checkedId) {
@@ -99,9 +105,55 @@ class SettingsActivity : AppCompatActivity() {
             exportMafiles()
         }
 
+        btnDefaultProxy.setOnClickListener {
+            showDefaultProxyDialog(txtDefaultProxyStatus)
+        }
+
+        btnCheckUpdates.setOnClickListener {
+            UpdateChecker.checkManually(this)
+        }
+
+        btnOpenRelease.setOnClickListener {
+            openLatestRelease()
+        }
+
         txtGithubLink.setOnClickListener {
             openGitHubRepository()
         }
+    }
+
+    private fun refreshDefaultProxyStatus(txtDefaultProxyStatus: TextView) {
+        val config = AppSettings.getDefaultProxyConfig(this)
+        txtDefaultProxyStatus.text = when {
+            !ProxyChecker.isConfigured(config) -> getString(R.string.proxy_status_disabled)
+            else -> {
+                val summary = "${config.type.uppercase()} ${config.host}:${config.port}"
+                getString(R.string.proxy_using_default) + " — $summary"
+            }
+        }
+    }
+
+    private fun showDefaultProxyDialog(txtDefaultProxyStatus: TextView) {
+        val current = AppSettings.getDefaultProxyConfig(this)
+        ProxySettingsUi.showEditor(
+            context = this,
+            title = getString(R.string.default_proxy_title),
+            current = current,
+            enableLabel = getString(R.string.default_proxy_enable),
+            onClear = {
+                AppSettings.clearDefaultProxyConfig(this)
+                Toast.makeText(this, getString(R.string.proxy_saved), Toast.LENGTH_SHORT).show()
+                refreshDefaultProxyStatus(txtDefaultProxyStatus)
+            },
+            onSaved = { config ->
+                AppSettings.setDefaultProxyConfig(this, config)
+                Toast.makeText(this, getString(R.string.proxy_saved), Toast.LENGTH_SHORT).show()
+                refreshDefaultProxyStatus(txtDefaultProxyStatus)
+                if (config.enabled) {
+                    ProxySettingsUi.runCheckAndNotify(this, config, txtDefaultProxyStatus)
+                }
+            }
+        )
     }
 
     private fun refreshSecurityViews(
@@ -292,5 +344,20 @@ class SettingsActivity : AppCompatActivity() {
             data = Uri.parse("https://github.com/bohdanbtw/MSDA")
         }
         startActivity(intent)
+    }
+
+    private fun openLatestRelease() {
+        Toast.makeText(this, R.string.update_checking, Toast.LENGTH_SHORT).show()
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            val url = try {
+                UpdateChecker.fetchLatestRelease()?.htmlUrl
+                    ?: "https://github.com/bohdanbtw/MSDA/releases/latest"
+            } catch (_: Throwable) {
+                "https://github.com/bohdanbtw/MSDA/releases/latest"
+            }
+            if (!isFinishing) {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            }
+        }
     }
 }
