@@ -138,8 +138,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/confirmations_header"
-                android:textStyle="bold"
-                android:visibility="gone" />
+                android:textStyle="bold" />
 
             <ImageButton
                 android:id="@+id/btnRefreshConfirmations"
@@ -147,8 +146,7 @@
                 android:layout_height="40dp"
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/load_confirmations"
-                android:src="@android:drawable/ic_popup_sync"
-                android:visibility="gone" />
+                android:src="@android:drawable/ic_popup_sync" />
         </LinearLayout>
 
         <LinearLayout

@@ -3,6 +3,14 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+} else {
+    logger.lifecycle("keystore.properties not found. Release builds require AndroidCppApp/tools/setup-release-signing.ps1")
+}
+
 android {
     namespace 'com.msda.android'
     compileSdk 34
@@ -11,17 +19,18 @@ android {
         applicationId "com.msda.android"
         minSdk 26
         targetSdk 34
-        versionCode 130000
-        versionName "1.3.0"
+        versionCode 140002
+        versionName "1.4.2"
         resValue "string", "settings_app_version", "Version ${versionName}"
     }
 
     signingConfigs {
         release {
-            storeFile file(rootProject.findProperty('MYAPP_RELEASE_STORE_FILE') ?: 'release.jks')
-            storePassword rootProject.findProperty('MYAPP_RELEASE_STORE_PASSWORD') ?: ''
-            keyAlias rootProject.findProperty('MYAPP_RELEASE_KEY_ALIAS') ?: ''
-            keyPassword rootProject.findProperty('MYAPP_RELEASE_KEY_PASSWORD') ?: ''
+            def storePath = keystoreProperties['storeFile'] ?: 'release.jks'
+            storeFile rootProject.file(storePath)
+            storePassword keystoreProperties['storePassword'] ?: ''
+            keyAlias keystoreProperties['keyAlias'] ?: 'upload'
+            keyPassword keystoreProperties['keyPassword'] ?: ''
         }
     }
 
@@ -62,4 +71,10 @@ dependencies {
     implementation 'androidx.biometric:biometric:1.1.0'
     implementation 'androidx.work:work-runtime-ktx:2.9.1'
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.google.protobuf:protobuf-javalite:3.25.5'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1'
+    testImplementation 'org.json:json:20240303'
 }

@@ -18,6 +18,7 @@
     <string name="status_confirmation_load_failed">Confirmation load failed: %1$s</string>
     <string name="status_login_required">Steam login required for confirmations</string>
     <string name="status_login_saved">Steam session saved</string>
+    <string name="status_session_refreshing">Session saved, waiting for Steam to activate it…</string>
     <string name="status_login_cancelled">Steam login cancelled</string>
     <string name="status_login_capture_failed">Steam login cookies were not captured yet</string>
     <string name="status_login_failed">Steam login failed: %1$s</string>
@@ -116,21 +117,18 @@
     <string name="proxy_saved">Proxy settings saved</string>
     <string name="proxy_invalid">Enter a valid proxy host and port</string>
     <string name="proxy_checking">Checking proxy…</string>
-    <string name="allow_market_confirmations_on_account">Allow market confirmations on this account</string>
-    <string name="allow_trade_confirmations_on_account">Allow trade confirmations on this account</string>
-    <string name="allow_gift_trade_confirmations_on_account">Allow gift trade confirmations on this account</string>
-    <string name="market_auto_confirm_enabled">Market auto-confirm enabled for this account</string>
-    <string name="trade_auto_confirm_enabled">Trade auto-confirm enabled for this account</string>
-    <string name="gift_trade_auto_confirm_enabled">Gift-trade auto-confirm enabled for this account</string>
-    <string name="auto_confirm_market_trade_enabled">Market and trade auto-confirm enabled for this account</string>
-    <string name="auto_confirm_market_gift_enabled">Market and gift-trade auto-confirm enabled for this account</string>
-    <string name="auto_confirm_trade_gift_enabled">Trade and gift-trade auto-confirm enabled for this account</string>
-    <string name="auto_confirm_all_types_enabled">Market, trade and gift-trade auto-confirm enabled for this account</string>
-    <string name="auto_confirm_all_disabled">Auto-confirm disabled for this account</string>
+    <string name="allow_trade_confirmations_on_account">Auto-accept trades when loading confirmations</string>
+    <string name="trade_auto_confirm_enabled">Trade auto-confirm on: trades will be accepted when you load confirmations</string>
+    <string name="trade_auto_confirm_disabled">Trade auto-confirm off</string>
+    <string name="auto_confirm_trades_hint">Does not run in the background. Trades are accepted only from the list after you press Load / refresh.</string>
+    <string name="status_auto_accepted_trades">Auto-accepted %1$d trade(s)</string>
     <string name="export_mafiles_success">Export successful</string>
     <string name="export_mafiles_failed">Export failed</string>
     <string name="export_mafiles_empty">No accounts to export</string>
     <string name="confirmations_header">Active confirmations</string>
     <string name="confirm_accept">Accept confirmation</string>
     <string name="confirm_decline">Decline confirmation</string>
+    <string name="status_confirmations_empty">No pending confirmations</string>
+    <string name="status_confirmations_loaded">Loaded %1$d confirmation(s)</string>
+    <string name="confirmation_network_error">Network timeout while contacting Steam. Your session may still be valid — tap refresh or try again in a moment.</string>
 </resources>

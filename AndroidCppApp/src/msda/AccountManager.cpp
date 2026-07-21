@@ -3,8 +3,11 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -213,6 +216,13 @@ namespace msda {
 bool AccountManager::importFromFolder(const std::string& folderPath) {
     namespace fs = std::filesystem;
 
+    // Remember which account was active so a background re-import does not
+    // silently switch the foreground UI to a different account.
+    std::string previousActiveSteamId;
+    if (_activeIndex < _accounts.size()) {
+        previousActiveSteamId = _accounts[_activeIndex].steamId;
+    }
+
     _accounts.clear();
     _activeIndex = static_cast<std::size_t>(-1);
 
@@ -250,6 +260,14 @@ bool AccountManager::importFromFolder(const std::string& folderPath) {
 
     if (!_accounts.empty()) {
         _activeIndex = 0;
+        if (!previousActiveSteamId.empty()) {
+            for (std::size_t i = 0; i < _accounts.size(); ++i) {
+                if (_accounts[i].steamId == previousActiveSteamId) {
+                    _activeIndex = i;
+                    break;
+                }
+            }
+        }
     }
 
     return true;
@@ -276,6 +294,18 @@ const MafileAccount* AccountManager::activeAccount() const {
     return &_accounts[_activeIndex];
 }
 
+const MafileAccount* AccountManager::accountForSteamId(const std::string& steamId) const {
+    if (steamId.empty()) {
+        return nullptr;
+    }
+    for (const auto& account : _accounts) {
+        if (account.steamId == steamId) {
+            return &account;
+        }
+    }
+    return nullptr;
+}
+
 std::string AccountManager::activeCode() const {
     const auto* active = activeAccount();
     if (active == nullptr) {
@@ -284,6 +314,15 @@ std::string AccountManager::activeCode() const {
 
     const auto now = static_cast<std::uint64_t>(std::time(nullptr));
     return generateSteamGuardCode(active->sharedSecret, now);
+}
+
+std::string AccountManager::codeForSteamId(const std::string& steamId) const {
+    const auto* account = accountForSteamId(steamId);
+    if (account == nullptr) {
+        return {};
+    }
+    const auto now = static_cast<std::uint64_t>(std::time(nullptr));
+    return generateSteamGuardCode(account->sharedSecret, now);
 }
 
 int AccountManager::secondsToNextCode() const {
@@ -308,23 +347,38 @@ bool AccountManager::isMafilePath(const std::string& path) {
     return lower == ".mafile";
 }
 
+namespace {
+
+std::string buildAuthPayload(const msda::MafileAccount& account) {
+    std::ostringstream out;
+    out << account.steamId << "|"
+        << account.identitySecret << "|"
+        << account.deviceId << "|"
+        << "" << "|"  // Session is owned by Kotlin SessionHandler/MafileRepository.
+        << "" << "|"
+        << account.accountName << "|"
+        << account.sharedSecret << "|"
+        << "" << "|"
+        << "";
+    return out.str();
+}
+
+} // anonymous namespace (payload builder)
+
 std::string AccountManager::activeConfirmationAuthPayload() const {
     const auto* active = activeAccount();
     if (active == nullptr) {
         return {};
     }
+    return buildAuthPayload(*active);
+}
 
-    std::ostringstream out;
-    out << active->steamId << "|"
-        << active->identitySecret << "|"
-        << active->deviceId << "|"
-        << active->sessionId << "|"
-        << active->steamLoginSecure << "|"
-        << active->accountName << "|"
-        << active->sharedSecret << "|"
-        << active->refreshToken << "|"
-        << active->accessToken;
-    return out.str();
+std::string AccountManager::confirmationAuthPayloadForSteamId(const std::string& steamId) const {
+    const auto* account = accountForSteamId(steamId);
+    if (account == nullptr) {
+        return {};
+    }
+    return buildAuthPayload(*account);
 }
 
 void AccountManager::updateSessionTokens(const std::string& steamId,
@@ -345,6 +399,213 @@ void AccountManager::updateSessionTokens(const std::string& steamId,
             break;
         }
     }
+}
+
+namespace {
+
+std::string escapeJsonValue(const std::string& value) {
+    std::string out;
+    out.reserve(value.size() * 2);
+    for (char ch : value) {
+        switch (ch) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    char buf[7];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(ch));
+                    out += buf;
+                } else {
+                    out += ch;
+                }
+                break;
+        }
+    }
+    return out;
+}
+
+std::string setJsonStringField(const std::string& json, const std::string& key, const std::string& value) {
+    const std::string search = "\"" + key + "\":";
+    std::size_t pos = json.find(search);
+
+    if (pos == std::string::npos) {
+        // Field absent — insert before the closing brace
+        std::size_t closePos = json.rfind('}');
+        if (closePos == std::string::npos) {
+            // Not a JSON object at all; wrap one
+            return "{\n  \"" + key + "\": \"" + escapeJsonValue(value) + "\"\n}";
+        }
+        std::size_t insertPos = closePos;
+        while (insertPos > 0 && (json[insertPos - 1] == ' ' || json[insertPos - 1] == '\t' ||
+               json[insertPos - 1] == '\r' || json[insertPos - 1] == '\n')) {
+            --insertPos;
+        }
+        // If the object is empty ("{}"), do not prepend a comma
+        const bool emptyObject = (insertPos > 0 && json[insertPos - 1] == '{');
+        const std::string separator = emptyObject ? "" : ",";
+        return json.substr(0, insertPos) + separator + "\n  \"" + key + "\": \"" +
+               escapeJsonValue(value) + "\"\n}" + json.substr(closePos + 1);
+    }
+
+    pos += search.length();
+    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
+    if (pos >= json.size()) return json;
+
+    if (json[pos] == '"') {
+        // Existing string value — replace its contents
+        ++pos; // skip opening quote
+        const std::size_t valueStart = pos;
+        while (pos < json.size()) {
+            if (json[pos] == '\\' && pos + 1 < json.size()) { pos += 2; continue; }
+            if (json[pos] == '"') break;
+            ++pos;
+        }
+        if (pos >= json.size()) return json;
+        return json.substr(0, valueStart) + escapeJsonValue(value) + json.substr(pos);
+    }
+
+    // Existing primitive value (null / number / true / false) — replace whole value
+    const std::size_t valueStart = pos;
+    while (pos < json.size() && json[pos] != ',' && json[pos] != '}' &&
+           json[pos] != '\r' && json[pos] != '\n') {
+        ++pos;
+    }
+    return json.substr(0, valueStart) + "\"" + escapeJsonValue(value) + "\"" + json.substr(pos);
+}
+
+std::optional<std::pair<std::size_t, std::size_t>> findJsonObjectSpan(const std::string& json,
+                                                                       const std::string& key) {
+    const std::string search = "\"" + key + "\"";
+    std::size_t pos = json.find(search);
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    pos = json.find('{', pos + search.length());
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+    for (std::size_t i = pos; i < json.size(); ++i) {
+        const char ch = json[i];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch == '\\') {
+                escaped = true;
+            } else if (ch == '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch == '"') {
+            inString = true;
+            continue;
+        }
+        if (ch == '{') {
+            ++depth;
+        } else if (ch == '}') {
+            --depth;
+            if (depth == 0) {
+                return std::make_pair(pos, i - pos + 1);
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::string setJsonStringFieldAny(const std::string& json,
+                                  const std::initializer_list<std::string>& keys,
+                                  const std::string& value) {
+    std::string updated = json;
+    for (const auto& key : keys) {
+        if (updated.find("\"" + key + "\":") != std::string::npos) {
+            return setJsonStringField(updated, key, value);
+        }
+    }
+    if (!keys.size()) {
+        return updated;
+    }
+    return setJsonStringField(updated, *keys.begin(), value);
+}
+
+std::string updateSessionDataBlock(const std::string& json,
+                                   const std::string& sessionId,
+                                   const std::string& steamLoginSecure,
+                                   const std::string& refreshToken,
+                                   const std::string& accessToken) {
+    const auto span = findJsonObjectSpan(json, "SessionData");
+    if (!span.has_value()) {
+        return json;
+    }
+
+    const auto [start, length] = span.value();
+    std::string block = json.substr(start, length);
+    if (!sessionId.empty()) {
+        block = setJsonStringFieldAny(block, {"SessionID", "sessionid", "session_id"}, sessionId);
+    }
+    if (!steamLoginSecure.empty()) {
+        block = setJsonStringFieldAny(block, {"steamLoginSecure"}, steamLoginSecure);
+    }
+    if (!refreshToken.empty()) {
+        block = setJsonStringFieldAny(block, {"RefreshToken", "refresh_token", "refreshtoken", "OAuthToken"}, refreshToken);
+    }
+    if (!accessToken.empty()) {
+        block = setJsonStringFieldAny(block, {"AccessToken", "access_token", "accesstoken", "access"}, accessToken);
+    }
+
+    return json.substr(0, start) + block + json.substr(start + length);
+}
+
+} // anonymous namespace (mafile helpers)
+
+bool msda::AccountManager::updateMafileSessionTokens(const std::string& steamId,
+                                                     const std::string& sessionId,
+                                                     const std::string& steamLoginSecure,
+                                                     const std::string& refreshToken,
+                                                     const std::string& accessToken) {
+    for (const auto& account : _accounts) {
+        if (account.steamId != steamId) continue;
+        if (account.sourcePath.empty()) return false;
+
+        std::ifstream in(account.sourcePath, std::ios::binary);
+        if (!in.is_open()) return false;
+        std::ostringstream buf;
+        buf << in.rdbuf();
+        in.close();
+
+        std::string content = buf.str();
+        if (!sessionId.empty())        content = setJsonStringField(content, "sessionid",        sessionId);
+        if (!steamLoginSecure.empty()) content = setJsonStringField(content, "steamLoginSecure", steamLoginSecure);
+        if (!refreshToken.empty())     content = setJsonStringField(content, "refresh_token",    refreshToken);
+        if (!accessToken.empty())      content = setJsonStringField(content, "access_token",     accessToken);
+        content = updateSessionDataBlock(content, sessionId, steamLoginSecure, refreshToken, accessToken);
+
+        const std::string tmpPath = account.sourcePath + ".tmp";
+        std::ofstream out(tmpPath, std::ios::binary);
+        if (!out.is_open()) return false;
+        out << content;
+        out.close();
+
+        std::error_code ec;
+        std::filesystem::rename(tmpPath, account.sourcePath, ec);
+        if (ec) {
+            std::filesystem::remove(tmpPath, ec);
+            return false;
+        }
+        return true;
+    }
+    return false;
 }
 
 } // namespace msda

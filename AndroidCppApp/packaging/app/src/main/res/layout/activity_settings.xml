@@ -52,27 +52,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:text="@string/background_title"
-            android:textStyle="bold" />
-
-        <Switch
-            android:id="@+id/switchBackgroundSync"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/background_sync" />
-
-        <Switch
-            android:id="@+id/switchPushConfirmations"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/background_push_confirmations" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
             android:text="@string/security_title"
             android:textStyle="bold" />
 
