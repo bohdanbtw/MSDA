@@ -8,8 +8,8 @@
 - **Hub long-press copy** — Long-press an account in the hub to copy its current 2FA code.
 - **Proxy check** — Test your proxy from Settings; see OK/fail and your public IP.
 - **Shared + per-account proxy** — Set a default proxy for all accounts, and override it per account when needed.
-- **Open Release** — Jump to the GitHub release page from Settings.
-- **Update checker** — The app can detect a newer GitHub release and offer the APK download.
+- **Update hint in Settings** — The version footer shows “Update available” when a newer GitHub release exists; tap it to open the release page.
+- **Update checker** — On hub launch, the app can detect a newer GitHub release and offer the APK download.
 
 ### From 1.4.x (still in this build)
 

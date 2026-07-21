@@ -29,7 +29,7 @@ data class AppReleaseInfo(
 
 /**
  * Checks GitHub Releases for a newer MSDA APK and installs it when the user confirms.
- * Used on hub launch and from Settings — never polls in the background.
+ * Used on hub launch; Settings shows an “Update available” hint in the version footer.
  */
 object UpdateChecker {
     private const val LATEST_RELEASE_URL =

@@ -145,9 +145,8 @@
     <string name="update_permission_title">Allow install</string>
     <string name="update_permission_message">Android needs permission for MSDA to install updates from this app.</string>
     <string name="update_permission_open">Open settings</string>
-    <string name="update_permission_retry_hint">Enable install permission, then tap Check for updates again</string>
-    <string name="check_for_updates">Check for updates</string>
-    <string name="open_release">Open Release</string>
+    <string name="update_permission_retry_hint">Enable install permission, then try the update again from the hub</string>
+    <string name="update_available_hint">Update available</string>
     <string name="confirm_all_visible">Accept all</string>
     <string name="confirm_all_title">Accept all confirmations?</string>
     <string name="confirm_all_message">Accept %1$d visible confirmation(s)?</string>
