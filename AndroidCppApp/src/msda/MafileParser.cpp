@@ -55,33 +55,63 @@ std::optional<MafileAccount> MafileParser::parseContent(const std::string& conte
         deviceId = extractStringValue(content, "deviceid");
     }
 
-    auto sessionId = extractStringValue(content, "SessionID");
-    if (sessionId.empty()) {
-        sessionId = extractStringValue(content, "sessionid");
-    }
+    // NebulaAuth / SDA v3 store session tokens inside a nested SessionData object.
+    const auto sessionBlock = extractJsonObject(content, "SessionData")
+        .value_or(extractJsonObject(content, "session_data").value_or(
+            extractJsonObject(content, "sessiondata").value_or("")));
 
-    auto steamLoginSecure = extractStringValue(content, "steamLoginSecure");
+    auto sessionId = firstNonEmpty({
+        extractStringValue(sessionBlock, "SessionID"),
+        extractStringValue(sessionBlock, "sessionid"),
+        extractStringValue(sessionBlock, "session_id"),
+        extractStringValue(content, "SessionID"),
+        extractStringValue(content, "sessionid")
+    });
 
-    auto refreshToken = extractStringValue(content, "refresh_token");
-    if (refreshToken.empty()) {
-        refreshToken = extractStringValue(content, "refreshtoken");
-    }
-    if (refreshToken.empty()) {
-        refreshToken = extractStringValue(content, "OAuthToken");
-    }
-    if (refreshToken.empty()) {
-        refreshToken = extractStringValue(content, "refresh");
-    }
+    auto steamLoginSecure = firstNonEmpty({
+        extractStringValue(sessionBlock, "steamLoginSecure"),
+        extractStringValue(content, "steamLoginSecure")
+    });
 
-    auto accessToken = extractStringValue(content, "access_token");
-    if (accessToken.empty()) {
-        accessToken = extractStringValue(content, "accesstoken");
-    }
-    if (accessToken.empty()) {
-        accessToken = extractStringValue(content, "access");
-    }
+    auto refreshToken = firstNonEmpty({
+        extractStringValue(sessionBlock, "RefreshToken"),
+        extractStringValue(sessionBlock, "refresh_token"),
+        extractStringValue(sessionBlock, "refreshtoken"),
+        extractStringValue(sessionBlock, "OAuthToken"),
+        extractStringValue(sessionBlock, "refresh"),
+        extractStringValue(content, "refresh_token"),
+        extractStringValue(content, "refreshtoken"),
+        extractStringValue(content, "OAuthToken"),
+        extractStringValue(content, "refresh")
+    });
+
+    auto accessToken = firstNonEmpty({
+        extractStringValue(sessionBlock, "AccessToken"),
+        extractStringValue(sessionBlock, "access_token"),
+        extractStringValue(sessionBlock, "accesstoken"),
+        extractStringValue(sessionBlock, "access"),
+        extractStringValue(content, "access_token"),
+        extractStringValue(content, "accesstoken"),
+        extractStringValue(content, "access")
+    });
     if (accessToken.empty()) {
         accessToken = steamLoginSecure;
+    }
+
+    if (steamLoginSecure.empty() && !accessToken.empty() && steamId != "unknown") {
+        if (accessToken.find("%7C%7C") != std::string::npos || accessToken.find("||") != std::string::npos) {
+            steamLoginSecure = accessToken;
+        } else if (accessToken.find('.') != std::string::npos) {
+            steamLoginSecure = steamId + "%7C%7C" + accessToken;
+        }
+    }
+
+    if (steamId.empty() && !sessionBlock.empty()) {
+        steamId = firstNonEmpty({
+            extractNumberOrString(sessionBlock, "SteamID"),
+            extractNumberOrString(sessionBlock, "steamid"),
+            extractNumberOrString(sessionBlock, "SteamId")
+        });
     }
 
     if (accountName.empty()) {
@@ -170,6 +200,60 @@ std::string MafileParser::extractNumberOrString(const std::string& json, const s
         ++pos;
     }
     return json.substr(start, pos - start);
+}
+
+std::optional<std::string> MafileParser::extractJsonObject(const std::string& json, const std::string& key) {
+    const std::string search = "\"" + key + "\"";
+    std::size_t pos = json.find(search);
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    pos = json.find('{', pos + search.length());
+    if (pos == std::string::npos) {
+        return std::nullopt;
+    }
+
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+    for (std::size_t i = pos; i < json.size(); ++i) {
+        const char ch = json[i];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch == '\\') {
+                escaped = true;
+            } else if (ch == '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch == '"') {
+            inString = true;
+            continue;
+        }
+        if (ch == '{') {
+            ++depth;
+        } else if (ch == '}') {
+            --depth;
+            if (depth == 0) {
+                return json.substr(pos, i - pos + 1);
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::string MafileParser::firstNonEmpty(std::initializer_list<std::string> values) {
+    for (const auto& value : values) {
+        if (!value.empty()) {
+            return value;
+        }
+    }
+    return {};
 }
 
 std::string MafileParser::fileNameFromPath(const std::string& filePath) {

@@ -1,18 +1,16 @@
 package com.msda.android
 
 import android.content.Context
+import com.msda.android.steam.EncryptionHelper
+import com.msda.android.steam.SessionHandler
+import com.msda.android.steam.SessionInvalidException
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.InetSocketAddress
-import java.net.Proxy
-import java.net.URI
-import java.net.URLDecoder
+import okhttp3.FormBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.net.URLEncoder
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.util.Base64
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
+import javax.net.ssl.SSLException
+import java.net.SocketTimeoutException
 
 data class ConfirmationAuthContext(
     val steamId: String,
@@ -30,7 +28,8 @@ data class ConfirmationAuthContext(
             steamLoginSecure = session.steamLoginSecure,
             sessionId = session.sessionId,
             refreshToken = session.refreshToken.ifBlank { refreshToken },
-            accessToken = session.accessToken.ifBlank { accessToken }
+            accessToken = session.accessToken.ifBlank { accessToken },
+            accountName = session.accountName.ifBlank { accountName }
         )
     }
 }
@@ -64,12 +63,6 @@ data class ConfirmationBundle(
 class NeedPasswordException(val accountName: String) : Exception("Password required for $accountName")
 
 object ConfirmationService {
-    private const val MIN_REQUEST_INTERVAL_MS = 1200L
-    private const val DEFAULT_RETRY_AFTER_MS = 10_000L
-    private const val MAX_RETRY_AFTER_MS = 60_000L
-    private val rateLimitLock = Any()
-    private var nextAllowedRequestAtMs = 0L
-
     fun parseAuthPayload(payload: String): ConfirmationAuthContext? {
         if (payload.isBlank()) return null
 
@@ -89,182 +82,103 @@ object ConfirmationService {
         )
     }
 
-    fun loadBundles(auth: ConfirmationAuthContext): List<ConfirmationBundle> {
-        return loadBundles(null, auth)
+    @Suppress("UNUSED_PARAMETER")
+    fun loadBundles(_auth: ConfirmationAuthContext): List<ConfirmationBundle> {
+        throw IllegalStateException("Context required to load confirmations")
     }
 
     fun loadBundles(context: Context?, auth: ConfirmationAuthContext): List<ConfirmationBundle> {
-        require(auth.identitySecret.isNotBlank()) { "identity_secret is missing in mafile" }
-        require(auth.deviceId.isNotBlank()) { "device_id is missing in mafile" }
-        require(auth.sessionId.isNotBlank()) { "sessionid is missing in mafile" }
-        require(auth.steamLoginSecure.isNotBlank()) { "steamLoginSecure is missing in mafile" }
-
-        val query = withConfirmationQuery(auth, "conf")
-        val url = "https://steamcommunity.com/mobileconf/getlist?$query"
-        val json = getJson(url, auth, context)
-
-        if (json.optBoolean("needauth", false)) {
-            throw IllegalStateException("Steam reported needauth=true. Session cookies are invalid or expired.")
-        }
-
-        if (!json.optBoolean("success", false)) {
-            val message = json.optString("message", "unknown")
-            val detail = json.optString("detail", "")
-            throw IllegalStateException("Confirmation load failed: $message $detail")
-        }
-
-        val conf = json.optJSONArray("conf") ?: return emptyList()
-        val items = mutableListOf<ConfirmationItem>()
-
-        for (i in 0 until conf.length()) {
-            val item = conf.optJSONObject(i) ?: continue
-            val summaryArray = item.optJSONArray("summary")
-            val summary = mutableListOf<String>()
-            if (summaryArray != null) {
-                for (s in 0 until summaryArray.length()) {
-                    summary.add(summaryArray.optString(s, ""))
+        if (context == null) return loadBundles(auth)
+        return kotlinx.coroutines.runBlocking {
+            SessionHandler.handle(context, auth) { renewed, client ->
+                val json = getJson(
+                    "https://steamcommunity.com/mobileconf/getlist?${withConfirmationQuery(renewed, "conf")}",
+                    client
+                )
+                if (json.optBoolean("needauth", false)) {
+                    throw SessionInvalidException("needauth")
                 }
+                parseBundlesOrThrow(json)
             }
-
-            val iconUrl = if (item.isNull("icon")) null else item.optString("icon", "")
-
-            items.add(
-                ConfirmationItem(
-                    id = item.optString("id", ""),
-                    nonce = item.optString("nonce", ""),
-                    type = item.optInt("type", 0),
-                    typeName = item.optString("type_name", "Unknown"),
-                    headline = item.optString("headline", ""),
-                    summary = summary,
-                    iconUrl = iconUrl,
-                    creatorId = item.optString("creator_id", ""),
-                    multi = item.optBoolean("multi", false)
-                )
-            )
-        }
-
-        val grouped = items.groupBy { item ->
-            when {
-                item.type == 2 -> "trade:${item.headline}"
-                item.typeName.contains("Market", ignoreCase = true) -> "market:${item.typeName}"
-                else -> "${item.typeName}:${item.creatorId}"
-            }
-        }
-
-        return grouped.map { (key, groupItems) ->
-            val first = groupItems.first()
-            val partner = if (first.type == 2) {
-                TradePartnerSummary(
-                    nickname = first.headline.ifBlank { "Unknown trader" },
-                    avatarUrl = first.iconUrl,
-                    steamLevel = "Steam Level: --"
-                )
-            } else {
-                null
-            }
-
-            ConfirmationBundle(
-                key = key,
-                title = first.typeName,
-                typeName = first.typeName,
-                items = groupItems,
-                partner = partner
-            )
         }
     }
 
-    suspend fun loadBundlesWithAutoRenew(context: Context?, auth: ConfirmationAuthContext): List<ConfirmationBundle> {
-        require(auth.identitySecret.isNotBlank()) { "identity_secret is missing in mafile" }
-        require(auth.deviceId.isNotBlank()) { "device_id is missing in mafile" }
-        require(auth.sessionId.isNotBlank()) { "sessionid is missing in mafile" }
-        require(auth.steamLoginSecure.isNotBlank()) { "steamLoginSecure is missing in mafile" }
-
-        val query = withConfirmationQuery(auth, "conf")
-        val url = "https://steamcommunity.com/mobileconf/getlist?$query"
-        val json = getJson(url, auth, context)
-
-        if (json.optBoolean("needauth", false)) {
-            // Try refresh token first
-            if (auth.refreshToken.isNotBlank()) {
-                try {
-                    val refreshed = SteamAuthService.refreshSessionUsingToken(auth.refreshToken)
-                    if (refreshed.success && refreshed.steamLoginSecure != null && refreshed.sessionId != null) {
-                        // Update auth context with new session info and retry
-                        val newAuth = auth.copy(
-                            steamLoginSecure = refreshed.steamLoginSecure,
-                            sessionId = refreshed.sessionId,
-                            accessToken = refreshed.accessToken ?: auth.accessToken,
-                            refreshToken = refreshed.refreshToken ?: auth.refreshToken
-                        )
-                        // Persist updated session
-                        if (context != null) {
-                            SessionStore.saveSession(
-                                context,
-                                auth.steamId,
-                                StoredSteamSession(
-                                    steamLoginSecure = newAuth.steamLoginSecure,
-                                    sessionId = newAuth.sessionId,
-                                    refreshToken = newAuth.refreshToken,
-                                    accessToken = newAuth.accessToken,
-                                    accountName = auth.accountName
-                                )
-                            )
-                        }
-                        return loadBundlesWithAutoRenew(context, newAuth)
-                    }
-                } catch (_: Throwable) {
-                    // Refresh token failed, fall through to password
-                }
-            }
-
-            // Try cached password before failing
-            if (context != null && auth.accountName.isNotBlank()) {
-                val cachedPassword = PasswordManager.getPassword(context, auth.accountName)
-                if (!cachedPassword.isNullOrBlank()) {
-                    try {
-                        val loginResult = SteamAuthService.refreshSessionUsingPassword(
-                            accountName = auth.accountName,
-                            password = cachedPassword
-                        )
-                        if (loginResult.success && loginResult.steamLoginSecure != null && loginResult.sessionId != null) {
-                            // Update auth context and retry
-                            val newAuth = auth.copy(
-                                steamLoginSecure = loginResult.steamLoginSecure,
-                                sessionId = loginResult.sessionId,
-                                accessToken = loginResult.accessToken ?: auth.accessToken,
-                                refreshToken = loginResult.refreshToken ?: auth.refreshToken
-                            )
-                            // Persist updated session
-                            SessionStore.saveSession(
-                                context,
-                                auth.steamId,
-                                StoredSteamSession(
-                                    steamLoginSecure = newAuth.steamLoginSecure,
-                                    sessionId = newAuth.sessionId,
-                                    refreshToken = newAuth.refreshToken,
-                                    accessToken = newAuth.accessToken,
-                                    accountName = auth.accountName
-                                )
-                            )
-                            return loadBundlesWithAutoRenew(context, newAuth)
-                        }
-                    } catch (_: Throwable) {
-                        // Cached password login failed, fall through to throw
-                    }
-                }
-            }
-
-            // If we get here, both refresh token and cached password failed
-            // Try to prompt user for password via dialog (if context is available)
-            if (context != null && auth.accountName.isNotBlank()) {
-                // We'll throw a specific exception that the UI can catch and show password dialog
-                throw NeedPasswordException(auth.accountName)
-            }
-
-            throw IllegalStateException("Steam reported needauth=true. Session cookies are invalid or expired.")
+    /**
+     * Load confirmation bundles with automatic session renewal.
+     *
+     * Proactively renews the session before the request if the stored access token is
+     * known to be expired (avoids a guaranteed-failed call), then reactively renews on
+     * `needauth`. Renewal goes through [SessionManager] (refresh_token → cached password).
+     *
+     * [onSessionRenewed] is invoked with the fresh context after any silent renewal so
+     * callers can update their in-memory auth. [renewalDepth] caps recursion at one retry.
+     */
+    suspend fun loadBundlesWithAutoRenew(
+        context: Context?,
+        auth: ConfirmationAuthContext,
+        onSessionRenewed: ((ConfirmationAuthContext) -> Unit)? = null,
+        _renewalDepth: Int = 0
+    ): List<ConfirmationBundle> {
+        @Suppress("UNUSED_VARIABLE")
+        val ignoredDepth = _renewalDepth
+        if (context == null) return loadBundles(auth)
+        val renewed = SessionHandler.ensureValid(context, auth)
+        if (renewed != auth) onSessionRenewed?.invoke(renewed)
+        return SessionHandler.handle(context, renewed) { latest, client ->
+            if (latest != renewed) onSessionRenewed?.invoke(latest)
+            val json = getJson(
+                "https://steamcommunity.com/mobileconf/getlist?${withConfirmationQuery(latest, "conf")}",
+                client
+            )
+            if (json.optBoolean("needauth", false)) throw SessionInvalidException("needauth")
+            parseBundlesOrThrow(json)
         }
+    }
 
-        return loadBundles(context, auth)
+    /**
+     * Accept/decline a bundle with automatic session renewal on failure.
+     * Returns the (possibly renewed) auth context alongside the success flag so the caller
+     * can keep using fresh cookies.
+     */
+    suspend fun respondBundleWithRenew(
+        context: Context,
+        auth: ConfirmationAuthContext,
+        bundle: ConfirmationBundle,
+        accept: Boolean,
+        onSessionRenewed: ((ConfirmationAuthContext) -> Unit)? = null
+    ): Boolean {
+        return try {
+            val ok = respondBundle(context, auth, bundle, accept)
+            if (ok) return true
+            // Failure may be a stale session — renew once and retry
+            val renewed = SessionManager.renew(context, auth) ?: return false
+            onSessionRenewed?.invoke(renewed)
+            respondBundle(context, renewed, bundle, accept)
+        } catch (_: Throwable) {
+            val renewed = SessionManager.renew(context, auth) ?: return false
+            onSessionRenewed?.invoke(renewed)
+            try { respondBundle(context, renewed, bundle, accept) } catch (_: Throwable) { false }
+        }
+    }
+
+    suspend fun respondItemWithRenew(
+        context: Context,
+        auth: ConfirmationAuthContext,
+        item: ConfirmationItem,
+        accept: Boolean,
+        onSessionRenewed: ((ConfirmationAuthContext) -> Unit)? = null
+    ): Boolean {
+        return try {
+            val ok = respondItem(context, auth, item, accept)
+            if (ok) return true
+            val renewed = SessionManager.renew(context, auth) ?: return false
+            onSessionRenewed?.invoke(renewed)
+            respondItem(context, renewed, item, accept)
+        } catch (_: Throwable) {
+            val renewed = SessionManager.renew(context, auth) ?: return false
+            onSessionRenewed?.invoke(renewed)
+            try { respondItem(context, renewed, item, accept) } catch (_: Throwable) { false }
+        }
     }
 
     fun respondBundle(auth: ConfirmationAuthContext, bundle: ConfirmationBundle, accept: Boolean): Boolean {
@@ -272,35 +186,38 @@ object ConfirmationService {
     }
 
     fun respondBundle(context: Context?, auth: ConfirmationAuthContext, bundle: ConfirmationBundle, accept: Boolean): Boolean {
-        val op = if (accept) "allow" else "cancel"
-        val time = System.currentTimeMillis() / 1000L
-        val key = confirmationKey(auth.identitySecret, time, op)
-
-        val pairs = mutableListOf(
-            "p" to auth.deviceId,
-            "a" to auth.steamId,
-            "k" to key,
-            "t" to time.toString(),
-            "m" to "react",
-            "tag" to op,
-            "sessionid" to auth.sessionId,
-            "op" to op
-        )
-
-        if (bundle.items.size > 1) {
-            for (item in bundle.items) {
-                pairs.add("cid[]" to item.id)
-                pairs.add("ck[]" to item.nonce)
+        if (context == null) return false
+        return kotlinx.coroutines.runBlocking {
+            SessionHandler.handle(context, auth) { renewed, client ->
+                val op = if (accept) "allow" else "cancel"
+                val time = System.currentTimeMillis() / 1000L
+                val key = confirmationKey(renewed.identitySecret, time, op)
+                val pairs = mutableListOf(
+                    "p" to renewed.deviceId,
+                    "a" to renewed.steamId,
+                    "k" to key,
+                    "t" to time.toString(),
+                    "m" to "react",
+                    "tag" to op,
+                    "sessionid" to renewed.sessionId,
+                    "op" to op
+                )
+                if (bundle.items.size > 1) {
+                    bundle.items.forEach { item ->
+                        pairs += "cid[]" to item.id
+                        pairs += "ck[]" to item.nonce
+                    }
+                    val json = postJson("https://steamcommunity.com/mobileconf/multiajaxop", pairs, client)
+                    json.optBoolean("success", false)
+                } else {
+                    val item = bundle.items.firstOrNull() ?: return@handle false
+                    pairs += "cid" to item.id
+                    pairs += "ck" to item.nonce
+                    val json = getJson("https://steamcommunity.com/mobileconf/ajaxop?${toQuery(pairs)}", client)
+                    json.optBoolean("success", false)
+                }
             }
-            val json = postJson("https://steamcommunity.com/mobileconf/multiajaxop", pairs, auth, context)
-            return json.optBoolean("success", false)
         }
-
-        val item = bundle.items.firstOrNull() ?: return false
-        pairs.add("cid" to item.id)
-        pairs.add("ck" to item.nonce)
-        val json = getJson("https://steamcommunity.com/mobileconf/ajaxop?${toQuery(pairs)}", auth, context)
-        return json.optBoolean("success", false)
     }
 
     fun respondItem(auth: ConfirmationAuthContext, item: ConfirmationItem, accept: Boolean): Boolean {
@@ -308,24 +225,27 @@ object ConfirmationService {
     }
 
     fun respondItem(context: Context?, auth: ConfirmationAuthContext, item: ConfirmationItem, accept: Boolean): Boolean {
-        val op = if (accept) "allow" else "cancel"
-        val time = System.currentTimeMillis() / 1000L
-        val key = confirmationKey(auth.identitySecret, time, op)
-
-        val query = StringBuilder()
-            .append("p=").append(url(auth.deviceId))
-            .append("&a=").append(url(auth.steamId))
-            .append("&k=").append(url(key))
-            .append("&t=").append(time)
-            .append("&m=react")
-            .append("&tag=").append(op)
-            .append("&sessionid=").append(url(auth.sessionId))
-            .append("&cid=").append(url(item.id))
-            .append("&ck=").append(url(item.nonce))
-            .append("&op=").append(op)
-
-        val json = getJson("https://steamcommunity.com/mobileconf/ajaxop?$query", auth, context)
-        return json.optBoolean("success", false)
+        if (context == null) return false
+        return kotlinx.coroutines.runBlocking {
+            SessionHandler.handle(context, auth) { renewed, client ->
+                val op = if (accept) "allow" else "cancel"
+                val time = System.currentTimeMillis() / 1000L
+                val key = confirmationKey(renewed.identitySecret, time, op)
+                val query = StringBuilder()
+                    .append("p=").append(url(renewed.deviceId))
+                    .append("&a=").append(url(renewed.steamId))
+                    .append("&k=").append(url(key))
+                    .append("&t=").append(time)
+                    .append("&m=react")
+                    .append("&tag=").append(op)
+                    .append("&sessionid=").append(url(renewed.sessionId))
+                    .append("&cid=").append(url(item.id))
+                    .append("&ck=").append(url(item.nonce))
+                    .append("&op=").append(op)
+                val json = getJson("https://steamcommunity.com/mobileconf/ajaxop?$query", client)
+                json.optBoolean("success", false)
+            }
+        }
     }
 
     private fun withConfirmationQuery(auth: ConfirmationAuthContext, tag: String): String {
@@ -336,168 +256,67 @@ object ConfirmationService {
     }
 
     private fun confirmationKey(identitySecret: String, time: Long, tag: String): String {
-        val secret = Base64.getDecoder().decode(identitySecret)
-        val timeBytes = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putLong(time).array()
-        val data = ByteArray(timeBytes.size + tag.length)
-        System.arraycopy(timeBytes, 0, data, 0, timeBytes.size)
-        val tagBytes = tag.toByteArray(Charsets.UTF_8)
-        System.arraycopy(tagBytes, 0, data, timeBytes.size, tagBytes.size)
-
-        val mac = Mac.getInstance("HmacSHA1")
-        mac.init(SecretKeySpec(secret, "HmacSHA1"))
-        return Base64.getEncoder().encodeToString(mac.doFinal(data))
+        return EncryptionHelper.generateConfirmationHash(time, identitySecret, tag)
     }
 
-    private fun getJson(url: String, auth: ConfirmationAuthContext, context: Context?): JSONObject {
-        waitForRateLimitWindow()
-
-        val connection = openConnection(url, auth, context)
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 10000
-        connection.readTimeout = 15000
-        connection.setRequestProperty("User-Agent", "okhttp/3.12.12")
-        connection.setRequestProperty("Accept", "application/json, text/javascript, text/html, application/xml, text/xml, */*")
-        connection.setRequestProperty("Accept-Language", "en-US")
-        connection.setRequestProperty("Origin", "https://steamcommunity.com")
-        connection.setRequestProperty("Referer", "https://steamcommunity.com/mobileconf")
-
-        val loginCookie = if (auth.steamLoginSecure.contains('%')) {
-            URLDecoder.decode(auth.steamLoginSecure, "UTF-8")
-        } else {
-            auth.steamLoginSecure
-        }
-
-        val cookieHeader = buildString {
-            append("steamLoginSecure=").append(loginCookie)
-            append("; sessionid=").append(auth.sessionId)
-            append("; steamid=").append(auth.steamId)
-            append("; Steam_Language=english")
-            append("; mobileClient=android")
-            append("; mobileClientVersion=777777 3.6.1")
-        }
-        connection.setRequestProperty("Cookie", cookieHeader)
-        applyProxyAuthHeader(connection, context, auth)
-
-        val status = connection.responseCode
-        val body = if (status in 200..299) {
-            connection.inputStream.bufferedReader().use { it.readText() }
-        } else {
-            if (status == 429) {
-                applyRateLimitBackoff(connection)
-            }
-            val err = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-            throw IllegalStateException("HTTP $status from Steam: $err")
-        }
-
-        return JSONObject(body)
-    }
-
-    private fun postJson(url: String, pairs: List<Pair<String, String>>, auth: ConfirmationAuthContext, context: Context?): JSONObject {
-        waitForRateLimitWindow()
-
-        val connection = openConnection(url, auth, context)
-        connection.requestMethod = "POST"
-        connection.connectTimeout = 10000
-        connection.readTimeout = 15000
-        connection.doOutput = true
-        connection.setRequestProperty("User-Agent", "okhttp/3.12.12")
-        connection.setRequestProperty("Accept", "application/json, text/javascript, text/html, application/xml, text/xml, */*")
-        connection.setRequestProperty("Accept-Language", "en-US")
-        connection.setRequestProperty("Origin", "https://steamcommunity.com")
-        connection.setRequestProperty("Referer", "https://steamcommunity.com/mobileconf")
-        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-
-        val loginCookie = if (auth.steamLoginSecure.contains('%')) {
-            URLDecoder.decode(auth.steamLoginSecure, "UTF-8")
-        } else {
-            auth.steamLoginSecure
-        }
-
-        val cookieHeader = buildString {
-            append("steamLoginSecure=").append(loginCookie)
-            append("; sessionid=").append(auth.sessionId)
-            append("; steamid=").append(auth.steamId)
-            append("; Steam_Language=english")
-            append("; mobileClient=android")
-            append("; mobileClientVersion=777777 3.6.1")
-        }
-        connection.setRequestProperty("Cookie", cookieHeader)
-        applyProxyAuthHeader(connection, context, auth)
-
-        val body = toQuery(pairs)
-        connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-
-        val status = connection.responseCode
-        val raw = if (status in 200..299) {
-            connection.inputStream.bufferedReader().use { it.readText() }
-        } else {
-            if (status == 429) {
-                applyRateLimitBackoff(connection)
-            }
-            val err = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-            throw IllegalStateException("HTTP $status from Steam: $err")
-        }
-
-        return JSONObject(raw)
-    }
-
-    private fun openConnection(url: String, auth: ConfirmationAuthContext, context: Context?): HttpURLConnection {
-        val connectionUrl = URI(url).toURL()
-        val proxyConfig = context?.let { AppSettings.getAccountProxyConfig(it, auth.steamId) }
-        val useProxy = proxyConfig != null && proxyConfig.enabled && proxyConfig.host.isNotBlank() && proxyConfig.port in 1..65535
-
-        return if (useProxy) {
-            val proxyType = if (proxyConfig!!.type.equals("socks", ignoreCase = true)) Proxy.Type.SOCKS else Proxy.Type.HTTP
-            val proxy = Proxy(proxyType, InetSocketAddress(proxyConfig.host, proxyConfig.port))
-            connectionUrl.openConnection(proxy) as HttpURLConnection
-        } else {
-            connectionUrl.openConnection() as HttpURLConnection
+    private fun getJson(url: String, client: OkHttpClient): JSONObject {
+        return executeWithNetworkRetry {
+            val response = client.newCall(
+                Request.Builder()
+                    .url(url)
+                    .get()
+                    .build()
+            ).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code}: $body")
+            JSONObject(body)
         }
     }
 
-    private fun applyProxyAuthHeader(connection: HttpURLConnection, context: Context?, auth: ConfirmationAuthContext) {
-        val proxyConfig = context?.let { AppSettings.getAccountProxyConfig(it, auth.steamId) } ?: return
-        if (!proxyConfig.enabled || !proxyConfig.type.equals("http", ignoreCase = true) || proxyConfig.username.isBlank()) {
-            return
+    private fun postJson(url: String, pairs: List<Pair<String, String>>, client: OkHttpClient): JSONObject {
+        return executeWithNetworkRetry {
+            val bodyBuilder = FormBody.Builder()
+            pairs.forEach { bodyBuilder.add(it.first, it.second) }
+            val response = client.newCall(
+                Request.Builder()
+                    .url(url)
+                    .post(bodyBuilder.build())
+                    .build()
+            ).execute()
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code}: $body")
+            JSONObject(body)
         }
-
-        val token = Base64.getEncoder().encodeToString("${proxyConfig.username}:${proxyConfig.password}".toByteArray())
-        connection.setRequestProperty("Proxy-Authorization", "Basic $token")
     }
 
-    private fun waitForRateLimitWindow() {
-        val waitMs: Long = synchronized(rateLimitLock) {
-            val now = System.currentTimeMillis()
-            val delay = (nextAllowedRequestAtMs - now).coerceAtLeast(0L)
-            val base = now + delay
-            nextAllowedRequestAtMs = base + MIN_REQUEST_INTERVAL_MS
-            delay
-        }
-
-        if (waitMs > 0) {
+    private inline fun executeWithNetworkRetry(block: () -> JSONObject): JSONObject {
+        var lastError: Throwable? = null
+        repeat(2) { attempt ->
             try {
-                Thread.sleep(waitMs)
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
+                return block()
+            } catch (e: Throwable) {
+                lastError = e
+                if (attempt == 0 && isTransientNetworkError(e)) {
+                    Thread.sleep(1_000L)
+                } else {
+                    throw e
+                }
             }
         }
+        throw lastError ?: IllegalStateException("Confirmation request failed")
     }
 
-    private fun applyRateLimitBackoff(connection: HttpURLConnection) {
-        val retryAfterHeader = connection.getHeaderField("Retry-After")
-        val retryAfterMs = retryAfterHeader
-            ?.trim()
-            ?.toLongOrNull()
-            ?.times(1000L)
-            ?.coerceIn(1000L, MAX_RETRY_AFTER_MS)
-            ?: DEFAULT_RETRY_AFTER_MS
-
-        synchronized(rateLimitLock) {
-            val target = System.currentTimeMillis() + retryAfterMs
-            if (target > nextAllowedRequestAtMs) {
-                nextAllowedRequestAtMs = target
+    private fun isTransientNetworkError(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            if (current is SSLException || current is SocketTimeoutException) return true
+            val message = current.message.orEmpty().lowercase()
+            if (message.contains("ssl") || message.contains("handshake") || message.contains("timed out")) {
+                return true
             }
+            current = current.cause
         }
+        return false
     }
 
     private fun toQuery(pairs: List<Pair<String, String>>): String {
@@ -505,4 +324,56 @@ object ConfirmationService {
     }
 
     private fun url(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+    private fun parseBundlesOrThrow(json: JSONObject): List<ConfirmationBundle> {
+        if (!json.optBoolean("success", false)) {
+            val message = json.optString("message", "unknown")
+            throw IllegalStateException("Confirmation load failed: $message")
+        }
+        val conf = json.optJSONArray("conf") ?: return emptyList()
+        val items = mutableListOf<ConfirmationItem>()
+        for (i in 0 until conf.length()) {
+            val item = conf.optJSONObject(i) ?: continue
+            val summary = mutableListOf<String>()
+            val summaryArray = item.optJSONArray("summary")
+            if (summaryArray != null) {
+                for (s in 0 until summaryArray.length()) {
+                    summary += summaryArray.optString(s, "")
+                }
+            }
+            items += ConfirmationItem(
+                id = item.optString("id", ""),
+                nonce = item.optString("nonce", ""),
+                type = item.optInt("type", 0),
+                typeName = item.optString("type_name", "Unknown"),
+                headline = item.optString("headline", ""),
+                summary = summary,
+                iconUrl = if (item.isNull("icon")) null else item.optString("icon", ""),
+                creatorId = item.optString("creator_id", ""),
+                multi = item.optBoolean("multi", false)
+            )
+        }
+        return items.groupBy { item ->
+            when {
+                item.type == 2 -> "trade:${item.headline}"
+                item.typeName.contains("Market", ignoreCase = true) -> "market:${item.typeName}"
+                else -> "${item.typeName}:${item.creatorId}"
+            }
+        }.map { (key, groupItems) ->
+            val first = groupItems.first()
+            ConfirmationBundle(
+                key = key,
+                title = first.typeName,
+                typeName = first.typeName,
+                items = groupItems,
+                partner = if (first.type == 2) {
+                    TradePartnerSummary(
+                        nickname = first.headline.ifBlank { "Unknown trader" },
+                        avatarUrl = first.iconUrl,
+                        steamLevel = "Steam Level: --"
+                    )
+                } else null
+            )
+        }
+    }
 }

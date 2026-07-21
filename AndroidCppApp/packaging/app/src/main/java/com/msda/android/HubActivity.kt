@@ -11,9 +11,8 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import com.msda.android.ConfirmationService
-import com.msda.android.NeedPasswordException
-import com.msda.android.SessionStore
+import com.msda.android.steam.NativeAuthBridge
+import com.msda.android.steam.SessionHandler
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,7 +53,7 @@ class HubActivity : AppCompatActivity() {
         }
 
         renderAccounts()
-        BackgroundSyncScheduler.configure(this)
+        BackgroundSyncScheduler.disable(this)
         checkSessionAndPromptIfNeeded()
 
         btnAddAccount.setOnClickListener {
@@ -68,7 +67,7 @@ class HubActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         applyThemePreference()
-        BackgroundSyncScheduler.configure(this)
+        BackgroundSyncScheduler.disable(this)
         renderAccounts()
         checkSessionAndPromptIfNeeded()
     }
@@ -154,6 +153,7 @@ class HubActivity : AppCompatActivity() {
                         Intent(this@HubActivity, MainActivity::class.java)
                             .putExtra(MainActivity.EXTRA_ACCOUNT_INDEX, index)
                             .putExtra(MainActivity.EXTRA_ACCOUNT_NAME, name)
+                            .putExtra(MainActivity.EXTRA_STEAM_ID, steamId)
                     )
                 }
             }
@@ -320,6 +320,20 @@ class HubActivity : AppCompatActivity() {
         val importDir = File(filesDir, "mafiles")
         if (!importDir.exists()) return
 
+        // Resolve the steamId(s) for this account so we can purge stored sessions too.
+        val steamIdsToPurge = try {
+            NativeBridge.getAccounts().lines()
+                .map { it.trim() }.filter { it.isNotBlank() }
+                .mapNotNull { line ->
+                    val parts = line.split('|')
+                    val name = parts.getOrNull(1).orEmpty()
+                    val steamId = parts.getOrNull(2).orEmpty()
+                    if (name.equals(accountName, ignoreCase = true) && steamId.isNotBlank()) steamId else null
+                }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+
         val mafiles = importDir.listFiles { file ->
             file.isFile && file.name.endsWith(".mafile", ignoreCase = true)
         } ?: emptyArray()
@@ -336,6 +350,12 @@ class HubActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // Purge encrypted session + cached password so no orphaned credentials remain
+        steamIdsToPurge.forEach { steamId ->
+            try { SessionStore.delete(this, steamId) } catch (_: Throwable) {}
+        }
+        try { PasswordManager.deletePassword(this, accountName) } catch (_: Throwable) {}
 
         try {
             NativeBridge.importMafilesFromFolder(importDir.absolutePath)
@@ -365,27 +385,8 @@ class HubActivity : AppCompatActivity() {
     }
 
     private fun checkSessionAndPromptIfNeeded() {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val payload = NativeBridge.getActiveConfirmationAuthPayload()
-                if (payload.isNullOrBlank()) return@launch
-                val ctx = ConfirmationService.parseAuthPayload(payload) ?: return@launch
-                if (ctx.accountName.isBlank()) return@launch
-
-                // Restore persisted session tokens if available
-                val activeSession = SessionStore.loadSession(this@HubActivity, ctx.steamId)
-                val enrichedCtx = if (activeSession != null) ctx.withSession(activeSession) else ctx
-
-                // Attempt to load confirmation bundles; this triggers auto-renewal and password fallback
-                ConfirmationService.loadBundlesWithAutoRenew(this@HubActivity, enrichedCtx)
-            } catch (e: NeedPasswordException) {
-                withContext(Dispatchers.Main) {
-                    handleNeedPassword(e.accountName)
-                }
-            } catch (_: Exception) {
-                // Any other error, ignore
-            }
-        }
+        // Intentionally empty: do not renew sessions for every account on hub open.
+        // Session refresh happens on demand when the user loads confirmations.
     }
 
     fun handleNeedPassword(accountName: String) {
@@ -394,9 +395,8 @@ class HubActivity : AppCompatActivity() {
             accountName,
             onResult = { result ->
                 if (result.success) {
-                    // Save password for future use
                     if (result.steamLoginSecure != null && result.sessionId != null) {
-                        SessionStore.saveSession(
+                        SessionPersistence.saveSession(
                             this,
                             result.steamId ?: "",
                             StoredSteamSession(
@@ -404,20 +404,13 @@ class HubActivity : AppCompatActivity() {
                                 sessionId = result.sessionId,
                                 refreshToken = result.refreshToken ?: "",
                                 accessToken = result.accessToken ?: "",
-                                accountName = accountName
+                                accountName = accountName,
+                                sessionExpiresAtMs = result.sessionExpiresAtMs
                             )
                         )
                     }
-                    // Save password if user chose to
-                    if (result.steamLoginSecure != null) {
-                        // Password was already saved in showPasswordSaveDialog
-                    }
-                    // Refresh the UI
                     renderAccounts()
                     txtHubStatus.text = "Session renewed for $accountName"
-
-                    // Automatically attempt to reload confirmation bundles now
-                    checkSessionAndPromptIfNeeded()
                 } else {
                     txtHubStatus.text = "Failed to renew session: ${result.errorMessage}"
                 }
@@ -458,6 +451,8 @@ class HubActivity : AppCompatActivity() {
             return
         }
 
+        MafileImportHelper.clearSessionStoreForMafile(this, targetFile)
+
         val imported = try {
             NativeBridge.importMafilesFromFolder(importDir.absolutePath)
         } catch (_: Throwable) {
@@ -471,6 +466,46 @@ class HubActivity : AppCompatActivity() {
         }
 
         renderAccounts()
+        if (imported) {
+            promptLoginAfterImportIfNeeded(targetFile)
+        }
+    }
+
+    private fun promptLoginAfterImportIfNeeded(mafile: File) {
+        val steamId = MafileImportHelper.parseSteamId(mafile) ?: run {
+            checkSessionAndPromptIfNeeded()
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val base = NativeAuthBridge.confirmationAuthForSteamId(this@HubActivity, steamId) ?: return@launch
+                var effective = base
+
+                if (MafileImportHelper.canSilentRenew(this@HubActivity, effective)) {
+                    val renewed = SessionHandler.ensureValid(this@HubActivity, effective)
+                    if (renewed != effective) effective = renewed
+                }
+
+                withContext(Dispatchers.Main) {
+                    when {
+                        MafileImportHelper.hasUsableSession(effective) -> {
+                            txtHubStatus.text = getString(R.string.status_import_success)
+                            checkSessionAndPromptIfNeeded()
+                        }
+                        MafileImportHelper.needsInteractiveLogin(this@HubActivity, effective) -> {
+                            handleNeedPassword(effective.accountName)
+                        }
+                        MafileImportHelper.canSilentRenew(this@HubActivity, effective) -> {
+                            handleNeedPassword(effective.accountName)
+                        }
+                        else -> checkSessionAndPromptIfNeeded()
+                    }
+                }
+            } catch (_: Throwable) {
+                withContext(Dispatchers.Main) { checkSessionAndPromptIfNeeded() }
+            }
+        }
     }
 
     private fun queryDisplayName(uri: Uri): String? {
