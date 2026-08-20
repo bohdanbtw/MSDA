@@ -1,5 +1,17 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T013 CSFloat sale notifications (1.6.3)
+
+- `CsFloatSaleWorker` baselines queued count then notifies only on increase (no first-run spam).
+- Tap opens Main → Pending sales (`EXTRA_OPEN_CSFLOAT_PENDING`). Channel `csfloat_sales`; soft-fail if denied.
+- No Steam Guard. Bumped **1.6.3 / 160003**.
+
+## 2026-08-21 — Architect Cycle 7: T013 in flight + notify reliability backlog
+
+- T063 shipped (**1.6.2**); Boss NOW **T013** (Worker WIP: `CsFloatNotifier`, last_queued/baseline prefs, open-pending Intent). Architect did **not** edit Kotlin.
+- Added post-notify tasks: **T081** cancel-on-clear, **T084** per-account mute, **T085** new-trade-id alerts, **T086** Settings worker status, **T087** Hub filter chips.
+- Note: worker already writes `last_check_at` — **T068** strip is mostly UI. Docs-only push.
+
 ## 2026-08-21 — Boss: T030+T063 approved; NOW = T013
 
 - Reviewed `161dae2` (T030 widget copy): **Steam-safety PASS** — widget-only; no getlist/confirm/CSFloat; existing UI AlarmManager tick only.
