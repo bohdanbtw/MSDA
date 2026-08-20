@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.13** (T084 per-account notify mute). Queue idle — suggest **T091** / **T076**.
+App HEAD: **1.6.14** (T091 Hub long-press copy SteamID). Queue idle — suggest **T076** / **T097**.
 
 ---
 
@@ -15,7 +15,12 @@ App HEAD: **1.6.13** (T084 per-account notify mute). Queue idle — suggest **T0
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T091** / **T076**. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T076** / **T097**. |
+
+### Acceptance (T091) — done 2026-08-21 (v1.6.14)
+
+- [x] Long-press Hub row copies steamId + Toast; does not open account
+- [x] Zero Steam Guard / getlist; Version **1.6.14** / `160014`; sole-Gradle; DEV_LOG + push
 
 ### Acceptance (T084) — done 2026-08-21 (v1.6.13)
 
@@ -146,7 +151,7 @@ Real-user features once status strip + safe import land. Prefer these over early
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T091 | todo | — | **Hub long-press → copy SteamID** (+ Toast); optional copy account name. |
+| P1 | T091 | done | Worker | **Hub long-press → copy SteamID** (+ Toast); optional copy account name. |
 | P1 | T092 | todo | — | **Offline / session hint on Confirm Load** when network missing or session expired (Renew shortcut). Supersedes thin T071. |
 | P1 | T093 | todo | — | **Share 2FA via system share sheet** (Main + Hub) as alt to clipboard-only. |
 | P1 | T094 | todo | — | **Import folder batch summary** after multi-mafile pick: N added / N replaced / N skipped + failures. |
@@ -393,7 +398,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 | P2 | T050 | todo | — | Clipboard auto-clear 2FA (30–60s). |
 | P2 | T051 | todo | — | Export mafile secrets warning. |
 | P2 | T074 | todo | — | Sensitive clipboard flag. |
-| P2 | T091 | todo | — | Hub long-press copy SteamID. |
+| P2 | T091 | done | Worker | Hub long-press copy SteamID. |
 | P2 | T093 | todo | — | Share 2FA via share sheet. |
 | P2 | T096 | todo | — | Confirmation relative time + type icon. |
 | P3 | T052 | todo | — | PIN attempt lockout / backoff. |
@@ -404,6 +409,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P1 | T091 | done | Worker | Hub long-press copy SteamID (**1.6.14**) |
 | P1 | T084 | done | Worker | Per-account CSFloat notify mute (**1.6.13**) |
 | P1 | T085 | done | Worker | Notify on new CSFloat trade ids (**1.6.12**) |
 | P0 | T129 | done | Worker | Hub secondary SteamID line (**1.6.11**) |

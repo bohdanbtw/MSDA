@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T091 Hub long-press copy SteamID (1.6.14)
+
+- Hub row long-press copies full SteamID + Toast; does not open the account (tap still opens).
+- Zero Steam Guard/getlist. Version **1.6.14** / `160014`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Worker: T084 per-account notify mute (1.6.13)
 
 - CSFloat dialog **Notify on new sales** toggle (default ON); OFF skips Notifier only; cancels active sale notif on mute. Poll/Check-now unchanged.

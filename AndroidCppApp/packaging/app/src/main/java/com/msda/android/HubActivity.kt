@@ -189,7 +189,8 @@ class HubActivity : AppCompatActivity() {
             }
 
             setOnLongClickListener {
-                copyAccountCode(index, name, steamId)
+                // T091: long-press copies SteamID (does not open account).
+                copyAccountSteamId(steamId)
                 true
             }
         }
@@ -283,28 +284,15 @@ class HubActivity : AppCompatActivity() {
         return getString(R.string.hub_steamid_truncated, id.takeLast(8))
     }
 
-    private fun copyAccountCode(index: Int, name: String, steamId: String) {
-        val code = try {
-            when {
-                steamId.isNotBlank() -> NativeBridge.getCodeForSteamId(steamId).trim()
-                index >= 0 -> {
-                    NativeBridge.setActiveAccount(index)
-                    NativeBridge.getActiveCode().trim()
-                }
-                else -> ""
-            }
-        } catch (_: Throwable) {
-            ""
-        }
-
-        if (code.isBlank()) {
-            Toast.makeText(this, getString(R.string.code_copy_failed), Toast.LENGTH_SHORT).show()
+    private fun copyAccountSteamId(steamId: String) {
+        val id = steamId.trim()
+        if (id.isBlank()) {
+            Toast.makeText(this, getString(R.string.hub_steamid_copy_missing), Toast.LENGTH_SHORT).show()
             return
         }
-
         val clipboard = getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("MSDA 2FA Code", code))
-        Toast.makeText(this, getString(R.string.code_copied_for_account, name), Toast.LENGTH_SHORT).show()
+        clipboard.setPrimaryClip(ClipData.newPlainText("MSDA SteamID", id))
+        Toast.makeText(this, getString(R.string.hub_steamid_copied), Toast.LENGTH_SHORT).show()
     }
 
     private fun snapToExpanded(deleteButton: android.widget.Button, content: LinearLayout, deleteButtonWidth: Float) {
