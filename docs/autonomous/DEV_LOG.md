@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T090 dual-bot enable warning (1.6.9)
+
+- First CSFloat enable shows one-time dual-bot dialog (VPS/desktop vs phone); OK/dismiss still enable; per-steamId `dual_bot_warned_*` pref.
+- Zero Steam Guard/getlist. Version **1.6.9** / `160009`; `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T079+T089 approved; NOW = T090
 
 - Reviewed `6e71420`: Check now one-shot WM + launcher notif icon — **Steam-safety PASS** (CSFloat SaleWorker path only; zero Guard/getlist).

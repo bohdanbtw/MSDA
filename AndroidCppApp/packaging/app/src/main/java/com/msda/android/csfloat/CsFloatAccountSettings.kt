@@ -12,6 +12,7 @@ object CsFloatAccountSettings {
     private const val KEY_LAST_QUEUED_COUNT_PREFIX = "last_queued_count_"
     private const val KEY_LAST_QUEUED_BASELINED_PREFIX = "last_queued_baselined_"
     private const val KEY_LAST_CHECK_AT_PREFIX = "last_check_at_"
+    private const val KEY_DUAL_BOT_WARNED_PREFIX = "dual_bot_warned_"
 
     /** WorkManager periodic floor is 15; we default higher for battery. */
     const val DEFAULT_INTERVAL_MINUTES = 30L
@@ -76,6 +77,20 @@ object CsFloatAccountSettings {
             .getLong("$KEY_LAST_CHECK_AT_PREFIX$steamId", 0L)
     }
 
+    fun hasSeenDualBotWarning(context: Context, steamId: String): Boolean {
+        if (steamId.isBlank()) return false
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("$KEY_DUAL_BOT_WARNED_PREFIX$steamId", false)
+    }
+
+    fun setDualBotWarningSeen(context: Context, steamId: String) {
+        if (steamId.isBlank()) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("$KEY_DUAL_BOT_WARNED_PREFIX$steamId", true)
+            .apply()
+    }
+
     /** Drop last-check / queued baseline (status strip → Never). Does not touch enable or key. */
     fun clearCheckStatus(context: Context, steamId: String) {
         if (steamId.isBlank()) return
@@ -96,6 +111,7 @@ object CsFloatAccountSettings {
             .remove("$KEY_LAST_QUEUED_COUNT_PREFIX$steamId")
             .remove("$KEY_LAST_QUEUED_BASELINED_PREFIX$steamId")
             .remove("$KEY_LAST_CHECK_AT_PREFIX$steamId")
+            .remove("$KEY_DUAL_BOT_WARNED_PREFIX$steamId")
             .apply()
         CsFloatSecureStore.clearApiKey(context, steamId)
         CsFloatNotifier.cancelForSteamId(context, steamId)

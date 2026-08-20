@@ -229,6 +229,9 @@
     <string name="csfloat_check_now">Check now</string>
     <string name="csfloat_check_now_started">CSFloat check started</string>
     <string name="csfloat_check_now_need_enable">Enable CSFloat with an API key first</string>
+    <string name="csfloat_dual_bot_title">One owner for Guard</string>
+    <string name="csfloat_dual_bot_message">Do not run a VPS/other CSFloat bot on this same Steam account while MSDA sale checks are enabled. Two hosts fighting over offers and Guard confirms can break trades. You can still enable MSDA — just keep one owner.</string>
+    <string name="csfloat_dual_bot_got_it">Got it</string>
     <string name="csfloat_pending_title">CSFloat pending sales</string>
     <string name="csfloat_pending_refresh">Refresh</string>
     <string name="csfloat_pending_loading">Loading queued/pending trades…</string>

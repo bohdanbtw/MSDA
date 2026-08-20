@@ -781,18 +781,40 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            CsFloatAccountSettings.setEnabled(this, steamId, enable)
-            if (!enable) {
-                CsFloatAccountSettings.clearCheckStatus(this, steamId)
+            val wasEnabled = CsFloatAccountSettings.isEnabled(this, steamId)
+            fun applyEnableAndSchedule() {
+                CsFloatAccountSettings.setEnabled(this@MainActivity, steamId, enable)
+                if (!enable) {
+                    CsFloatAccountSettings.clearCheckStatus(this@MainActivity, steamId)
+                }
+                // Disable or empty ready set cancels periodic CSFloat work.
+                CsFloatScheduler.refresh(this@MainActivity)
+                txtStatus.text = if (enable) {
+                    getString(R.string.csfloat_saved)
+                } else {
+                    getString(R.string.csfloat_disabled)
+                }
+                Toast.makeText(this@MainActivity, getString(R.string.csfloat_saved), Toast.LENGTH_SHORT).show()
             }
-            // Disable or empty ready set cancels periodic CSFloat work.
-            CsFloatScheduler.refresh(this)
-            txtStatus.text = if (enable) {
-                getString(R.string.csfloat_saved)
-            } else {
-                getString(R.string.csfloat_disabled)
+
+            // T090: one-time dual-bot warning on first enable; never blocks enable.
+            if (enable && !wasEnabled && !CsFloatAccountSettings.hasSeenDualBotWarning(this, steamId)) {
+                android.app.AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.csfloat_dual_bot_title))
+                    .setMessage(getString(R.string.csfloat_dual_bot_message))
+                    .setPositiveButton(R.string.csfloat_dual_bot_got_it) { _, _ ->
+                        CsFloatAccountSettings.setDualBotWarningSeen(this@MainActivity, steamId)
+                        applyEnableAndSchedule()
+                    }
+                    .setOnCancelListener {
+                        CsFloatAccountSettings.setDualBotWarningSeen(this@MainActivity, steamId)
+                        applyEnableAndSchedule()
+                    }
+                    .show()
+                return
             }
-            Toast.makeText(this, getString(R.string.csfloat_saved), Toast.LENGTH_SHORT).show()
+
+            applyEnableAndSchedule()
         }
 
         android.app.AlertDialog.Builder(this)

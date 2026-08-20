@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.8** (`6e71420` T079+T089). Boss: T079+T089 **APPROVED**. Single NOW = **T090**.
+App HEAD: **1.6.9** (T090 dual-bot warning). Queue idle — suggest **T085** / **T129** / **T141**.
 
 ---
 
@@ -15,14 +15,14 @@ App HEAD: **1.6.8** (`6e71420` T079+T089). Boss: T079+T089 **APPROVED**. Single 
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T090 | doing | Worker | **Dual-bot warning on CSFloat enable (1.6.9).** One-time dialog/copy when enabling CSFloat: don’t run VPS/other bot on same account. Does **not** block enable. Persist “seen” pref. Touch CSFloat enable path only. **Zero Steam Guard / getlist.** Bump `1.6.9` / `160009`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T085** / **T129** / **T141**. |
 
-### Acceptance (T090)
+### Acceptance (T090) — done 2026-08-21 (v1.6.9)
 
-- [ ] On first enable (or first enable after never-seen), show dual-bot warning dialog/copy
-- [ ] User can dismiss and still enable; pref records seen so not spammy
-- [ ] Never logs API key; zero Steam Guard / getlist
-- [ ] Version **1.6.9** / `160009`; DEV_LOG + push
+- [x] On first enable (never-seen), show dual-bot warning dialog/copy
+- [x] User can dismiss and still enable; per-steamId pref records seen
+- [x] Never logs API key; zero Steam Guard / getlist
+- [x] Version **1.6.9** / `160009`; DEV_LOG + push
 
 ### Acceptance (T079+T089) — **Boss APPROVED** (`6e71420`, v1.6.8)
 
@@ -381,6 +381,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T090 | done | Worker | Dual-bot warning on CSFloat enable (**1.6.9**) |
 | P0 | T079 | done | Worker | Check now one-shot WorkManager (**1.6.8**) |
 | P1 | T089 | done | Worker | CSFloat notif icon → launcher mipmap (inside 1.6.8) |
 | P0 | T077 | done | Worker | POST_NOTIFICATIONS on CSFloat enable (**1.6.7**) |
