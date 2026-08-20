@@ -369,6 +369,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
 | P0 | T103 | done | Worker | Tap status strip → pending (**1.6.6**) |
+| P0 | T065 | done | Worker | Import SteamID conflict Replace/Keep both/Cancel (**1.6.5**) |
 | P0 | T068 | done | Worker | CSFloat status strip (**1.6.4**) |
 | P1 | T088 | done | Worker | Pending Refresh syncs last_* (inside T068) |
 | P0 | T013 | done | Worker | CSFloat count-delta sale notifications (**1.6.3**) |
