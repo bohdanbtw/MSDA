@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Event wake #2: T010 already shipped; finish T040
+
+- Found T010 complete on `origin` (`b3bb468`, v1.5.1/150001). Boss NOW = **T040**.
+- Fixed `HubActivity.deleteAccount`: match by steamId / exact account_name / filename — removed JSON body substring delete. Bumped **1.5.2 / 150002**.
+- Did **not** touch `event_wake` watchers. NEXT: Boss promote **T011** or **T041**.
+
 ## 2026-08-21 — Boss: T010 approved; NOW = T040
 
 - Reviewed `b3bb468` on `origin/development`: CSFloat package + opt-in dialog + WM skeleton.

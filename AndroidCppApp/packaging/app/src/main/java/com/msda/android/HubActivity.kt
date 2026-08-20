@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import com.msda.android.steam.MafileSecretsReader
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.SessionHandler
 import com.msda.android.csfloat.CsFloatAccountSettings
@@ -198,7 +199,7 @@ class HubActivity : AppCompatActivity() {
             setTextColor(android.graphics.Color.WHITE)
             visibility = View.GONE
             setOnClickListener {
-                showDeleteAccountConfirmation(name)
+                showDeleteAccountConfirmation(name, steamId)
             }
         }
 
@@ -320,32 +321,40 @@ class HubActivity : AppCompatActivity() {
         }
     }
 
-    private fun showDeleteAccountConfirmation(accountName: String) {
+    private fun showDeleteAccountConfirmation(accountName: String, steamId: String) {
         android.app.AlertDialog.Builder(this)
             .setTitle("Delete Account")
             .setMessage("Delete account \"$accountName\"?\n\nIf you didn't save your mafile, you won't be able to access this account again.")
             .setNegativeButton("Cancel") { _, _ -> }
             .setPositiveButton("Delete account") { _, _ ->
-                deleteAccount(accountName)
+                deleteAccount(accountName, steamId)
             }
             .show()
     }
 
-    private fun deleteAccount(accountName: String) {
+    /**
+     * Deletes only the target account's mafile(s). Match by steamId (preferred) or exact
+     * account_name / filename — never substring-search mafile JSON bodies (T040).
+     */
+    private fun deleteAccount(accountName: String, steamId: String) {
         val importDir = File(filesDir, "mafiles")
         if (!importDir.exists()) return
 
-        val steamIdsToPurge = try {
-            NativeBridge.getAccounts().lines()
-                .map { it.trim() }.filter { it.isNotBlank() }
-                .mapNotNull { line ->
-                    val parts = line.split('|')
-                    val name = parts.getOrNull(1).orEmpty()
-                    val steamId = parts.getOrNull(2).orEmpty()
-                    if (name.equals(accountName, ignoreCase = true) && steamId.isNotBlank()) steamId else null
-                }
-        } catch (_: Throwable) {
-            emptyList()
+        val resolvedSteamId = steamId.trim().ifBlank {
+            try {
+                NativeBridge.getAccounts().lines()
+                    .map { it.trim() }.filter { it.isNotBlank() }
+                    .mapNotNull { line ->
+                        val parts = line.split('|')
+                        val name = parts.getOrNull(1).orEmpty()
+                        val id = parts.getOrNull(2).orEmpty()
+                        if (name.equals(accountName, ignoreCase = true) && id.isNotBlank()) id else null
+                    }
+                    .firstOrNull()
+                    .orEmpty()
+            } catch (_: Throwable) {
+                ""
+            }
         }
 
         val mafiles = importDir.listFiles { file ->
@@ -353,23 +362,18 @@ class HubActivity : AppCompatActivity() {
         } ?: emptyArray()
 
         mafiles.forEach { currentFile ->
+            if (!isMafileForAccount(currentFile, accountName, resolvedSteamId)) return@forEach
             try {
-                if (currentFile.inputStream().use { it.readBytes().decodeToString().contains(accountName, ignoreCase = true) }) {
-                    currentFile.delete()
-                }
+                currentFile.delete()
             } catch (_: Throwable) {
-                try {
-                    currentFile.delete()
-                } catch (_: Throwable) {
-                }
             }
         }
 
-        steamIdsToPurge.forEach { steamId ->
-            try { SessionStore.delete(this, steamId) } catch (_: Throwable) {}
-            try { AppSettings.clearAccountProxyConfig(this, steamId) } catch (_: Throwable) {}
-            try { AppSettings.setAccountLabel(this, steamId, "") } catch (_: Throwable) {}
-            try { CsFloatAccountSettings.clearAccount(this, steamId) } catch (_: Throwable) {}
+        if (resolvedSteamId.isNotBlank()) {
+            try { SessionStore.delete(this, resolvedSteamId) } catch (_: Throwable) {}
+            try { AppSettings.clearAccountProxyConfig(this, resolvedSteamId) } catch (_: Throwable) {}
+            try { AppSettings.setAccountLabel(this, resolvedSteamId, "") } catch (_: Throwable) {}
+            try { CsFloatAccountSettings.clearAccount(this, resolvedSteamId) } catch (_: Throwable) {}
         }
         try { PasswordManager.deletePassword(this, accountName) } catch (_: Throwable) {}
         try { CsFloatScheduler.refresh(this) } catch (_: Throwable) {}
@@ -382,6 +386,31 @@ class HubActivity : AppCompatActivity() {
         txtHubStatus.text = "Account deleted: $accountName"
         renderAccounts()
         Code2FAWidgetProvider.requestUpdateAll(this)
+    }
+
+    private fun isMafileForAccount(file: File, accountName: String, steamId: String): Boolean {
+        if (steamId.isNotBlank()) {
+            val fileSteamId = MafileSecretsReader.steamIdForFile(file)
+                ?: MafileImportHelper.parseSteamId(file)
+            if (!fileSteamId.isNullOrBlank()) {
+                return fileSteamId == steamId
+            }
+        }
+
+        val fileAccountName = try {
+            val json = org.json.JSONObject(file.readText())
+            listOf(json.optString("account_name"), json.optString("AccountName"))
+                .map { it.trim() }
+                .firstOrNull { it.isNotBlank() }
+                .orEmpty()
+        } catch (_: Throwable) {
+            ""
+        }
+        if (fileAccountName.isNotBlank()) {
+            return fileAccountName.equals(accountName, ignoreCase = true)
+        }
+
+        return file.nameWithoutExtension.equals(accountName, ignoreCase = true)
     }
 
     private fun loadPersistedMafiles(): Boolean {

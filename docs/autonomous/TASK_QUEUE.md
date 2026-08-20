@@ -13,14 +13,14 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T040 | todo | Worker | **Fix Hub delete-by-substring (1.5.2).** In `HubActivity.deleteAccount`, match only by steamId / exact mafile filename / account id — never by `accountName` substring inside mafile JSON body. Bump `versionName`→`1.5.2` and `versionCode`→`150002`. Append DEV_LOG; commit + push `development`. Do **not** edit CSFloat or Steam confirmation poll paths. |
+| — | — | idle | — | **Awaiting Boss** — recommend next **T011** (CSFloat Test connection) or **T041**. |
 
-### Acceptance (T040)
+### Acceptance (T040) — done 2026-08-21 (event wake #2)
 
-- [ ] Repro: two accounts where one’s display name appears inside the other’s mafile → delete A never removes B
-- [ ] Regression: normal swipe-delete still works
-- [ ] Version `1.5.2` / `150002`
-- [ ] DEV_LOG + push
+- [x] Delete matches steamId / exact `account_name` / filename — no JSON body substring
+- [x] Regression: swipe-delete still wired with steamId from row
+- [x] Version `1.5.2` / `150002`
+- [x] DEV_LOG + push
 
 ### Acceptance (T010) — **Boss APPROVED** (`b3bb468` on `origin/development`)
 
@@ -104,7 +104,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T040 | doing | Worker | **Fix Hub delete-by-substring** — see NOW |
+| P0 | T040 | done | Worker | **Fix Hub delete-by-substring** — steamId/exact name/filename match (1.5.2) |
 | P1 | T041 | todo | — | **Pace accept-all / trade auto-confirm** — ≥300–500ms between Steam ops + stop/backoff on failure/429 (`MainActivity`, `ConfirmationService`). |
 | P1 | T042 | todo | — | **Wire or remove dead market/gift auto-confirm** APIs in `AppSettings` (menu already hints market) — either UI+behavior or delete dead flags. |
 | P2 | T043 | todo | — | **PasswordManager case bug:** `hasPassword` case-sensitive vs `getPassword` case-insensitive — unify. |
@@ -114,8 +114,8 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 ### Acceptance (T040)
 
-- [ ] Repro: two accounts where one’s display name appears inside the other’s mafile → delete A never removes B
-- [ ] Regression: normal swipe-delete still works
+- [x] Delete no longer uses JSON body substring match (steamId / exact account_name / filename)
+- [x] Swipe-delete still works (passes steamId from row)
 
 ### Acceptance (T041)
 
