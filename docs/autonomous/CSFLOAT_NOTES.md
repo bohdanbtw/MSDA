@@ -1,73 +1,102 @@
 ﻿# CSFloat notes (from bohdanbtw/botCsFloat)
 
-Reference: shallow clone of https://github.com/bohdanbtw/botCsFloat (Python seller bot + Telegram UI).
+Reference: local clone `D:\Programming\botCsFloat` / https://github.com/bohdanbtw/botCsFloat  
 Purpose: map what MSDA can reuse on Android without copying secrets or breaking Guard rate limits.
 
 ## APIs (CSFloat `https://csfloat.com/api/v1`)
 
-Auth header: `Authorization: <CSFLOAT_API_KEY>` (Profile → Developer). Also send JSON Accept/Content-Type.
+Auth header: `Authorization: <CSFLOAT_API_KEY>` (raw key, **not** `Bearer`). JSON Accept/Content-Type.
 
 | Method | Path | Role |
 |--------|------|------|
-| GET | `/me` | Profile, balance, away flag |
+| GET | `/me` | Profile, balance, `away`, `actionable_trades` |
 | PATCH | `/me` | `{ "away": bool }` — stall Online/Offline |
 | GET | `/me/inventory` | Seller inventory / stall stock |
-| GET | `/me/trades?state=&role=&page=&limit=` | Trades (`queued,pending`, history states) |
+| GET | `/me/trades?state=&role=&page=&limit=` | Trades (`queued,pending`, history) |
+| GET | `/me/notifications?limit=` | Unread sale/trade hints |
 | POST | `/trades/{id}/accept` | Accept a queued sale |
 | POST | `/trades/bulk/accept` | `{ "trade_ids": [...] }` |
 | POST | `/trades/{id}/cannot-deliver` | Seller cannot send item |
 | POST | `/trades/steam-status/new-offer` | Notify CSFloat of sent Steam offer |
-| POST | `/trades/steam-status/offer` | Update offer state (`sent_offers` objects) |
+| POST | `/trades/steam-status/offer` | Update offer state (`sent_offers`) |
 | PATCH | `/listings/{id}` | `{ "price": cents }` reprice |
 | GET | `/me/transactions?type=&page=&limit=` | Ledger (`trade_verified`, etc.) |
-| GET | `/me/notifications?limit=` | Unread sale/trade hints |
+| GET | `/listings?...` | Market comps (429-heavy — avoid on phone loops) |
 
-Client behavior of note: retry on 429 (backoff), network errors, and non-JSON bodies; poll interval env `POLL_SECONDS` (default ~15–20s) is **CSFloat only**.
+Bot client notes: process-wide min interval ~1s; on 429 cooloff 5–90s + honor `Retry-After`; CSFloat poll default **15–20s** (VPS). Phone must be **slower**.
 
 ## Auth model (bot vs MSDA)
 
-- **CSFloat:** API key only (no OAuth in this bot).
-- **Steam:** maFile (`shared_secret`, `identity_secret`, `Session.RefreshToken`) + optional password fallback; session cookies under `data/`.
-- **Telegram:** bot token + chat id (desktop/VPS UX — not required for MSDA core).
+| Layer | Bot | MSDA phone |
+|-------|-----|------------|
+| CSFloat | API key env | Per-account key in secure store (Keystore AES), default **OFF** |
+| Steam Guard | maFile + confirm queue | Already on-device (`identity_secret`); **sole owner of confirms** |
+| Steam session | cookies/JWT under `data/` | Existing `SessionStore` / mafile Session |
+| Telegram | required UX | **Out of scope** for MSDA core |
 
-MSDA already owns Steam session / Guard; do **not** duplicate maFile export into a second always-on process on the same phone without a clear ownership model.
+**Dual-host warning:** do not run VPS botCsFloat + phone CSFloat worker on the **same** Steam account without one clear owner for offers + Guard (refresh-token / IP subject races).
 
-## Sale pipeline (bot)
+## Sale pipeline (bot) — target for MSDA
 
-1. Poll CSFloat for `queued`/`pending` seller trades.
-2. Accept on CSFloat when needed.
-3. Send Steam trade offer to buyer (trade URL/token from sale).
-4. Enqueue **Guard confirm for that offer id only** (`GuardConfirmService`).
-5. Notify Telegram; append sales log / ledger.
+```
+queued → POST accept → pending → send Steam offer
+      → steam-status notify → Guard confirm (offer state 9 only)
+      → done when steam_offer.state ∈ {3, 11} or verify_sale_at
+```
 
-**Hard rule (also in MSDA PROTOCOL):** no timer-based Steam Guard polling. `mobileconf/getlist` only when a queued offer is NeedsConfirmation (state 9). Floors: getlist ≥35s, GetTradeOffers ≥20s; 429 → long cooloff.
+**Hard rule (PROTOCOL):** never timer-poll Steam `mobileconf/getlist`. Confirm only when a CSFloat-driven offer id is whitelisted and NeedsConfirmation. Floors borrowed from bot: getlist ≥35s, GetTradeOffers ≥20s; Steam 429 → long cooloff.
 
-## What can run on Android (MSDA)
+## On-device settings shape (implemented / target)
 
-Feasible / desirable:
+Package: `com.msda.android.csfloat`
 
-- Opt-in per Steam account: store CSFloat API key in app settings (encrypted prefs), enable flag, poll interval.
-- Lightweight WorkManager / background jobs: poll `/me/trades` for queued sales; surface notifications; optional accept + hand off to existing trade/confirm UX.
-- Stall status: `/me` balances, away toggle.
-- Guard confirm **only** when MSDA is about to confirm a CSFloat-driven offer (reuse existing confirmation path — no new Guard spam loop).
+| Key | Store | Default |
+|-----|-------|---------|
+| `enabled_<steamId>` | plaintext prefs `msda_csfloat_ui` | `false` |
+| `interval_min_<steamId>` | same | **30** min (clamp 15–240; WorkManager floor 15) |
+| API key | `CsFloatSecureStore` (Keystore) | empty |
 
-Poor fit / keep on VPS bot for now:
+Worker must never start unless `enabled && hasApiKey`. Clearing account removes both flag and key.
 
-- Full Telegram UI, analytics charts, bulk auto-reprice loops, long-lived Docker/systemd process.
-- Aggressive multi-account stall management while the phone sleeps (battery + Doze).
+## Battery / network budget (phone)
+
+| Constraint | Guidance |
+|------------|----------|
+| Poll cadence | Default **≥30 min** periodic WorkManager; never sub-15 min |
+| Cheap probe | Prefer `GET /me` / `actionable_trades` before full trades list |
+| Network | Prefer `NetworkType.CONNECTED`; optional unmetered toggle later |
+| Battery | `RequiresBatteryNotLow = true` for periodic work |
+| Doze | Accept deferred runs; surface “last checked” in UI |
+| Steam | **Zero** background Guard polling from CSFloat worker |
+| Logging | Never log API keys or `identity_secret` |
+
+## Confirmation safety checklist (must ship before auto-confirm)
+
+1. Confirm **only** offer ids enqueued from CSFloat pending sales (whitelist), never “accept all”.
+2. Match Steam confirmation `creator_id` to trade offer id; optionally verify `given_asset_ids`.
+3. Bound attempts + drop stale jobs (>1h).
+4. Asset / unknown terminal state → **drop**, do not mark sold.
+5. User-visible audit: last sale id, offer id, confirm result.
+6. Per-account kill switch clears whitelist + cancels WorkManager for that steamId.
+
+## What MSDA should ship (phased)
+
+| Phase | Scope | Status target |
+|-------|--------|---------------|
+| **1 Scaffold** | Package, models, client stub/`/me`, secure key store, settings flags, optional WorkManager skeleton **disabled by default**, bump **1.5.1** | T010 |
+| **2 Credentials UI** | Per-account CSFloat screen: enable, API key, test `/me`, interval | T011 |
+| **3 Read-only sales** | Foreground list of queued/pending; notification on new actionable | T012 |
+| **4 Accept + offer** | Opt-in accept; send Steam offer; steam-status; **no** auto Guard yet | T020 |
+| **5 Safe confirm** | Whitelist Guard only for CSFloat offer ids; floors + 429 cooloff | T021 |
+| **6 Harden** | Dual-bot conflict banner, battery budget doc in UI, sales log | T022 |
+| **Later** | Away toggle, reprice, ledger — only if still needed | backlog |
+
+**Out of first scope:** buy orders, market neighbor search loops, Telegram, bulk auto-reprice.
 
 ## Risks
 
-- **Steam Guard 429 / lockouts** if confirm or getlist is polled on a timer.
-- **API key + session leakage** if logged or committed; never put keys in git.
-- **CSFloat ToS / rate limits** — respect 429 backoff; avoid sub-15s polling on mobile.
-- **Battery/network** — WorkManager constraints (unmetered optional, battery not low); default poll slower than VPS bot.
-- **Dual automation** — phone + VPS both accepting/confirming the same sales → race conditions; one owner per account.
-
-## Phased plan for MSDA
-
-1. **Docs + settings stubs (NOW):** package `com.msda.android.csfloat`, per-account toggle + API key field stubs, WorkManager skeleton; version **1.5.1**.
-2. **Read-only:** authenticated `/me` + queued trades list in UI; no auto-accept.
-3. **Opt-in accept + trade send:** wire to existing Steam offer helpers; Guard confirm only for that offer.
-4. **Hardening:** battery budget, 429 cooloff, conflict detection with external botCsFloat, sales notifications.
-5. **Later (optional):** listing reprice, away toggle, ledger sync — only if still needed after phone-side sales flow works.
+- Steam Guard 429 / lockouts from any new getlist timer.
+- API key leakage in logs, exports, or shared backups.
+- CSFloat ToS / 429 — respect cooloff; no aggressive mobile polling.
+- Phone + VPS both accepting the same sales → races.
+- Accept-all / trade auto-confirm already lack pacing in MSDA foreground — do not compound with CSFloat spam.
