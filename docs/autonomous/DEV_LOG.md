@@ -1,5 +1,12 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 13: after T076/T097 backlog
+
+- App **1.6.14**; left **NOW = T097** (empty pending CTA → 1.6.15). Boss next **T076**.
+- Refined NEXT priorities (T092/T096/T104/T106/T142/T101 ahead of fluff). Concrete **T076** acceptance.
+- Seeded **T153–T165**: empty CTA last-error, mute-aware Hub badge, Refresh vs Check-now clarity, local sales activity log, quiet hours, Hub double-tap copy 2FA, clock-skew banner, pending skeleton, stale confirm greying, confirmations export, What’s new, Check-now result line, msda:// deep link.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Boss: T085–T091 approved; NOW = T097
 
 - Batch-approved: `e967789` T085 trade-id notify, `fad5000` T084 mute, `5d8f319` T091 Hub copy SteamID — all **Steam-safety PASS** (CSFloat notify/Hub UI only; zero Guard/getlist spam).

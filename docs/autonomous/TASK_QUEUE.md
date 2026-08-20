@@ -128,12 +128,20 @@ App HEAD: **1.6.14** (`5d8f319` T091). Boss: T085–T091 **APPROVED**. Single NO
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
-| P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
+| P0 | T076 | todo | — | **Cheap `/me` actionable probe** — skip full trades list when actionable/queued hint unchanged. Battery win. → **1.6.16**. |
+| P0 | T092 | todo | — | **Offline / session hint on Confirm Load** + Renew shortcut. |
+| P1 | T096 | todo | — | **Confirmation row relative time** + type icon. |
+| P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count`. |
+| P1 | T106 | todo | — | **Long-press pending row → copy trade id**. |
+| P1 | T142 | todo | — | **Swipe-to-refresh** pending sales (no notify). |
+| P1 | T101 | todo | — | **CSFloat 429 cooloff UX** (`Retry-After`). |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
+| P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
+| P1 | T116 | todo | — | **Cache last `/me` balance** between Tests. |
+| P1 | T050 | todo | — | Clipboard auto-clear 2FA (30–60s). |
 | P1 | T042 | todo | — | **Wire or remove** dead market/gift auto-confirm APIs. |
-| P1 | T020 | todo | — | **Opt-in CSFloat accept + Steam offer send** (second toggle default OFF); **no** auto Guard. |
-| P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit. |
+| P1 | T020 | todo | — | **Opt-in CSFloat accept + Steam offer** (2nd toggle default OFF); **no** auto Guard. |
+| P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only. |
 | P2 | T022 | todo | — | Dual-bot conflict banner + sales audit UI. |
 | P2 | T069 | todo | — | **CSFloat Away toggle**. |
 | P2 | T070 | todo | — | Hub CSFloat-enabled badge. |
@@ -144,11 +152,59 @@ App HEAD: **1.6.14** (`5d8f319` T091). Boss: T085–T091 **APPROVED**. Single NO
 | P2 | T080 | todo | — | SaleWorker release log hygiene. |
 | P2 | T086 | todo | — | Settings global CSFloat worker status. |
 | P2 | T087 | todo | — | Hub filter chips: All / Session / CSFloat. |
-| P2 | T050 | todo | — | Clipboard auto-clear 2FA. |
 | P2 | T062 | todo | — | Encrypt mafile secrets at rest. |
 | P2 | T066 | todo | — | Period-aligned 2FA UI tick. |
 | P2 | T067 | todo | — | Hub multi-select renew + panic switch. |
 | P2 | T061b | todo | — | Tighten `looksLikeClockSkew`. |
+
+### Acceptance (T076) — concrete (next after T097)
+
+- [ ] Parse actionable/queued hint from `/me` into `CsFloatMeSummary` when present
+- [ ] If hint unchanged vs last stored + baseline exists → **skip** `listQueuedTrades`
+- [ ] If hint missing/unparseable → fall back to current trades-list behavior
+- [ ] Still write last-checked; notify rules (T085/T084) unchanged when trades fetched
+- [ ] Zero Steam Guard; sole-Gradle; patch bump when shipped
+
+## Cycle 13 — after T076 / T097 (CSFloat UX mature)
+
+Notify + mute + Check-now + strip + empty CTA are live or in-flight. Next user value:
+
+| Priority | ID | Status | Owner | Task |
+|----------|----|--------|-------|------|
+| P1 | T153 | todo | — | **Empty CTA also shows last error** (401/429/network) if set — pairs T105; Check-now still primary. |
+| P1 | T154 | todo | — | **Hub badge respects mute**: muted accounts show quiet icon / no badge pulse. |
+| P1 | T155 | todo | — | **Pending list: pull = Refresh; toolbar Check-now** stays distinct (Refresh = list only; Check-now = worker path). Document in UI hint. |
+| P1 | T156 | todo | — | **Local sales activity log** (last ~20 notify/check events per steamId) read-only in CSFloat dialog. No secrets. |
+| P1 | T157 | todo | — | **Quiet hours** per account (e.g. 23:00–08:00 local): poll OK, suppress notify. Default OFF. |
+| P1 | T158 | todo | — | **Hub double-tap row → copy 2FA** + Toast (tap still opens; long-press = SteamID). |
+| P1 | T159 | todo | — | **Clock-skew banner** when `TimeAligner` abs(offset) &gt; 30s — Renew/align hint; no getlist timer. |
+| P1 | T160 | todo | — | **Pending loading skeleton** (not blank flash) while Refresh/Check-now in flight. |
+| P2 | T161 | todo | — | **Stale confirmation greying** after successful respond (until next Load). |
+| P2 | T162 | todo | — | **Export confirmations snapshot** as plain text (type/age/creator) for support — no secrets. |
+| P2 | T163 | todo | — | **In-app What’s new** sheet once per versionCode (from short DEV_LOG bullets). |
+| P2 | T164 | todo | — | **CSFloat dialog: last Check-now result** line (“Checked just now · N pending / rate limited”). |
+| P2 | T165 | todo | — | **Deep link** `msda://account/{steamId}/csfloat` open pending (for future notif extras). |
+
+### Acceptance (T153–T160)
+
+- T153: error text never includes API key/body; cleared on success
+- T154: mute OFF → existing badge behavior; ON → muted affordance only
+- T155: copy clarifies Refresh vs Check-now; no double notify from Refresh
+- T156: ring buffer; clear with account/CSFloat clear; never stores keys
+- T157: timezone = device default; crossing midnight OK; poll still runs
+- T158: double-tap threshold ~300ms; doesn’t break accessibility long-press
+- T159: banner dismissible; uses cached offset only
+- T160: cancel/replace in-flight loads don’t leave skeleton stuck
+
+### Acceptance (T161–T165)
+
+- T161: visual only until next Load; no extra Steam calls
+- T162: share sheet; user-initiated only
+- T163: show once per versionCode; Skip works
+- T164: updates from Check-now / worker completion prefs
+- T165: invalid steamId → Hub; no auto network beyond existing open-pending
+
+---
 
 ## After T068 / T065 (next wave)
 
@@ -162,7 +218,7 @@ Real-user features once status strip + safe import land. Prefer these over early
 | P1 | T094 | todo | — | **Import folder batch summary** after multi-mafile pick: N added / N replaced / N skipped + failures. |
 | P1 | T095 | todo | — | **Export all accounts ZIP** from Hub (secrets warning → T051); one share Intent. |
 | P1 | T096 | todo | — | **Confirmation row relative time** (“2m ago”) + type icon (market/trade/other). |
-| P1 | T097 | todo | — | **CSFloat pending empty CTA**: “No sales — Check now” → T079; show last-checked if any. |
+| P1 | T097 | doing | Worker | **CSFloat pending empty CTA** → **1.6.15** (NOW). |
 | P2 | T098 | todo | — | **Optional biometric gate** on cold start (default OFF); PIN still works if set. |
 | P2 | T099 | todo | — | **Widget multi-account flip**: next/prev account buttons on widget (bound list). |
 | P2 | T100 | todo | — | **Account archive** (hide from Hub without delete); restore from Settings. |
@@ -292,11 +348,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 ### Acceptance (T076) / (T084) / (T085) / (T089) / (T090)
 
-- T076: parse actionable hint; skip trades when unchanged; fallback if missing
-- T084: mute pref; OFF suppresses notify only
-- T085: capped last-seen trade id set; alert on new ids
-- T089: use app icon / mipmap for notification small icon
-- T090: one-time dialog/copy on first enable; link dual-bot note; don’t block enable
+- T076: see concrete checklist under NEXT (after T097)
+- T084–T090: **done** (1.6.8–1.6.13)
 
 ### Acceptance (T065) / (T073)
 
@@ -444,7 +497,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.14 order:** **T097** (1.6.15, empty pending CTA) → **T076** → polish; **T020** only after T090 (**done**).
+- **NOW = T097** (1.6.15) — do not steal. Then **T076** (1.6.16) → **T092/T096** confirm UX → **T104/T106/T142** → **T153+**; **T020** only after notify stack stable (T090 done).
+- Cycle 13 seeded **T153–T165**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
 - T085–T091 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.
