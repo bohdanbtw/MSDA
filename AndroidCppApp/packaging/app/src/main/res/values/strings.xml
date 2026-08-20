@@ -179,6 +179,7 @@
     <string name="account_label_saved">Label saved</string>
     <string name="account_label_edit">Edit label</string>
     <string name="hub_account_title_with_label">%1$s · %2$s</string>
+    <string name="hub_csfloat_pending_badge_cd">%1$d pending CSFloat sales</string>
     <string name="hub_steamid_truncated">…%1$s</string>
     <string name="hub_steamid_copied">SteamID copied</string>
     <string name="hub_steamid_copy_missing">No SteamID for this account</string>

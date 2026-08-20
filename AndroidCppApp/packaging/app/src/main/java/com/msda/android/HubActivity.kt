@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
@@ -14,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import com.msda.android.steam.MafileSecretsReader
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.SessionHandler
@@ -195,6 +197,14 @@ class HubActivity : AppCompatActivity() {
             }
         }
 
+        // T104: pending-sales badge from last_queued_count (CSFloat enabled + count>0 only).
+        val pendingCount =
+            if (steamId.isNotBlank() && CsFloatAccountSettings.isEnabled(this, steamId)) {
+                CsFloatAccountSettings.getLastQueuedCount(this, steamId)
+            } else {
+                0
+            }
+
         val deleteButton = android.widget.Button(this).apply {
             text = "Delete"
             textSize = 12f
@@ -211,6 +221,20 @@ class HubActivity : AppCompatActivity() {
         }
 
         rowContainer.addView(accountContent)
+        if (pendingCount > 0) {
+            rowContainer.addView(createPendingSalesBadge(pendingCount) {
+                if (index >= 0) {
+                    NativeBridge.setActiveAccount(index)
+                    startActivity(
+                        Intent(this@HubActivity, MainActivity::class.java)
+                            .putExtra(MainActivity.EXTRA_ACCOUNT_INDEX, index)
+                            .putExtra(MainActivity.EXTRA_ACCOUNT_NAME, name)
+                            .putExtra(MainActivity.EXTRA_STEAM_ID, steamId)
+                            .putExtra(MainActivity.EXTRA_OPEN_CSFLOAT_PENDING, true)
+                    )
+                }
+            })
+        }
         rowContainer.addView(deleteButton)
 
         var startX = 0f
@@ -278,6 +302,31 @@ class HubActivity : AppCompatActivity() {
     }
 
     /** T129: compact secondary SteamID for Hub rows (full id in contentDescription). */
+    private fun createPendingSalesBadge(count: Int, onClick: () -> Unit): TextView {
+        val density = resources.displayMetrics.density
+        val minPx = (36 * density).toInt()
+        return TextView(this).apply {
+            text = if (count > 99) "99+" else count.toString()
+            textSize = 13f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(android.graphics.Color.WHITE)
+            gravity = Gravity.CENTER
+            minWidth = minPx
+            minHeight = minPx
+            setPadding((10 * density).toInt(), (6 * density).toInt(), (10 * density).toInt(), (6 * density).toInt())
+            setBackgroundColor(ContextCompat.getColor(this@HubActivity, R.color.csfloat_pending_accent))
+            contentDescription = getString(R.string.hub_csfloat_pending_badge_cd, count)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                marginEnd = (8 * density).toInt()
+            }
+            setOnClickListener { onClick() }
+        }
+    }
+
     private fun formatHubSteamIdSecondary(steamId: String): String {
         val id = steamId.trim()
         if (id.length <= 14) return id

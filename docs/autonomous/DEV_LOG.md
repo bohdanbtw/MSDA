@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T104 Hub pending-sales badge (1.6.19)
+
+- Hub row shows accent count badge when CSFloat enabled and `last_queued_count`>0; badge tap opens Main with pending dialog. Zero Steam Guard/getlist.
+- Version **1.6.19** / `160019`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T096 approved; NOW = T104
 
 - Approved `2476d14` T096 confirmation relative time + type icons — **Steam-safety PASS** (UI-only on loaded rows; Load path unchanged; no timer/getlist spam).
