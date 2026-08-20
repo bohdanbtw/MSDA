@@ -5,7 +5,7 @@
 - Shipped package `com.msda.android.csfloat`: models, `CsFloatClient` (`/me`, queued trades, 429 handling), `CsFloatAccountSettings` (default OFF, 15–240 min), `CsFloatSecureStore` (Keystore AES-GCM), `CsFloatScheduler` + `CsFloatSaleWorker` (WorkManager; no Steam Guard/getlist calls).
 - Settings status stub + per-account opt-in dialog from Main menu (enable / API key / interval). Hub clears CSFloat prefs on account delete.
 - Version **1.5.1** / `versionCode` **150100**. Steam login + manual Load confirmations / AUTO-on-manual-load unchanged; `BackgroundSyncScheduler.disable` still used.
-- `event_wake` / FileSystemWatcher processes left untouched (coord rule).
+- Code commit: `b3bb468`. `event_wake` / FileSystemWatcher processes left untouched (coord rule).
 - Next: Boss Steam-safety review; promote T011 (Test connection) or T040.
 
 ## 2026-08-21 — Coordinator wake (stood down)

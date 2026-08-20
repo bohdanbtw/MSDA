@@ -13,16 +13,16 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T010 | doing | Worker | **CSFloat Phase-1 scaffold + 1.5.1.** Package `com.msda.android.csfloat`: models, `CsFloatClient` (`/me` + 429 handling), `CsFloatAccountSettings` (default OFF), `CsFloatSecureStore`, optional WorkManager skeleton that **does nothing** unless enabled+key. Version `1.5.1` / `150001` (or `150100` if already bumped). **No** Steam confirmation timer/poll spam. Append DEV_LOG; commit + push `development`. |
+| — | — | idle | — | **Awaiting Boss** to promote next NOW (recommend **T011** — Test connection still missing; basic enable/key/interval dialog shipped with T010). |
 
-### Acceptance (T010)
+### Acceptance (T010) — done 2026-08-21
 
-- [ ] `.../csfloat/` sources compile in `assembleDebug`
-- [ ] Default: CSFloat disabled for all accounts; no network from cold start without opt-in
-- [ ] Version name `1.5.1` (code ≥ previous)
-- [ ] Manual Load confirmations / trade AUTO-on-manual-load unchanged
-- [ ] No new Steam `getlist` polling loop
-- [ ] DEV_LOG + push
+- [x] `.../csfloat/` sources (models, client, settings, secure store, WM skeleton)
+- [x] Default OFF; scheduler no-ops without enabled+key
+- [x] Version `1.5.1` / `versionCode` `150100`
+- [x] No Steam confirmation poll changes
+- [x] Manual Load confirmations / AUTO-on-manual-load unchanged
+- [x] DEV_LOG + push
 
 ---
 
@@ -130,6 +130,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T010 | done | Worker | CSFloat Phase-1 scaffold + 1.5.1 (`com.msda.android.csfloat`, opt-in stubs, WorkManager skeleton) |
 | P0 | T001 | done | Architect | Review PROTOCOL + CSFLOAT_NOTES; first slice = T010 |
 | P1 | T002 | done | Architect | Settings shape documented in CSFLOAT_NOTES + mirrored by scaffold (`enabled` / interval / secure key) |
 | P1 | T003 | deferred | — | Spike Guard-vs-UX — fold into T021 design; keep deferred until T012 lands |
