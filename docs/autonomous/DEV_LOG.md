@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 14: T166–T178 (NOW=T097 held)
+
+- Left **NOW = T097** untouched. Seeded **T166–T178**: pending avatars, larger code tap, Hub section headers, Load count, proxy indicator, API key fingerprint, Check-now Retry snackbar, widget pending badge, Toast duration pref, drag-drop import, clear-all CSFloat data, accept checkmark anim, account notes.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Architect Cycle 13: after T076/T097 backlog
 
 - App **1.6.14**; left **NOW = T097** (empty pending CTA → 1.6.15). Boss next **T076**.

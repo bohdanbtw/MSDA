@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.14** (`5d8f319` T091). Boss: T085–T091 **APPROVED**. Single NOW = **T097**.
+App HEAD: **1.6.15** (T097 pending empty Check-now CTA). Queue idle — suggest **T076**.
 
 ---
 
@@ -15,13 +15,13 @@ App HEAD: **1.6.14** (`5d8f319` T091). Boss: T085–T091 **APPROVED**. Single NO
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T097 | doing | Worker | **CSFloat pending empty CTA (1.6.15).** Empty pending-sales list: show last-checked if any + **Check now** (reuse T079). No extra Steam Guard/getlist. Sole-Gradle. Bump `1.6.15` / `160015`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T076**. |
 
-### Acceptance (T097)
+### Acceptance (T097) — done 2026-08-21 (v1.6.15)
 
-- [ ] Empty pending sales shows last-checked (or Never) + Check-now affordance (T079 path)
-- [ ] Non-empty list unchanged; zero Steam Guard / getlist
-- [ ] Version **1.6.15** / `160015`; sole-Gradle; DEV_LOG + push
+- [x] Empty pending sales shows last-checked (or Never) + Check-now affordance (T079 path)
+- [x] Non-empty list unchanged; zero Steam Guard / getlist
+- [x] Version **1.6.15** / `160015`; sole-Gradle; DEV_LOG + push
 
 ### Acceptance (T091) — **Boss APPROVED** (`5d8f319`, v1.6.14)
 
@@ -184,6 +184,43 @@ Notify + mute + Check-now + strip + empty CTA are live or in-flight. Next user v
 | P2 | T163 | todo | — | **In-app What’s new** sheet once per versionCode (from short DEV_LOG bullets). |
 | P2 | T164 | todo | — | **CSFloat dialog: last Check-now result** line (“Checked just now · N pending / rate limited”). |
 | P2 | T165 | todo | — | **Deep link** `msda://account/{steamId}/csfloat` open pending (for future notif extras). |
+
+## Cycle 14 — keep inventing (NOW stays T097)
+
+| Priority | ID | Status | Owner | Task |
+|----------|----|--------|-------|------|
+| P1 | T166 | todo | — | **Pending row: buyer avatar optional** (Coil; cancel on detach) — or initials placeholder if no URL. |
+| P1 | T167 | todo | — | **Main code tap zone larger** (min 48dp) + optional second tap copies again without toast spam. |
+| P1 | T168 | todo | — | **Hub section headers** when sorted by CSFloat-on vs others (pairs T112/T087). |
+| P1 | T169 | todo | — | **Confirm Load: show count** “12 confirmations” in toolbar after success. |
+| P1 | T170 | todo | — | **Per-account proxy indicator** on Hub if proxy configured (no password shown). |
+| P1 | T171 | todo | — | **CSFloat: copy API key fingerprint** (last 4 chars only) for support — never full key. |
+| P1 | T172 | todo | — | **Failed Check-now → snackbar with Retry** (re-enqueue one-shot). |
+| P1 | T173 | todo | — | **Widget: show pending CSFloat count** tiny badge when account opted-in + count&gt;0 (prefs only). |
+| P2 | T174 | todo | — | **Auto-dismiss Toast** duration preference (short/long) for copy actions. |
+| P2 | T175 | todo | — | **Import: drag-and-drop .mafile** onto Hub (Android 7+ / desktop-like). |
+| P2 | T176 | todo | — | **Settings: clear all CSFloat data** (keys+prefs+baselines) with typed confirm. |
+| P2 | T177 | todo | — | **Confirmation accept success checkmark** animation (no extra Steam calls). |
+| P2 | T178 | todo | — | **Account notes** free-text field (local prefs only; not in mafile export by default). |
+
+### Acceptance (T166–T173)
+
+- T166: no crash if image fails; recycle/cancel loads; optional OFF in settings later
+- T167: meets a11y touch target; rapid taps don’t stack Toasts
+- T168: headers only when that sort/filter active; empty sections hidden
+- T169: count matches list size; clears on account switch
+- T170: icon/dot only; tap opens existing proxy UI if any
+- T171: fingerprint from stored key length/hash; never logs full key
+- T172: Retry uses same T079 unique work; disabled while running
+- T173: prefs-only; no CSFloat HTTP from widget tick; updates on existing widget refresh
+
+### Acceptance (T174–T178)
+
+- T174: default = platform Toast length
+- T175: same T065 conflict path as SAF import
+- T176: wipes secure store + ui prefs for all or current account (clarify in UI)
+- T177: animation ≤400ms; doesn’t block next action
+- T178: max length ~200; excluded from SDA export unless user opts in later
 
 ### Acceptance (T153–T160)
 
@@ -497,8 +534,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **NOW = T097** (1.6.15) — do not steal. Then **T076** (1.6.16) → **T092/T096** confirm UX → **T104/T106/T142** → **T153+**; **T020** only after notify stack stable (T090 done).
-- Cycle 13 seeded **T153–T165**. Architect docs-only; no Kotlin / watchers.
+- **NOW = T097** (1.6.15) — do not steal. Then **T076** → **T092/T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
+- Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
 - T085–T091 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.
