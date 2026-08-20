@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T129 approved; NOW = T085
+
+- Reviewed `00cb213`: Hub SteamID secondary line — **Steam-safety PASS** (Hub UI only; zero Guard/getlist/CSFloat HTTP).
+- Version **1.6.11** / `160011`. Sole-Gradle OK.
+- Assigned single NOW **T085** (notify on new trade ids → **1.6.12** / `160012`); next **T084**. Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T129 Hub SteamID secondary line (1.6.11)
 
 - Hub account rows show muted truncated SteamID under the title (`…` + last 8); full id in contentDescription. Keep-both clones distinguishable.
