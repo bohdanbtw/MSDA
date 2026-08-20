@@ -1,5 +1,12 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T068 CSFloat status strip + T088 (1.6.4)
+
+- CSFloat settings dialog status strip: “Last checked &lt;relative&gt; · N pending” or Never (`getLastCheckAtMs` / `getLastQueuedCount`).
+- Pending Refresh / load syncs `setLastQueuedCount` without notification (T088).
+- Clear key / disable → `clearCheckStatus` (strip Never). Zero Steam Guard/getlist.
+- Version **1.6.4** / `160004`; `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T013 approved; NOW = T068
 
 - Reviewed `33c10ff`: CSFloat count-delta notify — **Steam-safety PASS** (CSFloat HTTP + local notify only; zero Guard/getlist; baseline prevents first-run spam).

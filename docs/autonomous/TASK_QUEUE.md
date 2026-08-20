@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.3** (`33c10ff` T013). Boss: T013 **APPROVED**. Single NOW = **T068**.
+App HEAD: **1.6.4** (T068 status strip + T088). Queue idle — awaiting Boss.
 
 ---
 
@@ -15,14 +15,14 @@ App HEAD: **1.6.3** (`33c10ff` T013). Boss: T013 **APPROVED**. Single NOW = **T0
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T068 | doing | Worker | **CSFloat status strip (1.6.4).** Settings dialog: “Last checked … · N pending” (or Never) from `getLastCheckAtMs` / `getLastQueuedCount`. Prefer same-batch **T088**: Pending Refresh updates last_* **without** notifying. Touch CSFloat dialog UI + prefs reads/writes only. **Zero Steam Guard / getlist.** Bump `1.6.4` / `160004`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T077** (POST_NOTIFICATIONS) or **T072** (balance) or **T065** (import conflict). |
 
-### Acceptance (T068)
+### Acceptance (T068) — done 2026-08-21 (v1.6.4)
 
-- [ ] CSFloat settings dialog shows “Last checked <relative/absolute> · N pending” or Never
-- [ ] Values from existing prefs; Pending Refresh updates last-check + count (**T088** OK in same PR; no notify from foreground refresh)
-- [ ] Clear key / disable clears strip; no Steam traffic
-- [ ] Version **1.6.4** / `160004`; DEV_LOG + push
+- [x] CSFloat settings dialog shows “Last checked <relative/absolute> · N pending” or Never
+- [x] Values from existing prefs; Pending Refresh updates last-check + count (**T088** same ship; no notify from foreground refresh)
+- [x] Clear key / disable clears strip; no Steam traffic
+- [x] Version **1.6.4** / `160004`; DEV_LOG + push
 
 ### Acceptance (T013) — **Boss APPROVED** (`33c10ff`, v1.6.3)
 
@@ -57,7 +57,6 @@ App HEAD: **1.6.3** (`33c10ff` T013). Boss: T013 **APPROVED**. Single NOW = **T0
 |----------|----|--------|-------|------|
 | P0 | T077 | todo | — | **POST_NOTIFICATIONS runtime prompt** when enabling CSFloat on API 33+. Soft-fail if denied. |
 | P1 | T072 | todo | — | **CSFloat dialog balance line** from `/me` after Test connection. |
-| P1 | T088 | todo | — | Pending Refresh writes `setLastQueuedCount` (keep UI/worker baseline in sync; no notify from foreground refresh). |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
@@ -105,6 +104,30 @@ Real-user features once status strip + safe import land. Prefer these over early
 | P2 | T101 | todo | — | **CSFloat 429 cooloff UX**: dialog/status “Rate limited — retry in Xs” using `Retry-After`. |
 | P2 | T102 | todo | — | **Last successful Steam renew timestamp** on Hub row (pairs T075). |
 
+## Post-wave (after T091–T102) — Architect Cycle 9
+
+Invented from T068 WIP gaps + daily-driver pain. Do **not** start until T068 lands unless Boss prioritizes.
+
+| Priority | ID | Status | Owner | Task |
+|----------|----|--------|-------|------|
+| P1 | T103 | todo | — | **Tap status strip → Pending sales** (same path as button; zero extra HTTP). |
+| P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count` (dot/count); tap opens account Main + pending. |
+| P1 | T105 | todo | — | **Last CSFloat error chip** on dialog (401 / 429 / network) from worker/Test; cleared on success. |
+| P1 | T106 | todo | — | **Long-press pending row → copy trade id** (+ optional buyer SteamID). |
+| P1 | T107 | todo | — | **Confirm Load cancelable** (dismiss progress / ignore late result); no duplicate Load spam. |
+| P1 | T108 | todo | — | **CSFloat unmetered-only** opt-in constraint on WorkManager (default OFF = any network). |
+| P1 | T109 | todo | — | **Launcher shortcut** “Open last account” / dynamic shortcut after Hub open. |
+| P1 | T110 | todo | — | **Filter pending sales** by state (`queued`/`pending`) when list &gt; ~8. |
+| P2 | T111 | todo | — | **Reset CSFloat notify baseline** button (re-baseline without notify spam) for stuck silence. |
+| P2 | T112 | todo | — | **Hub sort modes**: name / recently opened / CSFloat pending count. |
+| P2 | T113 | todo | — | **Settings: Steam time offset** readout from `TimeAligner` cache (support / skew debug). |
+| P2 | T114 | todo | — | **Decline-all** with same type counts + trade friction as T063 accept-all. |
+| P2 | T115 | todo | — | **Import .zip of mafiles** (unzip to temp → existing import path + T065 conflicts). |
+
+### Note on T088
+
+Worker T068 WIP already wires Pending Refresh → status strip refresh / `clearCheckStatus`. If shipped with **1.6.4**, mark **T088 done** inside that commit (Architect will reconcile after push).
+
 ### Acceptance (T065) — concrete
 
 - [ ] Detect existing account by **steamId** (not filename alone) before write
@@ -151,6 +174,25 @@ Real-user features once status strip + safe import land. Prefer these over early
 - T100: archived accounts hidden from Hub list; data retained; restore undoes hide
 - T101: surface Retry-After from CSFloat 429 on dialog/status; no tight retry loop
 - T102: Hub shows compact “renewed …” when known; blank if never
+
+### Acceptance (T103–T110)
+
+- T103: strip clickable when key present; opens pending dialog; no auto network
+- T104: Hub shows count only when CSFloat enabled + count&gt;0; tap navigates correctly
+- T105: stores last error code/string safely (no API key / body); success clears
+- T106: long-press copies id; short tap unchanged (read-only)
+- T107: second Load while in-flight ignored or cancels prior; UI never applies stale list after cancel
+- T108: Settings/CSFloat toggle; when ON, periodic work requires unmetered; floor interval unchanged
+- T109: shortcut opens correct account Main; removed when account deleted
+- T110: chip/filter queued|pending|all; empty filter message clear
+
+### Acceptance (T111–T115)
+
+- T111: reset clears baseline + last count; next worker run baselines only (no notify)
+- T112: sort persists; default name; CSFloat sort uses last_queued prefs only
+- T113: read-only offset seconds + “last aligned”; no new Steam calls from this screen
+- T114: decline-all mirrors T063 friction + T041 pacing; single decline unchanged
+- T115: zip import uses SAF; applies T065 per entry; temp cleaned
 
 ### Acceptance (T020–T021)
 
@@ -207,6 +249,8 @@ Real-user features once status strip + safe import land. Prefer these over early
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T068 | done | Worker | CSFloat status strip (**1.6.4**) |
+| P1 | T088 | done | Worker | Pending Refresh syncs last_* (inside T068) |
 | P0 | T013 | done | Worker | CSFloat count-delta sale notifications (**1.6.3**) |
 | P1 | T081 | done | Worker | Cancel notif on clearAccount (shipped inside T013) |
 | P1 | T063 | done | Worker | Confirm-all type breakdown + trade opt-in (**1.6.2**) |

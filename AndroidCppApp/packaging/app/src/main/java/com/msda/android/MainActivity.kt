@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.text.format.DateUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -33,6 +34,7 @@ import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.MafileRepository
 import com.msda.android.csfloat.CsFloatAccountSettings
 import com.msda.android.csfloat.CsFloatClient
+import com.msda.android.csfloat.CsFloatNotifier
 import com.msda.android.csfloat.CsFloatResult
 import com.msda.android.csfloat.CsFloatScheduler
 import com.msda.android.csfloat.CsFloatSecureStore
@@ -252,8 +254,8 @@ class MainActivity : AppCompatActivity() {
         }
         // Defer until window is ready.
         uiHandler.post {
-            if (!isFinishing) showCsFloatPendingSalesDialog(key)
-        }
+            if (!isFinishing) showCsFloatPendingSalesDialog(steamId, key)
+    }
     }
 
     private fun refreshAccountTitle() {
@@ -473,6 +475,21 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun formatCsFloatStatusStrip(steamId: String): String {
+        val lastAt = CsFloatAccountSettings.getLastCheckAtMs(this, steamId)
+        if (lastAt <= 0L) {
+            return getString(R.string.csfloat_status_strip_never)
+        }
+        val relative = DateUtils.getRelativeTimeSpanString(
+            lastAt,
+            System.currentTimeMillis(),
+            DateUtils.MINUTE_IN_MILLIS,
+            DateUtils.FORMAT_ABBREV_RELATIVE
+        ).toString()
+        val count = CsFloatAccountSettings.getLastQueuedCount(this, steamId)
+        return getString(R.string.csfloat_status_strip, relative, count)
+    }
+
     private fun showCsFloatSettingsDialog() {
         updateActiveAuthContext()
         val auth = activeAuthContext
@@ -502,6 +519,13 @@ class MainActivity : AppCompatActivity() {
                 CsFloatAccountSettings.getPollIntervalMinutes(this@MainActivity, steamId).toString()
             )
         }
+        val statusStrip = TextView(this).apply {
+            text = formatCsFloatStatusStrip(steamId)
+            setPadding(0, 8, 0, 8)
+        }
+        fun refreshStatusStrip() {
+            statusStrip.text = formatCsFloatStatusStrip(steamId)
+        }
         val testResult = TextView(this).apply {
             text = ""
             setPadding(0, 12, 0, 4)
@@ -525,6 +549,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 24, 40, 0)
             addView(hint)
+            addView(statusStrip)
             addView(enableSwitch)
             addView(apiKeyInput)
             addView(intervalInput)
@@ -577,7 +602,8 @@ class MainActivity : AppCompatActivity() {
         btnClearKey.setOnClickListener {
             CsFloatSecureStore.clearApiKey(this, steamId)
             CsFloatNotifier.cancelForSteamId(this, steamId)
-            CsFloatAccountSettings.setLastQueuedCount(this, steamId, 0, baselined = false)
+            CsFloatAccountSettings.clearCheckStatus(this, steamId)
+            refreshStatusStrip()
             apiKeyInput.setText("")
             apiKeyInput.hint = getString(R.string.csfloat_api_key_hint)
             btnClearKey.isEnabled = false
@@ -597,7 +623,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, getString(R.string.csfloat_test_no_key), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            showCsFloatPendingSalesDialog(keyToUse)
+            showCsFloatPendingSalesDialog(steamId, keyToUse, onStatusSynced = { refreshStatusStrip() })
         }
 
         android.app.AlertDialog.Builder(this)
@@ -616,6 +642,7 @@ class MainActivity : AppCompatActivity() {
                 val enable = enableSwitch.isChecked
                 if (enable && !CsFloatSecureStore.hasApiKey(this, steamId)) {
                     CsFloatAccountSettings.setEnabled(this, steamId, false)
+                    CsFloatAccountSettings.clearCheckStatus(this, steamId)
                     CsFloatScheduler.refresh(this)
                     txtStatus.text = getString(R.string.csfloat_need_key)
                     Toast.makeText(this, getString(R.string.csfloat_need_key), Toast.LENGTH_SHORT).show()
@@ -623,6 +650,9 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 CsFloatAccountSettings.setEnabled(this, steamId, enable)
+                if (!enable) {
+                    CsFloatAccountSettings.clearCheckStatus(this, steamId)
+                }
                 // Disable or empty ready set cancels periodic CSFloat work.
                 CsFloatScheduler.refresh(this)
                 txtStatus.text = if (enable) {
@@ -638,8 +668,13 @@ class MainActivity : AppCompatActivity() {
     /**
      * Read-only queued/pending CSFloat sales for the active account.
      * Manual Refresh only — no accept, Steam offer, or Guard traffic.
+     * Successful loads sync last-check / queued count without posting a notification (T088).
      */
-    private fun showCsFloatPendingSalesDialog(apiKey: String) {
+    private fun showCsFloatPendingSalesDialog(
+        steamId: String,
+        apiKey: String,
+        onStatusSynced: (() -> Unit)? = null
+    ) {
         val statusView = TextView(this).apply {
             text = getString(R.string.csfloat_pending_loading)
             setPadding(0, 0, 0, 12)
@@ -702,7 +737,17 @@ class MainActivity : AppCompatActivity() {
                     if (isFinishing) return@withContext
                     btnRefresh.isEnabled = true
                     when (result) {
-                        is CsFloatResult.Ok -> renderTrades(result.value)
+                        is CsFloatResult.Ok -> {
+                            // Sync UI/worker baseline; do not notify from foreground refresh.
+                            CsFloatAccountSettings.setLastQueuedCount(
+                                this@MainActivity,
+                                steamId,
+                                result.value.size,
+                                baselined = true
+                            )
+                            renderTrades(result.value)
+                            onStatusSynced?.invoke()
+                        }
                         is CsFloatResult.HttpError -> {
                             listContainer.removeAllViews()
                             statusView.text = when (result.code) {

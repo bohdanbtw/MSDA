@@ -76,6 +76,17 @@ object CsFloatAccountSettings {
             .getLong("$KEY_LAST_CHECK_AT_PREFIX$steamId", 0L)
     }
 
+    /** Drop last-check / queued baseline (status strip → Never). Does not touch enable or key. */
+    fun clearCheckStatus(context: Context, steamId: String) {
+        if (steamId.isBlank()) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove("$KEY_LAST_QUEUED_COUNT_PREFIX$steamId")
+            .remove("$KEY_LAST_QUEUED_BASELINED_PREFIX$steamId")
+            .remove("$KEY_LAST_CHECK_AT_PREFIX$steamId")
+            .apply()
+    }
+
     fun clearAccount(context: Context, steamId: String) {
         if (steamId.isBlank()) return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
