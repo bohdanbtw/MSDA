@@ -1,4 +1,4 @@
-# TASK_QUEUE
+﻿# TASK_QUEUE
 
 Prioritized backlog. **Architect** invents / refines, **Boss** orders NOW, **Worker** implements.
 
@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.7** (T077+T072). Queue idle — suggest **T079** or **T089**.
+App HEAD: **1.6.7** (`8beb19a` T077+T072). Boss: T077+T072 **APPROVED**. Single NOW = **T079**.
 
 ---
 
@@ -15,19 +15,20 @@ App HEAD: **1.6.7** (T077+T072). Queue idle — suggest **T079** or **T089**.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T077 | doing | Worker | **POST_NOTIFICATIONS runtime prompt (1.6.7).** On CSFloat enable (API 33+), request permission; soft-fail Toast if denied (polling continues). Touch CSFloat enable path only. **Zero Steam Guard / getlist.** Optional same-batch **T072** balance line OK. Bump `1.6.7` / `160007`. DEV_LOG + push. |
+| P0 | T079 | doing | Worker | **Check now one-shot WorkManager (1.6.8).** CSFloat dialog button enqueues unique one-time work (same path as periodic SaleWorker); disable button while running; honor 429; **zero Steam Guard/getlist**. Prefer refreshing status strip after. Bump `1.6.8` / `160008`. DEV_LOG + push. |
 
-### Acceptance (T077/T072) — done 2026-08-21 (v1.6.7)
+### Acceptance (T079)
+
+- [ ] “Check now” enqueues unique one-time CSFloat work for that steamId
+- [ ] Button disabled while running; re-enables on finish
+- [ ] Same notify/baseline rules as periodic worker; honor 429
+- [ ] Zero Steam Guard / getlist; Version **1.6.8** / `160008`; DEV_LOG + push
+
+### Acceptance (T077+T072) — **Boss APPROVED** (`8beb19a`, v1.6.7)
 
 - [x] T077: request permission on enable (API 33+); denied = silent poll OK
 - [x] T072: balance + pending after successful `/me` Test; clear with key
-- [x] Version **1.6.7** / `160007`
-
-### Acceptance (T077)
-
-- [ ] API 33+: request `POST_NOTIFICATIONS` when enabling CSFloat; denied → Toast, CSFloat poll continues
-- [ ] No Steam Guard / getlist; never log API key
-- [ ] Version **1.6.7** / `160007`; DEV_LOG + push
+- [x] Zero Steam Guard/getlist; Version **1.6.7** / `160007`
 
 ### Acceptance (T103) — **Boss APPROVED** (`89f212f`, v1.6.6)
 
@@ -78,18 +79,17 @@ App HEAD: **1.6.7** (T077+T072). Queue idle — suggest **T079** or **T089**.
 
 ---
 
-## NEXT (after T077)
+## NEXT (after T079)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P1 | T089 | todo | — | CSFloat notification small icon → app launcher icon (replace `ic_dialog_info`). |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
-| P1 | T079 | todo | — | **Check now** one-shot WorkManager from CSFloat dialog. |
 | P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
 | P1 | T042 | todo | — | **Wire or remove** dead market/gift auto-confirm APIs. |
-| P1 | T089 | todo | — | CSFloat notification small icon → app launcher icon (replace `ic_dialog_info`). |
 | P1 | T090 | todo | — | When enabling CSFloat: one-time dual-bot warning (“don’t run VPS bot on same account”). |
 | P1 | T020 | todo | — | **Opt-in CSFloat accept + Steam offer send** (second toggle default OFF); **no** auto Guard. |
 | P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit. |
@@ -373,8 +373,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T077 | done | Worker | POST_NOTIFICATIONS on CSFloat enable (**1.6.7**)
-| P1 | T072 | done | Worker | Balance line after Test (inside 1.6.7)
+| P0 | T077 | done | Worker | POST_NOTIFICATIONS on CSFloat enable (**1.6.7**) |
+| P1 | T072 | done | Worker | Balance line after Test (inside 1.6.7) |
 | P0 | T103 | done | Worker | Tap status strip → pending (**1.6.6**) |
 | P0 | T065 | done | Worker | Import SteamID conflict Replace/Keep both/Cancel (**1.6.5**) |
 | P0 | T068 | done | Worker | CSFloat status strip (**1.6.4**) |
@@ -395,6 +395,6 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.6 order:** **T077** (1.6.7) → **T072** → **T129+** / **T141+** / **T116+**; **T090** before **T020**.
-- T065 (`db63077`) + T103 (`89f212f`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- **Post-1.6.7 order:** **T079** (1.6.8) → **T089/T085** → **T129+** / **T141+**; **T090** before **T020**.
+- T077+T072 (`8beb19a`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights. Cycles 9–12 seeded through **T152**.

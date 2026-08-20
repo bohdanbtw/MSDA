@@ -1,4 +1,10 @@
-# DEV_LOG
+﻿# DEV_LOG
+
+## 2026-08-21 — Boss: T077+T072 approved; NOW = T079
+
+- Reviewed `8beb19a`: POST_NOTIFICATIONS on enable + `/me` balance line — **Steam-safety PASS** (CSFloat UI/HTTP only; soft-fail permission; zero Guard/getlist).
+- Version **1.6.7** / `160007`. Chose **T079** over **T089** (Check-now > icon polish).
+- Assigned single NOW **T079** → **1.6.8** / `160008`. Docs-only; no Kotlin / watchers.
 
 ## 2026-08-21 — Worker: T077+T072 notif permission + balance (1.6.7)
 
