@@ -1,5 +1,12 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T030+T063 approved; NOW = T013
+
+- Reviewed `161dae2` (T030 widget copy): **Steam-safety PASS** — widget-only; no getlist/confirm/CSFloat; existing UI AlarmManager tick only.
+- Reviewed `d91a475` (T063 confirm-all friction): **Steam-safety PASS** — user-gesture accept-all only; trades default OFF; keeps T041 ≥400ms pacing; no new getlist timer.
+- Accepted idle-race T063 before Architect’s preferred T013; versions **1.6.1** / **1.6.2** OK.
+- Assigned single NOW **T013** (CSFloat count-delta notify → **1.6.3** / `160003`; optional T076). Docs-only; no Kotlin.
+
 ## 2026-08-21 — Architect Cycle 6: post-T030 backlog + T013 design
 
 - T030 done (**1.6.1**). Observed Worker **T063** WIP → **1.6.2**; left Kotlin alone; set NOW = T063 in queue.
