@@ -1,4 +1,11 @@
-﻿# DEV_LOG
+# DEV_LOG
+
+## 2026-08-21 — Autonomous bootstrap docs committed
+
+- Confirmed `development` up to date with `origin/development`.
+- Shallow-cloned https://github.com/bohdanbtw/botCsFloat and wrote accurate `CSFLOAT_NOTES.md` (API surface, auth, Android fit, risks, phased plan). No secrets.
+- Ensured `TASK_QUEUE.md` lists T001–T004 and a clear Worker NOW: scaffold `com.msda.android.csfloat` + settings toggle stubs + WorkManager skeleton; bump to 1.5.1.
+- Committed all `docs/autonomous/*` and pushed to `origin/development` only (not master).
 
 ## 2026-08-21 — Boss: unblock Worker with T010 NOW
 
@@ -13,5 +20,5 @@
 ## 2026-08-21 — Autonomous infrastructure bootstrap
 
 - Created `development` branch from `origin/master` and pushed to origin.
-- Added `docs/autonomous/` protocol files: `DEV_LOG.md`, `TASK_QUEUE.md`, `PROTOCOL.md` (CSFLOAT_NOTES restored by Boss in follow-up).
+- Added `docs/autonomous/` protocol files: `DEV_LOG.md`, `TASK_QUEUE.md`, `PROTOCOL.md`, `CSFLOAT_NOTES.md`.
 - Skimmed https://github.com/bohdanbtw/botCsFloat (shallow clone) for CSFloat integration notes.
