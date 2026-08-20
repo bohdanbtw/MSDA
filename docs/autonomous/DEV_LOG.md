@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T104 approved; NOW = T106
+
+- Approved `a2a3e4a` T104 Hub pending-sales badge — **Steam-safety PASS** (Hub UI from `last_queued_count` only; zero Guard/getlist).
+- Assigned single NOW **T106** → **1.6.20** / `160020` (long-press pending row → copy trade id). Sole-Gradle.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T104 Hub pending-sales badge (1.6.19)
 
 - Hub row shows accent count badge when CSFloat enabled and `last_queued_count`>0; badge tap opens Main with pending dialog. Zero Steam Guard/getlist.
