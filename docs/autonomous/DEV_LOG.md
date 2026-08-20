@@ -1,4 +1,11 @@
-﻿# DEV_LOG
+# DEV_LOG
+
+## 2026-08-21 — Worker: T065 import SteamID conflict (1.6.5)
+
+- Shared `MafileImportHelper.importFromUri`: detect same-SteamID and filename/different-SteamID clashes before write.
+- Dialogs: Replace / Keep both / Cancel (same ID); Overwrite / Keep both / Cancel (filename clash). No silent clobber.
+- Hub + Main use shared path; native reload after write. Zero Steam Guard/getlist.
+- Version **1.6.5** / `160005`; `assembleDebug` OK.
 
 ## 2026-08-21 — Architect Cycle 12: T141–T152 (keep NOW=T065)
 

@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.4** (`969e36b` T068+T088). Boss: T068 **APPROVED**. Single NOW = **T065**.
+App HEAD: **1.6.5** (T065 import SteamID conflict). Queue idle — awaiting Boss (recommend **T103**).
 
 ---
 
@@ -15,17 +15,17 @@ App HEAD: **1.6.4** (`969e36b` T068+T088). Boss: T068 **APPROVED**. Single NOW =
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T065 | doing | Worker | **Import conflict by SteamID (1.6.5).** Detect existing account by steamId (not filename alone); dialog **Replace** / **Keep both** / **Cancel**. Replace → one mafile per steamId + native reload; Keep both → unique filename. Warn same filename + different steamId. No silent clobber. Touch import/Hub paths only. **No CSFloat / Steam getlist / confirm spam.** Bump `1.6.5` / `160005`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Recommend **T103** (tap status strip → Pending sales) → **1.6.6**, or **T077** / **T072**. |
 
-### Acceptance (T065) — concrete
+### Acceptance (T065) — done 2026-08-21 (v1.6.5)
 
-- [ ] Detect existing account by **steamId** (not filename alone) before write
-- [ ] Dialog: **Replace** / **Keep both** / **Cancel**
-- [ ] Replace: one mafile per steamId left on disk + native reload
-- [ ] Keep both: unique filename; both appear in Hub
-- [ ] Same filename + different steamId: warn before overwrite
-- [ ] No silent clobber of a different account’s secrets
-- [ ] Version **1.6.5** / `160005`; DEV_LOG + push
+- [x] Detect existing account by **steamId** (not filename alone) before write
+- [x] Dialog: **Replace** / **Keep both** / **Cancel**
+- [x] Replace: one mafile per steamId left on disk + native reload (no clobber of other SteamIDs)
+- [x] Keep both: unique filename; both appear in Hub
+- [x] Same filename + different steamId: warn before overwrite
+- [x] No silent clobber of a different account’s secrets
+- [x] Version **1.6.5** / `160005`; DEV_LOG + push
 
 ### Acceptance (T068) — **Boss APPROVED** (`969e36b`, v1.6.4)
 
@@ -61,7 +61,7 @@ App HEAD: **1.6.4** (`969e36b` T068+T088). Boss: T068 **APPROVED**. Single NOW =
 
 ---
 
-## NEXT (after T065)
+## NEXT (after T065 / 1.6.5)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
@@ -360,6 +360,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T065 | done | Worker | Import SteamID conflict Replace/Keep both/Cancel (**1.6.5**) |
 | P0 | T068 | done | Worker | CSFloat status strip (**1.6.4**) |
 | P1 | T088 | done | Worker | Pending Refresh syncs last_* (inside T068) |
 | P0 | T013 | done | Worker | CSFloat count-delta sale notifications (**1.6.3**) |
@@ -378,6 +379,6 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **NOW = T065** (do not steal). After **1.6.5**: **T103** → **T077/T072** → **T129+** / **T141+** / **T116+**; **T090** before **T020**.
+- **T065 shipped 1.6.5.** Next recommend **T103** → **T077/T072** → **T129+** / **T141+** / **T116+**; **T090** before **T020**.
 - Architect docs-only; no Kotlin / `event_wake` watchers.
 - Cycles 9–12 seeded through **T152**.

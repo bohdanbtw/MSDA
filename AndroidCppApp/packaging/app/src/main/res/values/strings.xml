@@ -83,6 +83,12 @@
     <string name="theme_dark_soft">Dark (balanced)</string>
     <string name="back_to_hub">Back to hub</string>
     <string name="import_mafile">Import mafile</string>
+    <string name="import_conflict_title">Import conflict</string>
+    <string name="import_conflict_same_steamid">An account with SteamID %1$s already exists (%2$s).\n\nReplace the existing mafile, keep both as separate files, or cancel?</string>
+    <string name="import_conflict_filename">File \"%1$s\" already exists for SteamID %2$s; incoming is %3$s.\n\nOverwrite that file, keep both under a new name, or cancel?</string>
+    <string name="import_conflict_replace">Replace</string>
+    <string name="import_conflict_keep_both">Keep both</string>
+    <string name="import_conflict_overwrite">Overwrite</string>
     <string name="login_steam">Login Steam</string>
     <string name="load_confirmations">Load confirmations</string>
     <string name="status_loading_confirmations">Loading confirmations...</string>

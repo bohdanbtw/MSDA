@@ -470,53 +470,17 @@ class HubActivity : AppCompatActivity() {
     }
 
     private fun importSelectedMafile(uri: Uri) {
-        val fileName = queryDisplayName(uri) ?: "imported.mafile"
-        if (!fileName.endsWith(".mafile", ignoreCase = true)) {
-            txtHubStatus.text = getString(R.string.status_invalid_file)
-            return
-        }
-
-        val importDir = File(filesDir, "mafiles")
-        if (!importDir.exists()) {
-            importDir.mkdirs()
-        }
-
-        val targetFile = File(importDir, fileName)
-
-        val copied = try {
-            contentResolver.openInputStream(uri)?.use { input ->
-                targetFile.outputStream().use { output ->
-                    input.copyTo(output)
+        MafileImportHelper.importFromUri(
+            activity = this,
+            uri = uri,
+            onStatus = { msg -> txtHubStatus.text = msg },
+            onImported = { targetFile, imported ->
+                renderAccounts()
+                if (imported) {
+                    promptLoginAfterImportIfNeeded(targetFile)
                 }
             }
-            true
-        } catch (_: Throwable) {
-            false
-        }
-
-        if (!copied) {
-            txtHubStatus.text = getString(R.string.status_copy_failed)
-            return
-        }
-
-        MafileImportHelper.clearSessionStoreForMafile(this, targetFile)
-
-        val imported = try {
-            NativeBridge.importMafilesFromFolder(importDir.absolutePath)
-        } catch (_: Throwable) {
-            false
-        }
-
-        txtHubStatus.text = if (imported) {
-            getString(R.string.status_import_success)
-        } else {
-            getString(R.string.status_import_failed)
-        }
-
-        renderAccounts()
-        if (imported) {
-            promptLoginAfterImportIfNeeded(targetFile)
-        }
+        )
     }
 
     private fun promptLoginAfterImportIfNeeded(mafile: File) {
@@ -556,15 +520,4 @@ class HubActivity : AppCompatActivity() {
         }
     }
 
-    private fun queryDisplayName(uri: Uri): String? {
-        val cursor = contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
-            ?: return null
-
-        cursor.use {
-            if (!it.moveToFirst()) return null
-            val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-            if (index < 0) return null
-            return it.getString(index)
-        }
-    }
 }
