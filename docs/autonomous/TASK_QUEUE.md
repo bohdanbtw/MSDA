@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe: default OFF, no getlist). Single NOW = **T012** → bump **1.5.7+** (or **1.6.0** if Worker already chose minor for the sales UI).
+App HEAD: **1.6.0** (T012 pending sales).
 
 ---
 
@@ -15,7 +15,14 @@ App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe:
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T012 | doing | Worker | **CSFloat pending sales (foreground, read-only).** Expand DTO → list UI → manual Refresh. No accept / offer / Guard. Bump **1.5.7+** (Worker may ship **1.6.0**). |
+| — | — | idle | — | **Awaiting Boss.** Recommend **T030** (widget copy) or **T013** (CSFloat notify). |
+
+### Acceptance (T012) — done 2026-08-21
+
+- [x] Expanded `CsFloatTradeSummary` + parse (name, price, buyer, asset, offer)
+- [x] Pending sales dialog: read-only list + Refresh; empty/401/429/network
+- [x] No accept / offer / Guard
+- [x] Version **1.6.0** / `160000`
 
 ### Acceptance (T060) — **Boss APPROVED** (`2fb1410`, v1.5.6)
 
@@ -31,7 +38,6 @@ App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe:
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T012 | todo | — | **CSFloat pending sales (foreground, read-only).** Expand DTO → list UI → manual Refresh. No accept / offer / Guard. |
 | P1 | T013 | todo | — | **CSFloat notification on actionable trades.** Cheap `/me` (or count delta); notify only; tap opens T012 list. No Steam Guard. |
 | P1 | T030 | todo | — | **Widget tap-to-copy 2FA** + Toast; fix countdown when bound by `steamId` only (today seconds → `-1`). |
 | P1 | T063 | todo | — | **Confirm All type breakdown + trade friction.** Counts by type; trades need extra checkbox (default off). |
@@ -40,7 +46,6 @@ App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe:
 | P1 | T020 | todo | — | **Opt-in CSFloat accept + Steam offer send** (second toggle default OFF); enqueue offer id; **no** auto Guard. |
 | P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit (CSFLOAT_NOTES T021). |
 | P1 | T042 | todo | — | **Wire or remove** dead market/gift auto-confirm APIs in `AppSettings` (+ menu strings if orphaned). |
-| P1 | T068 | todo | — | **CSFloat status strip:** last-checked time + queued count on Main CSFloat dialog (from prefs written by worker/T012). |
 | P2 | T022 | todo | — | Dual-bot conflict banner + sales audit UI. |
 | P2 | T062 | todo | — | Encrypt mafile secrets at rest (Keystore); plaintext import migrates; export still SDA-compatible. |
 | P2 | T066 | todo | — | Period-aligned 2FA UI tick (Main + widget) — cut 1 Hz AlarmManager wakeups. |
@@ -48,16 +53,6 @@ App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe:
 | P2 | T069 | todo | — | **CSFloat Away toggle** (`PATCH /me` `{away}`) in per-account dialog — stall Online/Offline without VPS bot. |
 | P2 | T070 | todo | — | Hub row badge when CSFloat enabled for that steamId (icon/dot only). |
 | P2 | T061b | todo | — | Tighten `looksLikeClockSkew` (broad `"invalid"` match) — non-blocking follow-up from T061. |
-
-### Acceptance (T012) — concrete
-
-- [ ] Expand `CsFloatTradeSummary` (+ parse in `listQueuedTrades`) per CSFLOAT_NOTES: at least `marketHashName`, `priceCents`, `buyerSteamId`, `state`, `steamOfferId`/`steamOfferState`, `assetId`
-- [ ] Main (or dedicated sheet) shows **queued/pending** rows for the **active** account only when CSFloat enabled + key present
-- [ ] Each row: item name, price (USD from cents), state chip, optional buyer id truncated
-- [ ] **Refresh** button only (no timer, no WorkManager change required for UI path)
-- [ ] Empty / 401 / 429 / network states with clear copy (reuse T011 patterns; never log key)
-- [ ] **No** `POST /trades/*/accept`, no Steam offer send, no getlist/confirm
-- [ ] Minor version bump when shipped (e.g. **1.6.0** if treated as feature; else patch if Boss prefers)
 
 ### Acceptance (T013)
 
@@ -95,6 +90,11 @@ App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe:
 
 - [ ] Toggle Away with confirmation; calls `PATCH /me`; reflects current away if `/me` exposes it
 - [ ] Failures show 401/429/network; no Steam calls
+
+### Acceptance (T072)
+
+- [ ] After successful `/me` (Test or Refresh), show balance + pending balance in CSFloat dialog
+- [ ] No extra polling; values cleared when key cleared
 
 ### Acceptance (T020–T021)
 
@@ -159,6 +159,8 @@ App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe:
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T012 | done | Worker | CSFloat read-only pending sales UI (**1.6.0**) |
+| P0 | T060 | done | Worker | Opt-in session keep-alive (**1.5.6**) |
 | P0 | T011 | done | Worker | CSFloat Test connection + clear key (**1.5.5**) |
 | P1 | T041 | done | Worker | Pace accept-all / trade auto-confirm (**1.5.4**) |
 | P0 | T061 | done | Worker | Steam-aligned confirmation HMAC (**1.5.3**); follow-up → T061b |
@@ -172,6 +174,6 @@ App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe:
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Recommend order:** finish **T060** (1.5.6) → **T012** (read-only sales, feature bump) → **T030** or **T013** in parallel preference (widget vs notify).
-- Do **not** start T020/T021 until T012 + T013 UX is usable and dual-bot warning is documented in UI (T022 can follow T021).
-- Architect docs-only; Worker owns Kotlin. Observed dirty T060 files — Architect will not touch them.
+- **Order:** finish **T012** (**1.5.7**) → **T013** / **T068** / **T072** (CSFloat UX) or **T030** (widget) → only then **T020**.
+- Do **not** start T020/T021 until T012 list is usable; dual-bot warning belongs with T022 near T021.
+- Architect docs-only; do not fight Worker on Kotlin (T012 WIP in progress).

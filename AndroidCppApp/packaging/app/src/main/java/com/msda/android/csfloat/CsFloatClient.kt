@@ -116,10 +116,62 @@ class CsFloatClient(
     }
 
     private fun parseTrade(obj: JSONObject): CsFloatTradeSummary {
-        return CsFloatTradeSummary(
-            id = obj.optString("id", obj.optString("trade_id", "")),
-            state = obj.optString("state", ""),
-            sellerId = obj.optString("seller_id", "")
+        val buyer = obj.optJSONObject("buyer")
+        val buyerSteamId = firstNonBlank(
+            buyer?.optString("steam_id"),
+            buyer?.optString("steamid"),
+            obj.optString("buyer_id")
         )
+        val contract = obj.optJSONObject("contract")
+            ?: obj.optJSONObject("item")
+            ?: obj.optJSONArray("contract_items")?.optJSONObject(0)
+            ?: obj.optJSONArray("items")?.optJSONObject(0)
+        val item = contract?.optJSONObject("item") ?: contract
+        val marketHashName = firstNonBlank(
+            item?.optString("market_hash_name"),
+            contract?.optString("market_hash_name"),
+            obj.optString("market_hash_name"),
+            obj.optString("item_name")
+        )
+        val priceCents = when {
+            obj.has("price") -> obj.optInt("price", 0)
+            contract != null && contract.has("price") -> contract.optInt("price", 0)
+            else -> 0
+        }
+        val assetId = firstNonBlank(
+            item?.optString("asset_id"),
+            contract?.optString("asset_id"),
+            obj.optString("asset_id")
+        )
+        val steamOffer = obj.optJSONObject("steam_offer")
+        val steamOfferId = firstNonBlank(
+            steamOffer?.optString("id"),
+            steamOffer?.optString("offer_id"),
+            obj.optString("steam_offer_id")
+        )
+        val steamOfferState = when {
+            steamOffer == null -> ""
+            steamOffer.isNull("state") -> ""
+            else -> steamOffer.opt("state")?.toString().orEmpty()
+        }
+        return CsFloatTradeSummary(
+            id = firstNonBlank(obj.optString("id"), obj.optString("trade_id")),
+            state = obj.optString("state", ""),
+            sellerId = firstNonBlank(obj.optString("seller_id"), obj.optString("seller")),
+            buyerSteamId = buyerSteamId,
+            marketHashName = marketHashName,
+            priceCents = priceCents,
+            assetId = assetId,
+            steamOfferId = steamOfferId,
+            steamOfferState = steamOfferState
+        )
+    }
+
+    private fun firstNonBlank(vararg values: String?): String {
+        for (v in values) {
+            val t = v?.trim().orEmpty()
+            if (t.isNotEmpty() && t != "null") return t
+        }
+        return ""
     }
 }

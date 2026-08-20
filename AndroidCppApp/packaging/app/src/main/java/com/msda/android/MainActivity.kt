@@ -484,6 +484,10 @@ class MainActivity : AppCompatActivity() {
             text = getString(R.string.csfloat_clear_key)
             isEnabled = CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
         }
+        val btnPending = Button(this).apply {
+            text = getString(R.string.csfloat_pending_sales)
+            isEnabled = CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
+        }
         val hint = TextView(this).apply {
             text = getString(R.string.csfloat_settings_hint)
             setPadding(0, 8, 0, 8)
@@ -497,6 +501,7 @@ class MainActivity : AppCompatActivity() {
             addView(intervalInput)
             addView(btnTest)
             addView(btnClearKey)
+            addView(btnPending)
             addView(testResult)
         }
 
@@ -545,10 +550,23 @@ class MainActivity : AppCompatActivity() {
             apiKeyInput.setText("")
             apiKeyInput.hint = getString(R.string.csfloat_api_key_hint)
             btnClearKey.isEnabled = false
+            btnPending.isEnabled = false
             // Clearing the key drops this account from readySteamIds → scheduler cancels if empty.
             CsFloatScheduler.refresh(this)
             testResult.text = getString(R.string.csfloat_key_cleared)
             Toast.makeText(this, getString(R.string.csfloat_key_cleared), Toast.LENGTH_SHORT).show()
+        }
+
+        btnPending.setOnClickListener {
+            val typed = apiKeyInput.text?.toString().orEmpty().trim()
+            val keyToUse = typed.ifEmpty {
+                CsFloatSecureStore.getApiKey(this@MainActivity, steamId).orEmpty()
+            }
+            if (keyToUse.isBlank()) {
+                Toast.makeText(this, getString(R.string.csfloat_test_no_key), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            showCsFloatPendingSalesDialog(keyToUse)
         }
 
         android.app.AlertDialog.Builder(this)
@@ -584,6 +602,105 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, getString(R.string.csfloat_saved), Toast.LENGTH_SHORT).show()
             }
             .show()
+    }
+
+    /**
+     * Read-only queued/pending CSFloat sales for the active account.
+     * Manual Refresh only — no accept, Steam offer, or Guard traffic.
+     */
+    private fun showCsFloatPendingSalesDialog(apiKey: String) {
+        val statusView = TextView(this).apply {
+            text = getString(R.string.csfloat_pending_loading)
+            setPadding(0, 0, 0, 12)
+        }
+        val listContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val scroll = android.widget.ScrollView(this).apply {
+            addView(listContainer)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (resources.displayMetrics.density * 320).toInt()
+            )
+        }
+        val btnRefresh = Button(this).apply {
+            text = getString(R.string.csfloat_pending_refresh)
+        }
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 24, 40, 0)
+            addView(statusView)
+            addView(btnRefresh)
+            addView(scroll)
+        }
+
+        fun renderTrades(trades: List<com.msda.android.csfloat.CsFloatTradeSummary>) {
+            listContainer.removeAllViews()
+            if (trades.isEmpty()) {
+                statusView.text = getString(R.string.csfloat_pending_empty)
+                return
+            }
+            statusView.text = getString(R.string.csfloat_pending_count, trades.size)
+            trades.forEach { trade ->
+                val name = trade.marketHashName.ifBlank { getString(R.string.csfloat_pending_unknown_item) }
+                val buyer = if (trade.buyerSteamId.isNotBlank()) {
+                    trade.buyerSteamId.takeLast(6)
+                } else {
+                    "—"
+                }
+                val line = TextView(this).apply {
+                    text = getString(
+                        R.string.csfloat_pending_row,
+                        name,
+                        trade.priceUsdLabel(),
+                        trade.state.ifBlank { "?" },
+                        buyer
+                    )
+                    setPadding(0, 10, 0, 10)
+                }
+                listContainer.addView(line)
+            }
+        }
+
+        fun loadTrades() {
+            btnRefresh.isEnabled = false
+            statusView.text = getString(R.string.csfloat_pending_loading)
+            CoroutineScope(Dispatchers.IO).launch {
+                val result = CsFloatClient(apiKey).listQueuedTrades()
+                withContext(Dispatchers.Main) {
+                    if (isFinishing) return@withContext
+                    btnRefresh.isEnabled = true
+                    when (result) {
+                        is CsFloatResult.Ok -> renderTrades(result.value)
+                        is CsFloatResult.HttpError -> {
+                            listContainer.removeAllViews()
+                            statusView.text = when (result.code) {
+                                401, 403 -> getString(R.string.csfloat_test_unauthorized)
+                                else -> getString(R.string.csfloat_test_http_error, result.code)
+                            }
+                        }
+                        is CsFloatResult.RateLimited -> {
+                            listContainer.removeAllViews()
+                            statusView.text = getString(R.string.csfloat_test_rate_limited)
+                        }
+                        is CsFloatResult.NetworkError -> {
+                            listContainer.removeAllViews()
+                            statusView.text = getString(R.string.csfloat_test_network)
+                        }
+                    }
+                }
+            }
+        }
+
+        btnRefresh.setOnClickListener { loadTrades() }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.csfloat_pending_title)
+            .setView(root)
+            .setNegativeButton(android.R.string.ok, null)
+            .show()
+
+        loadTrades()
     }
 
     private fun exportCurrentAccountMafile() {

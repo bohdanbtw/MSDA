@@ -1,8 +1,7 @@
 package com.msda.android.csfloat
 
 /**
- * Lightweight CSFloat DTOs for the Android spike.
- * Full sale → trade → Guard pipeline comes later; these cover /me and /me/trades.
+ * CSFloat DTOs. Sale → trade → Guard pipeline comes later; these cover /me and /me/trades.
  */
 data class CsFloatMeSummary(
     val userId: String = "",
@@ -14,8 +13,21 @@ data class CsFloatMeSummary(
 data class CsFloatTradeSummary(
     val id: String,
     val state: String = "",
-    val sellerId: String = ""
-)
+    val sellerId: String = "",
+    val buyerSteamId: String = "",
+    val marketHashName: String = "",
+    val priceCents: Int = 0,
+    val assetId: String = "",
+    val steamOfferId: String = "",
+    val steamOfferState: String = ""
+) {
+    fun priceUsdLabel(): String {
+        if (priceCents <= 0) return "—"
+        val dollars = priceCents / 100
+        val cents = priceCents % 100
+        return "$%d.%02d".format(dollars, cents)
+    }
+}
 
 sealed class CsFloatResult<out T> {
     data class Ok<T>(val value: T) : CsFloatResult<T>()
