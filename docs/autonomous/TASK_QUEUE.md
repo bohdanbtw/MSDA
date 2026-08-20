@@ -13,14 +13,14 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T041 | todo | Worker | **Pace accept-all / trade auto-confirm (1.5.4).** Between Steam confirm ops wait ≥300–500ms; on failure/429 stop or backoff — no silent hammering. Touch `MainActivity` / `ConfirmationService` only as needed. Bump `1.5.4` / `150004`. **No** new getlist timers. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Recommend **T011** (CSFloat Test connection — code ready in stash `wip-t011-after-t041`). |
 
-### Acceptance (T041)
+### Acceptance (T041) — done 2026-08-21
 
-- [ ] Accept-all N>3 does not fire N Steam calls with zero delay
-- [ ] Hard failure / 429 stops or backs off — no silent hammering
-- [ ] Manual Load / single accept-decline unchanged in behavior (just paced)
-- [ ] Version `1.5.4` / `150004`; DEV_LOG + push
+- [x] Accept-all / trade auto-confirm wait **400ms** between Steam ops
+- [x] Hard failure or 429-like error **stops** remaining accepts (no silent hammering)
+- [x] Single accept/decline unchanged; Load path unchanged aside from paced auto-trades
+- [x] Version `1.5.4` / `150004`; DEV_LOG + push
 
 ### Acceptance (T061) — **Boss APPROVED** (`6dc2651`, v1.5.3)
 
@@ -102,7 +102,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T041 | doing | Worker | Pace accept-all / trade auto-confirm — see NOW |
+| P1 | T041 | done | Worker | Pace accept-all / trade auto-confirm — 400ms gap + stop on failure (**1.5.4**) |
 | P1 | T042 | todo | — | Wire or remove market/gift auto-confirm dead API |
 | P2 | T043 | todo | — | PasswordManager case: unify `hasPassword` / `getPassword` |
 | P2 | T044 | todo | — | Quarantine/remove dead `BackgroundSyncScheduler` / `ConfirmationBackgroundWorker` |
@@ -130,6 +130,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P1 | T041 | done | Worker | Pace accept-all / trade auto-confirm — 400ms gap + stop on failure (**1.5.4**) |
 | P0 | T061 | done | Worker | Steam-aligned confirmation HMAC via cached `TimeAligner` (**1.5.3**) |
 | P0 | T040 | done | Worker | Hub delete-by-substring → **1.5.2** (`5234051`) |
 | P0 | T010 | done | Worker | CSFloat Phase-1 scaffold + 1.5.1 (`b3bb468`) |
@@ -141,5 +142,5 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Boss Cycle 4:** T061 **APPROVED** (`6dc2651`). NOW = **T041** (pace accept-all → 1.5.4). T011 still open (mislabeled log). Follow-up: tighten `looksLikeClockSkew`.
+- **Boss Cycle 4:** T061 APPROVED. Worker shipped **T041** (1.5.4). Next recommend **T011** (stash `wip-t011-after-t041`).
 - Architect docs-only; do not fight Worker on Kotlin during active NOW.

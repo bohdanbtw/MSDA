@@ -1,5 +1,13 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T041 pace accept-all / trade auto-confirm (1.5.4)
+
+- `MainActivity`: **400ms** gap between Steam confirm ops in accept-all and trade auto-confirm-on-load.
+- On hard failure / 429-like errors, **stop** remaining accepts (no silent hammering).
+- Single accept/decline and Load UX unchanged. No new getlist timers.
+- Bumped **1.5.4 / 150004**. Stashed incomplete T011 Test-connection WIP as `wip-t011-after-t041`.
+- Next: Boss promote **T011**.
+
 ## 2026-08-21 — Boss: T061 approved; NOW = T041
 
 - Reviewed `6dc2651`: ConfirmationService + TimeAligner cache — **Steam-safety PASS** (still event-driven getlist; no timer poll). Version **1.5.3 / 150003**.

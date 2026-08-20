@@ -45,6 +45,8 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_ACCOUNT_INDEX = "extra_account_index"
         const val EXTRA_ACCOUNT_NAME = "extra_account_name"
         const val EXTRA_STEAM_ID = "extra_steam_id"
+        /** Gap between Steam confirmation ops (accept-all / trade auto-confirm). */
+        private const val STEAM_CONFIRM_GAP_MS = 400L
     }
 
     private lateinit var txtStatus: TextView
@@ -891,7 +893,10 @@ class MainActivity : AppCompatActivity() {
                     .filter { isTradeConfirmation(it) }
                     .distinctBy { it.id }
 
-                for (item in tradeItems) {
+                for ((index, item) in tradeItems.withIndex()) {
+                    if (index > 0) {
+                        kotlinx.coroutines.delay(STEAM_CONFIRM_GAP_MS)
+                    }
                     try {
                         val ok = ConfirmationService.respondItemWithRenew(
                             context = this@MainActivity,
@@ -903,8 +908,15 @@ class MainActivity : AppCompatActivity() {
                                 activeAuthContext = renewed
                             }
                         )
-                        if (ok) autoAccepted++
-                    } catch (_: Throwable) {
+                        if (ok) {
+                            autoAccepted++
+                        } else {
+                            // Stop hammering on hard failure / rate limit.
+                            break
+                        }
+                    } catch (ex: Throwable) {
+                        if (looksLikeSteamRateLimit(ex)) break
+                        break
                     }
                 }
 
@@ -965,6 +977,22 @@ class MainActivity : AppCompatActivity() {
         } else {
             ex.message ?: "Unknown confirmation error"
         }
+    }
+
+    private fun looksLikeSteamRateLimit(ex: Throwable): Boolean {
+        var current: Throwable? = ex
+        while (current != null) {
+            val message = current.message.orEmpty().lowercase()
+            if (
+                message.contains("429") ||
+                message.contains("rate limit") ||
+                message.contains("too many requests")
+            ) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
     }
 
     private fun renderBundles(bundles: List<ConfirmationBundle>) {
@@ -1220,7 +1248,10 @@ class MainActivity : AppCompatActivity() {
             var accepted = 0
             var total = 0
             var workingAuth = auth
-            for (bundle in bundles) {
+            for ((index, bundle) in bundles.withIndex()) {
+                if (index > 0) {
+                    kotlinx.coroutines.delay(STEAM_CONFIRM_GAP_MS)
+                }
                 total += bundle.items.size
                 val ok = try {
                     ConfirmationService.respondBundleWithRenew(
@@ -1233,11 +1264,16 @@ class MainActivity : AppCompatActivity() {
                             activeAuthContext = renewed
                         }
                     )
-                } catch (_: Throwable) {
+                } catch (ex: Throwable) {
+                    if (looksLikeSteamRateLimit(ex)) {
+                        // Stop remaining accepts — do not silent-hammer after 429.
+                    }
                     false
                 }
                 if (ok) {
                     accepted += bundle.items.size
+                } else {
+                    break
                 }
             }
 
