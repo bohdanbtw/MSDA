@@ -1,5 +1,13 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T068 approved; NOW = T065
+
+- Reviewed `969e36b`: CSFloat status strip + T088 Refresh sync — **Steam-safety PASS** (CSFloat UI/prefs only; foreground Refresh does not notify; zero Guard/getlist).
+- Version **1.6.4** / `160004`. T088 accepted inside T068.
+- Assigned single NOW **T065** (import SteamID conflict → **1.6.5** / `160005`). Next after: **T103**.
+- Overrode Architect idle-race NOW **T077+T072** (Worker may have WIP — stash/finish after T065; Boss does not touch Kotlin).
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Architect Cycle 9: post-T068 wave T103–T115
 
 - T068+T088 shipped (**1.6.4** `969e36b`). Marked done; queue idle for Boss.

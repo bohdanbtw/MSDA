@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.4** (T068 status strip + T088). Queue idle — awaiting Boss.
+App HEAD: **1.6.4** (`969e36b` T068+T088). Boss: T068 **APPROVED**. Single NOW = **T065**.
 
 ---
 
@@ -15,9 +15,19 @@ App HEAD: **1.6.4** (T068 status strip + T088). Queue idle — awaiting Boss.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Recommend **T065** (import SteamID conflict) → **1.6.5**, or quick CSFloat polish **T103** (tap strip→pending) / **T077** (notif permission). |
+| P0 | T065 | doing | Worker | **Import conflict by SteamID (1.6.5).** Detect existing account by steamId (not filename alone); dialog **Replace** / **Keep both** / **Cancel**. Replace → one mafile per steamId + native reload; Keep both → unique filename. Warn same filename + different steamId. No silent clobber. Touch import/Hub paths only. **No CSFloat / Steam getlist / confirm spam.** Bump `1.6.5` / `160005`. DEV_LOG + push. |
 
-### Acceptance (T068) — done 2026-08-21 (v1.6.4)
+### Acceptance (T065) — concrete
+
+- [ ] Detect existing account by **steamId** (not filename alone) before write
+- [ ] Dialog: **Replace** / **Keep both** / **Cancel**
+- [ ] Replace: one mafile per steamId left on disk + native reload
+- [ ] Keep both: unique filename; both appear in Hub
+- [ ] Same filename + different steamId: warn before overwrite
+- [ ] No silent clobber of a different account’s secrets
+- [ ] Version **1.6.5** / `160005`; DEV_LOG + push
+
+### Acceptance (T068) — **Boss APPROVED** (`969e36b`, v1.6.4)
 
 - [x] CSFloat settings dialog shows “Last checked <relative/absolute> · N pending” or Never
 - [x] Values from existing prefs; Pending Refresh updates last-check + count (**T088** same ship; no notify from foreground refresh)
@@ -51,14 +61,13 @@ App HEAD: **1.6.4** (T068 status strip + T088). Queue idle — awaiting Boss.
 
 ---
 
-## NEXT (after T068)
+## NEXT (after T065)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T065 | todo | — | **Import conflict by SteamID** — Replace / Keep both / Cancel. |
-| P0 | T103 | todo | — | **Tap status strip → Pending sales** (zero extra HTTP). Quick win on T068 UI. |
-| P0 | T077 | todo | — | **POST_NOTIFICATIONS runtime prompt** when enabling CSFloat on API 33+. Soft-fail if denied. |
-| P1 | T072 | todo | — | **CSFloat dialog balance line** from `/me` after Test connection. |
+| P0 | T103 | todo | — | **Tap status strip → Pending sales** (zero extra HTTP). |
+| P0 | T077 | todo | — | **POST_NOTIFICATIONS runtime prompt** on CSFloat enable (API 33+); soft-fail if denied. |
+| P1 | T072 | todo | — | **CSFloat balance line** from `/me` after Test connection. |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
@@ -125,18 +134,27 @@ Build on status strip + notify. Prefer over early **T020**.
 | P2 | T114 | todo | — | **Decline-all** with same type counts + trade friction as T063 accept-all. |
 | P2 | T115 | todo | — | **Import .zip of mafiles** (unzip to temp → existing import path + T065 conflicts). |
 
+## Cycle 10 — more daily-driver value (post T077/T072)
+
+| Priority | ID | Status | Owner | Task |
+|----------|----|--------|-------|------|
+| P1 | T116 | todo | — | **Cache last `/me` balance** on disk so dialog shows last-known until next Test/Check-now. |
+| P1 | T117 | todo | — | After notif denied: button **Open system notification settings** for MSDA. |
+| P1 | T118 | todo | — | **Pending sales footer: sum of prices** (visible rows / all loaded). |
+| P1 | T119 | todo | — | **CSFloat interval chips** 15 / 30 / 60 / 120 min (still clamp 15–240). |
+| P1 | T120 | todo | — | **Confirmation detail sheet** before accept (type, age, creator id); Accept/Decline there. |
+| P1 | T121 | todo | — | **Import mafile from clipboard** (paste JSON → same T065 conflict path). |
+| P1 | T122 | todo | — | **Warn duplicate `identity_secret`** across two Hub accounts (compromise/clone risk). |
+| P1 | T123 | todo | — | **Panic switch**: one Settings action disables CSFloat + session renewal + market/gift auto-confirm flags. |
+| P2 | T124 | todo | — | Hub **pull-to-refresh** account list + codes. |
+| P2 | T125 | todo | — | Highlight **last-opened account** in Hub (subtle). |
+| P2 | T126 | todo | — | Haptic on successful confirm accept/decline (optional, default on). |
+| P2 | T127 | todo | — | Widget shows **account label** preference (name / label / both). |
+| P2 | T128 | todo | — | Persist CSFloat Test result timestamp next to balance (“tested 3m ago”). |
+
 ### T088 — **done** inside T068 (`969e36b`)
 
 Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes.
-
-### Acceptance (T065) — concrete
-
-- [ ] Detect existing account by **steamId** (not filename alone) before write
-- [ ] Dialog: **Replace** / **Keep both** / **Cancel**
-- [ ] Replace: one mafile per steamId left on disk + native reload
-- [ ] Keep both: unique filename; both appear in Hub
-- [ ] Same filename + different steamId: warn before overwrite
-- [ ] No silent clobber of a different account’s secrets
 
 ### Acceptance (T077) / (T072) / (T079)
 
@@ -193,6 +211,25 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 - T113: read-only offset seconds + “last aligned”; no new Steam calls from this screen
 - T114: decline-all mirrors T063 friction + T041 pacing; single decline unchanged
 - T115: zip import uses SAF; applies T065 per entry; temp cleaned
+
+### Acceptance (T116–T123)
+
+- T116: show cached balance when offline/untested; label “as of …”; clear with key
+- T117: deep-link to app notification settings; no crash if Activity not found
+- T118: footer uses priceCents sum; “—” if all unknown; updates with filter (T110)
+- T119: chips set interval field; custom still allowed; persists per steamId
+- T120: sheet is optional path; list accept still works; no getlist spam
+- T121: invalid JSON → clear error; valid → T065 flow
+- T122: warn only (don’t block); never show full secret
+- T123: one tap + confirm dialog; cancels CSFloat WM + session renewal; leaves mafiles intact
+
+### Acceptance (T124–T128)
+
+- T124: refresh does not flip active account incorrectly
+- T125: highlight clears when another account opened
+- T126: respects system haptic settings
+- T127: configure screen choice; default current behavior
+- T128: updates only on successful `/me`; independent of sale worker last-check
 
 ### Acceptance (T020–T021)
 
@@ -267,5 +304,6 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.4 order:** **T065** (import safety) or **T103/T077** (CSFloat UX) → **T072/T079** → **T091–T097** → **T104–T115** → **T090** before **T020**.
+- **Post-1.6.4 order:** **T065** (1.6.5) → **T103/T077** → **T072/T079** → **T091–T097** → **T104–T115** → **T090** before **T020**.
 - T068+T088 done (`969e36b`). Architect docs-only; never touch Kotlin / `event_wake` watchers.
+- Boss docs-only for queue; no Kotlin fights.
