@@ -9,7 +9,8 @@ import androidx.work.WorkerParameters
  * Background CSFloat check.
  *
  * Polls CSFloat for queued/pending trades only. Does **not** call Steam Guard
- * or confirmation APIs. Notifies only when queued count increases after a baseline.
+ * or confirmation APIs. Notifies on new trade ids (T085) or queued count increase
+ * after a baseline — never on first successful poll.
  */
 class CsFloatSaleWorker(
     appContext: Context,
@@ -68,7 +69,7 @@ class CsFloatSaleWorker(
                 is CsFloatResult.Ok -> {
                     val count = trades.value.size
                     Log.d(TAG, "CSFloat trades …${steamId.takeLast(4)}: $count queued/pending")
-                    handleQueuedCount(steamId, accountName, count)
+                    handleQueuedTrades(steamId, accountName, trades.value)
                 }
                 is CsFloatResult.RateLimited -> {
                     Log.w(TAG, "CSFloat trades rate-limited")
@@ -88,18 +89,29 @@ class CsFloatSaleWorker(
         return if (sawRetryable) Result.retry() else Result.success()
     }
 
-    private fun handleQueuedCount(steamId: String, accountName: String, count: Int) {
+    private fun handleQueuedTrades(
+        steamId: String,
+        accountName: String,
+        trades: List<CsFloatTradeSummary>
+    ) {
+        val count = trades.size
+        val ids = trades.map { it.id.trim() }.filter { it.isNotEmpty() }
         val baselined = CsFloatAccountSettings.hasQueuedBaseline(applicationContext, steamId)
         val last = CsFloatAccountSettings.getLastQueuedCount(applicationContext, steamId)
+        val seen = CsFloatAccountSettings.getSeenTradeIds(applicationContext, steamId)
         if (!baselined) {
-            // First successful poll: store baseline, do not spam notify.
+            // First successful poll: store baseline + ids, do not spam notify.
             CsFloatAccountSettings.setLastQueuedCount(applicationContext, steamId, count, baselined = true)
+            CsFloatAccountSettings.setSeenTradeIds(applicationContext, steamId, ids)
             return
         }
-        if (count > last) {
+        val hasNewIds = ids.any { it !in seen }
+        // T085: notify on new trade ids (not only count↑). Keep count↑ for blank-id edge cases.
+        if (hasNewIds || count > last) {
             CsFloatNotifier.notifyPendingIncrease(applicationContext, steamId, count, accountName)
         }
         CsFloatAccountSettings.setLastQueuedCount(applicationContext, steamId, count, baselined = true)
+        CsFloatAccountSettings.setSeenTradeIds(applicationContext, steamId, ids)
     }
 
     companion object {

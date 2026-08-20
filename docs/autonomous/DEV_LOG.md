@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T085 notify on new trade ids (1.6.12)
+
+- Capped seen trade-id set (64) per steamId; SaleWorker notifies on new ids or count↑ after baseline; first poll + pending Refresh sync ids without notify.
+- Zero Steam Guard/getlist. Version **1.6.12** / `160012`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T129 approved; NOW = T085
 
 - Reviewed `00cb213`: Hub SteamID secondary line — **Steam-safety PASS** (Hub UI only; zero Guard/getlist/CSFloat HTTP).

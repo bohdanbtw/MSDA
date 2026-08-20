@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.11** (`00cb213` T129). Boss: T129 **APPROVED**. Single NOW = **T085**.
+App HEAD: **1.6.12** (T085 notify on new trade ids). Queue idle — suggest **T084** / **T091**.
 
 ---
 
@@ -15,14 +15,14 @@ App HEAD: **1.6.11** (`00cb213` T129). Boss: T129 **APPROVED**. Single NOW = **T
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T085 | doing | Worker | **Notify on new trade ids (1.6.12).** Cap last-seen trade id set; alert when new ids appear (not only count↑). CSFloat SaleWorker/Notifier only. Honor 429; **zero Steam Guard / getlist.** Sole-Gradle. Bump `1.6.12` / `160012`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T084** / **T091**. |
 
-### Acceptance (T085)
+### Acceptance (T085) — done 2026-08-21 (v1.6.12)
 
-- [ ] Persist capped last-seen trade id set per steamId
-- [ ] Notify when new trade ids appear (not only count increase)
-- [ ] First run / baseline: no spam; honor 429; never API key in notification
-- [ ] Zero Steam Guard / getlist; Version **1.6.12** / `160012`; sole-Gradle; DEV_LOG + push
+- [x] Persist capped last-seen trade id set per steamId
+- [x] Notify when new trade ids appear (not only count increase)
+- [x] First run / baseline: no spam; honor 429; never API key in notification
+- [x] Zero Steam Guard / getlist; Version **1.6.12** / `160012`; sole-Gradle; DEV_LOG + push
 
 ### Acceptance (T129) — **Boss APPROVED** (`00cb213`, v1.6.11)
 
@@ -399,6 +399,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P1 | T085 | done | Worker | Notify on new CSFloat trade ids (**1.6.12**) |
 | P0 | T129 | done | Worker | Hub secondary SteamID line (**1.6.11**) |
 | P0 | T141 | done | Worker | Status strip accent when pending N&gt;0 (**1.6.10**) |
 | P0 | T090 | done | Worker | Dual-bot warning on CSFloat enable (**1.6.9**) |

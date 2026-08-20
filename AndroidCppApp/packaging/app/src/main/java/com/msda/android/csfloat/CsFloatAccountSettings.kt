@@ -13,6 +13,10 @@ object CsFloatAccountSettings {
     private const val KEY_LAST_QUEUED_BASELINED_PREFIX = "last_queued_baselined_"
     private const val KEY_LAST_CHECK_AT_PREFIX = "last_check_at_"
     private const val KEY_DUAL_BOT_WARNED_PREFIX = "dual_bot_warned_"
+    private const val KEY_SEEN_TRADE_IDS_PREFIX = "seen_trade_ids_"
+
+    /** Cap for T085 last-seen trade id set (SharedPreferences StringSet-ish CSV). */
+    const val MAX_SEEN_TRADE_IDS = 64
 
     /** WorkManager periodic floor is 15; we default higher for battery. */
     const val DEFAULT_INTERVAL_MINUTES = 30L
@@ -91,6 +95,36 @@ object CsFloatAccountSettings {
             .apply()
     }
 
+    /** T085: capped last-seen CSFloat trade ids (no secrets). */
+    fun getSeenTradeIds(context: Context, steamId: String): Set<String> {
+        if (steamId.isBlank()) return emptySet()
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("$KEY_SEEN_TRADE_IDS_PREFIX$steamId", "")
+            .orEmpty()
+        if (raw.isBlank()) return emptySet()
+        return raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
+    /**
+     * Persist up to [MAX_SEEN_TRADE_IDS] trade ids. Prefer [currentIds] first so active
+     * queued trades are retained, then fill with previously seen ids.
+     */
+    fun setSeenTradeIds(context: Context, steamId: String, currentIds: Collection<String>) {
+        if (steamId.isBlank()) return
+        val previous = getSeenTradeIds(context, steamId)
+        val merged = LinkedHashSet<String>()
+        currentIds.asSequence().map { it.trim() }.filter { it.isNotEmpty() }.forEach { id ->
+            if (merged.size < MAX_SEEN_TRADE_IDS) merged.add(id)
+        }
+        previous.forEach { id ->
+            if (merged.size < MAX_SEEN_TRADE_IDS) merged.add(id)
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("$KEY_SEEN_TRADE_IDS_PREFIX$steamId", merged.joinToString(","))
+            .apply()
+    }
+
     /** Drop last-check / queued baseline (status strip → Never). Does not touch enable or key. */
     fun clearCheckStatus(context: Context, steamId: String) {
         if (steamId.isBlank()) return
@@ -99,6 +133,7 @@ object CsFloatAccountSettings {
             .remove("$KEY_LAST_QUEUED_COUNT_PREFIX$steamId")
             .remove("$KEY_LAST_QUEUED_BASELINED_PREFIX$steamId")
             .remove("$KEY_LAST_CHECK_AT_PREFIX$steamId")
+            .remove("$KEY_SEEN_TRADE_IDS_PREFIX$steamId")
             .apply()
     }
 
@@ -112,6 +147,7 @@ object CsFloatAccountSettings {
             .remove("$KEY_LAST_QUEUED_BASELINED_PREFIX$steamId")
             .remove("$KEY_LAST_CHECK_AT_PREFIX$steamId")
             .remove("$KEY_DUAL_BOT_WARNED_PREFIX$steamId")
+            .remove("$KEY_SEEN_TRADE_IDS_PREFIX$steamId")
             .apply()
         CsFloatSecureStore.clearApiKey(context, steamId)
         CsFloatNotifier.cancelForSteamId(context, steamId)

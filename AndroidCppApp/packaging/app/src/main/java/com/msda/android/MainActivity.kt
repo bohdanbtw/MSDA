@@ -932,12 +932,17 @@ class MainActivity : AppCompatActivity() {
                     btnRefresh.isEnabled = true
                     when (result) {
                         is CsFloatResult.Ok -> {
-                            // Sync UI/worker baseline; do not notify from foreground refresh.
+                            // Sync UI/worker baseline + seen trade ids; do not notify from foreground refresh.
                             CsFloatAccountSettings.setLastQueuedCount(
                                 this@MainActivity,
                                 steamId,
                                 result.value.size,
                                 baselined = true
+                            )
+                            CsFloatAccountSettings.setSeenTradeIds(
+                                this@MainActivity,
+                                steamId,
+                                result.value.map { it.id }
                             )
                             renderTrades(result.value)
                             onStatusSynced?.invoke()
