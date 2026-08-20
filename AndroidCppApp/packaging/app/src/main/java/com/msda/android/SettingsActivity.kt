@@ -33,6 +33,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_settings)
 
         BackgroundSyncScheduler.disable(this)
+        BackgroundSyncScheduler.refreshSessionRenewal(this)
         CsFloatScheduler.refresh(this)
 
         val group = findViewById<RadioGroup>(R.id.radioThemeGroup)
@@ -41,6 +42,7 @@ class SettingsActivity : AppCompatActivity() {
         val btnRemovePin = findViewById<Button>(R.id.btnRemovePinLock)
         val switchBiometric = findViewById<Switch>(R.id.switchBiometricUnlock)
         val btnExport = findViewById<Button>(R.id.btnExportMafiles)
+        val switchSessionRenewal = findViewById<Switch>(R.id.switchSessionRenewal)
         val btnDefaultProxy = findViewById<Button>(R.id.btnDefaultProxy)
         val txtDefaultProxyStatus = findViewById<TextView>(R.id.txtDefaultProxyStatus)
         val txtCsFloatStatus = findViewById<TextView>(R.id.txtCsFloatStatus)
@@ -56,6 +58,21 @@ class SettingsActivity : AppCompatActivity() {
         refreshSecurityViews(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
         refreshDefaultProxyStatus(txtDefaultProxyStatus)
         refreshCsFloatStatus(txtCsFloatStatus)
+
+        switchSessionRenewal.isChecked = AppSettings.isSessionRenewalEnabled(this)
+        switchSessionRenewal.setOnCheckedChangeListener { buttonView, isChecked ->
+            if (!buttonView.isPressed) {
+                return@setOnCheckedChangeListener
+            }
+            AppSettings.setSessionRenewalEnabled(this, isChecked)
+            BackgroundSyncScheduler.refreshSessionRenewal(this)
+            Toast.makeText(
+                this,
+                if (isChecked) getString(R.string.session_renewal_enable) + ": on"
+                else getString(R.string.session_renewal_enable) + ": off",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
 
         group.setOnCheckedChangeListener { _, checkedId ->
             val newMode = when (checkedId) {

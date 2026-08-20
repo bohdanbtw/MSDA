@@ -60,6 +60,7 @@ class HubActivity : AppCompatActivity() {
 
         renderAccounts()
         BackgroundSyncScheduler.disable(this)
+        BackgroundSyncScheduler.refreshSessionRenewal(this)
         CsFloatScheduler.refresh(this)
         checkSessionAndPromptIfNeeded()
         UpdateChecker.checkOnLaunch(this)
@@ -76,6 +77,7 @@ class HubActivity : AppCompatActivity() {
         super.onResume()
         applyThemePreference()
         BackgroundSyncScheduler.disable(this)
+        BackgroundSyncScheduler.refreshSessionRenewal(this)
         renderAccounts()
         checkSessionAndPromptIfNeeded()
     }

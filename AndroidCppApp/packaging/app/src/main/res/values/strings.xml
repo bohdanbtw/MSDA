@@ -209,4 +209,7 @@
     <string name="csfloat_test_no_key">Enter or save an API key first</string>
     <string name="csfloat_clear_key">Clear saved key</string>
     <string name="csfloat_key_cleared">CSFloat API key cleared</string>
+    <string name="session_renewal_title">Session keep-alive</string>
+    <string name="session_renewal_hint">Optional. Quietly renews Steam login tokens in the background when they are near expiry. Does not check or confirm Guard trades. Default off.</string>
+    <string name="session_renewal_enable">Keep Steam sessions alive</string>
 </resources>

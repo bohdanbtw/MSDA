@@ -31,13 +31,14 @@ object SessionRenewalManager {
     fun schedule(context: Context) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
             .build()
 
         val workRequest = PeriodicWorkRequestBuilder<SessionRefreshWorker>(
             RENEWAL_INTERVAL_MINUTES, TimeUnit.MINUTES
         )
             .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.LINEAR, 1, TimeUnit.MINUTES)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -57,6 +58,10 @@ object SessionRenewalManager {
     ) : CoroutineWorker(appContext, params) {
 
         override suspend fun doWork(): Result {
+            if (!AppSettings.isSessionRenewalEnabled(applicationContext)) {
+                cancel(applicationContext)
+                return Result.success()
+            }
             return try {
                 initializeNativeAccounts()
                 var renewedCount = 0
@@ -81,6 +86,7 @@ object SessionRenewalManager {
                             PasswordManager.getPassword(applicationContext, auth.accountName).isNullOrBlank()
                         ) continue
 
+                        // SessionHandler.ensureValid renews tokens only — never mobileconf/getlist.
                         runCatching { SessionHandler.ensureValid(applicationContext, auth) }
                             .onSuccess { renewedCount++ }
                     } catch (e: Exception) {

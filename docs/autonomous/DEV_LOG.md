@@ -1,5 +1,12 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T060 opt-in session renewal (1.5.6)
+
+- Settings toggle **Keep Steam sessions alive** (default OFF) → `SessionRenewalManager.schedule/cancel`.
+- Fixed regression: `BackgroundSyncScheduler.disable` no longer cancels renewal on Hub/Settings open.
+- Worker early-exits if pref OFF; renews near-expiry only; never getlist. Battery-not-low + exponential backoff.
+- Bumped **1.5.6 / 150006**. Next: **T012**.
+
 ## 2026-08-21 — Boss: T011/T041 approved; NOW = T012
 
 - Queue was idle at **1.5.5** (`b5392b0` Test connection). Chose **T012** over T060: Worker is warm on CSFloat; screen is foreground/refresh-only (no Guard/getlist). T060 next.

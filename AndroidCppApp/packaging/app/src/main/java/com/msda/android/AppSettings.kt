@@ -42,6 +42,7 @@ object AppSettings {
     private const val KEY_WIDGET_ACCOUNT_NAME_PREFIX = "widget_account_name_"
     private const val KEY_PERMANENT_DEVICE_ID = "permanent_device_id"
     private const val KEY_USE_NEBULA_SESSION_STACK = "use_nebula_session_stack"
+    private const val KEY_SESSION_RENEWAL_ENABLED = "session_renewal_enabled"
 
     fun getThemeMode(context: Context): String {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -363,6 +364,19 @@ object AppSettings {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_USE_NEBULA_SESSION_STACK, enabled)
+            .apply()
+    }
+
+    /** Opt-in proactive refresh-token renewal (WorkManager). Default OFF. Never enables Guard getlist. */
+    fun isSessionRenewalEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_SESSION_RENEWAL_ENABLED, false)
+    }
+
+    fun setSessionRenewalEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_SESSION_RENEWAL_ENABLED, enabled)
             .apply()
     }
 

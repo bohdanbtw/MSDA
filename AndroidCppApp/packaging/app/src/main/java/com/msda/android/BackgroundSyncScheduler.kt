@@ -8,7 +8,8 @@ import androidx.work.WorkManager
 
 /**
  * Background confirmation sync is disabled to avoid Steam rate limits.
- * Calls here only cancel any leftover alarms/work from older app versions.
+ * Calls here only cancel leftover confirmation alarms/work from older app versions.
+ * Session renewal is opt-in and owned by [SessionRenewalManager] + [AppSettings].
  */
 object BackgroundSyncScheduler {
     private const val IMMEDIATE_WORK_NAME = "msda_confirmation_sync_now"
@@ -17,14 +18,24 @@ object BackgroundSyncScheduler {
 
     fun configure(context: Context) {
         disable(context)
+        refreshSessionRenewal(context)
     }
 
     fun disable(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(IMMEDIATE_WORK_NAME)
-        SessionRenewalManager.cancel(context)
         cancelAlarm(context)
         AppSettings.setBackgroundConfirmationsEnabled(context, false)
         AppSettings.setPushConfirmationsEnabled(context, false)
+        // Do not cancel SessionRenewalManager here — opt-in setting owns that lifecycle.
+    }
+
+    /** Schedule or cancel proactive session renewal from the Settings toggle (default OFF). */
+    fun refreshSessionRenewal(context: Context) {
+        if (AppSettings.isSessionRenewalEnabled(context)) {
+            SessionRenewalManager.schedule(context)
+        } else {
+            SessionRenewalManager.cancel(context)
+        }
     }
 
     fun enqueueNow(context: Context) {
