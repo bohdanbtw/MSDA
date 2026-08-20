@@ -50,7 +50,9 @@ data class ConfirmationItem(
     val summary: List<String>,
     val iconUrl: String?,
     val creatorId: String,
-    val multi: Boolean
+    val multi: Boolean,
+    /** Unix seconds from Steam `creation_time`; 0 when absent. */
+    val creationTimeSec: Long = 0L
 )
 
 data class ConfirmationBundle(
@@ -381,7 +383,8 @@ object ConfirmationService {
                 summary = summary,
                 iconUrl = if (item.isNull("icon")) null else item.optString("icon", ""),
                 creatorId = item.optString("creator_id", ""),
-                multi = item.optBoolean("multi", false)
+                multi = item.optBoolean("multi", false),
+                creationTimeSec = item.optLong("creation_time", 0L)
             )
         }
         return items.groupBy { item ->

@@ -1693,6 +1693,13 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, 8, 0, 8)
         }
 
+        val typeIcon = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(40, 40).apply { marginEnd = 8 }
+            setImageResource(confirmationTypeIconRes(item))
+            contentDescription = getString(confirmationTypeLabelRes(item))
+            setColorFilter(ContextCompat.getColor(this@MainActivity, android.R.color.darker_gray))
+        }
+
         val icon = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(72, 72)
             setImageResource(android.R.drawable.sym_def_app_icon)
@@ -1719,14 +1726,20 @@ class MainActivity : AppCompatActivity() {
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
 
+        val relativeTime = formatConfirmationRelativeTime(item)
+        val metaParts = mutableListOf<String>()
+        if (relativeTime.isNotBlank()) metaParts += relativeTime
         val summaryText = item.summary.filter { it.isNotBlank() }.joinToString(" · ")
-        val summary = TextView(this).apply {
-            text = summaryText
+        if (summaryText.isNotBlank()) metaParts += summaryText
+        val meta = TextView(this).apply {
+            text = metaParts.joinToString(" · ")
+            textSize = 12f
+            setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.darker_gray))
         }
 
         textColumn.addView(headline)
-        if (summaryText.isNotBlank()) {
-            textColumn.addView(summary)
+        if (metaParts.isNotEmpty()) {
+            textColumn.addView(meta)
         }
 
         val btnAccept = ImageButton(this).apply {
@@ -1743,12 +1756,40 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { respondToItem(item, false) }
         }
 
+        row.addView(typeIcon)
         row.addView(icon)
         row.addView(textColumn)
         row.addView(btnAccept)
         row.addView(btnDecline)
 
         return row
+    }
+
+    private fun confirmationTypeIconRes(item: ConfirmationItem): Int {
+        return when {
+            isTradeConfirmation(item) -> android.R.drawable.ic_menu_share
+            isMarketConfirmation(item) -> android.R.drawable.ic_menu_agenda
+            else -> android.R.drawable.ic_menu_info_details
+        }
+    }
+
+    private fun confirmationTypeLabelRes(item: ConfirmationItem): Int {
+        return when {
+            isTradeConfirmation(item) -> R.string.confirmation_type_trade
+            isMarketConfirmation(item) -> R.string.confirmation_type_market
+            else -> R.string.confirmation_type_other
+        }
+    }
+
+    private fun formatConfirmationRelativeTime(item: ConfirmationItem): String {
+        if (item.creationTimeSec <= 0L) return ""
+        val createdMs = item.creationTimeSec * 1000L
+        return DateUtils.getRelativeTimeSpanString(
+            createdMs,
+            System.currentTimeMillis(),
+            DateUtils.MINUTE_IN_MILLIS,
+            DateUtils.FORMAT_ABBREV_RELATIVE
+        ).toString()
     }
 
     private fun respondToBundle(bundle: ConfirmationBundle, accept: Boolean) {

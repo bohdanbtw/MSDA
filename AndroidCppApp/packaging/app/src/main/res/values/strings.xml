@@ -134,6 +134,9 @@
     <string name="confirmations_header">Active confirmations</string>
     <string name="confirm_accept">Accept confirmation</string>
     <string name="confirm_decline">Decline confirmation</string>
+    <string name="confirmation_type_trade">Trade confirmation</string>
+    <string name="confirmation_type_market">Market confirmation</string>
+    <string name="confirmation_type_other">Other confirmation</string>
     <string name="status_confirmations_empty">No pending confirmations</string>
     <string name="status_confirmations_loaded">Loaded %1$d confirmation(s)</string>
     <string name="status_confirmations_offline">No network — connect and tap Load again</string>

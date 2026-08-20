@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T096 confirmation row relative time + type icon (1.6.18)
+
+- Parse Steam `creation_time`; each confirmation item row shows abbrev relative time (“2m ago”) + market/trade/other type icon. Load path unchanged; no confirmation timer polling.
+- Version **1.6.18** / `160018`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T092 approved; NOW = T096
 
 - Approved `73c14fb` T092 Confirm Load offline/session hints — **Steam-safety PASS** (user-gesture Load; skip getlist when offline; SessionInvalid → Renew; no confirmation timer polling).
