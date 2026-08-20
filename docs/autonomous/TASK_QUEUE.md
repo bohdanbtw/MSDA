@@ -13,26 +13,25 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T040 | doing | Worker | **Fix Hub delete-by-substring → 1.5.2.** Match mafile by steamId / exact `account_name` / filename — **never** `body.contains(accountName)`. Purge session/proxy/label/CSFloat for that steamId only. Commit + push `development`. |
+| P0 | T011 | todo | Worker | **CSFloat Test connection + credentials polish → 1.5.3.** Add Test connection to existing Main CSFloat dialog: `CsFloatClient.me()` → show username/balance or distinct 401/429/network. Never log API key. Disable/clear cancels scheduler when ready set empty. No Steam confirmation changes. |
 
-### Acceptance (T040)
+### Acceptance (T040) — done (`5234051`, v1.5.2)
 
-- [ ] Repro: account A’s display name appears inside B’s mafile JSON → delete A never removes B
-- [ ] Delete by steamId preferred; fallback exact account_name field / filename stem
-- [ ] SessionStore + proxy + label + CsFloat prefs cleared for that steamId only
-- [ ] Version **1.5.2** / code ≥ 150002
-- [ ] DEV_LOG + push
+- [x] Delete matches steamId / exact account_name / filename — no JSON body substring
+- [x] Purge session/proxy/label/CSFloat for resolved steamId
+- [x] Version 1.5.2 / 150002
+- [x] On `origin/development`
 
 ---
 
-## NEXT (Boss promotes one at a time after T040)
+## NEXT (after T011)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T011 | todo | — | **CSFloat Test connection + credentials polish (1.5.3).** Add Test connection → `CsFloatClient.me()` with distinct ok/401/429/network UX; never log key. Verify disable/clear cancels scheduler. |
-| P0 | T060 | todo | — | **Opt-in proactive session renewal.** Wire dead `SessionRenewalManager.schedule()` behind Settings toggle (default OFF). Renew near-expiry with refresh token; never getlist. |
-| P0 | T061 | todo | — | **Steam-aligned time for confirmation HMAC.** `ConfirmationService` must use `TimeAligner` offset (like codes), not raw wall clock; cache offset; skew warning on fail. |
-| P0 | T012 | todo | — | **CSFloat read-only pending sales (foreground).** Queued/pending list; user refresh only; no accept/offer/Guard. |
+| P0 | T011 | todo | — | **CSFloat Test connection** (see NOW) |
+| P0 | T061 | todo | — | **Steam-aligned confirmation HMAC** — `ConfirmationService` still uses `System.currentTimeMillis()/1000` at ~193/232/252; switch to `TimeAligner` (Architect Cycle 4 confirmed). |
+| P0 | T060 | todo | — | **Opt-in proactive session renewal** — wire `SessionRenewalManager.schedule()` (currently only cancelled). |
+| P0 | T012 | todo | — | **CSFloat read-only pending sales.** Expand `CsFloatTradeSummary` with buyer steamId, price cents, market_hash_name, asset_id, steam_offer id/state; foreground list + refresh. |
 | P1 | T013 | todo | — | **CSFloat notification: actionable trades.** WorkManager cheap `/me` probe; notify only; no Steam Guard. |
 | P1 | T041 | todo | — | **Pace accept-all / trade auto-confirm** — ≥300–500ms between Steam ops + stop/backoff on 429. |
 | P1 | T063 | todo | — | **Confirm All type breakdown + trade friction.** Dialog shows market/trade/other counts; trades need extra checkbox (default off). |
@@ -103,7 +102,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T040 | doing | Worker | Hub delete-by-substring — see NOW |
+| P0 | T040 | done | Worker | Hub delete-by-substring — `5234051` / 1.5.2 |
 | P1 | T041 | todo | — | Pace accept-all / trade auto-confirm |
 | P1 | T042 | todo | — | Wire or remove market/gift auto-confirm dead API |
 | P2 | T043 | todo | — | PasswordManager case: unify `hasPassword` / `getPassword` |
@@ -132,6 +131,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T040 | done | Worker | Hub delete fix `5234051` (1.5.2) |
 | P0 | T010 | done | Worker | CSFloat Phase-1 scaffold + 1.5.1 (`b3bb468`) |
 | P0 | T001 | done | Architect | Review PROTOCOL + CSFLOAT_NOTES; first slice = T010 |
 | P1 | T002 | done | Architect | Settings shape in CSFLOAT_NOTES + scaffold |
@@ -141,7 +141,6 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Boss:** T010 APPROVED; NOW = **T040** then **T011**.
-- **Architect Cycle 3:** added T060–T067 (session renew, confirm time align, confirm-all friction, import/export, mafile encrypt, tick battery, hub multi-select). Prefer **T061** soon after T040 — silent confirm failures from clock skew hurt all users.
-- T021 sketch in `CSFLOAT_NOTES.md` — after T012/T020.
-- Architect docs-only; do not fight Worker on `HubActivity.kt` during T040.
+- **Architect Cycle 4:** T040 verified done on origin. NOW → **T011**. Next highest non-CSFloat: **T061** (confirmed wall-clock HMAC in `ConfirmationService`).
+- T012 needs richer trade DTO fields (buyer, price, hash name, assets, steam_offer) — current `CsFloatTradeSummary` is too thin.
+- Architect docs-only.

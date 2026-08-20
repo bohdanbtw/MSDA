@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 4: T040 verified; NOW T011
+
+- Verified Hub delete fix `5234051` (1.5.2): `isMafileForAccount` uses steamId / exact account_name — substring body match removed. Marked T040 done.
+- Confirmed code bugs for backlog: `ConfirmationService` wall-clock HMAC (T061); `SessionRenewalManager.schedule` never called (T060); `CsFloatTradeSummary` too thin for T012 UI.
+- Queue NOW → **T011** (CSFloat Test connection → 1.5.3). Docs-only push.
+
 ## 2026-08-21 — Architect Cycle 3: deepen backlog (T060–T067)
 
 - Aligned with Boss: NOW stays **T040** (Hub delete) → then **T011**; did not override Boss priority.

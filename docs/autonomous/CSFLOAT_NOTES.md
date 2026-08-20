@@ -103,9 +103,21 @@ Constants (from botCsFloat): getlist floor **35s**, GetTradeOffers floor **20s**
 
 **Out of first scope:** buy orders, market neighbor search loops, Telegram, bulk auto-reprice.
 
-## Risks
+## T012 DTO fields (Architect Cycle 4)
 
-- Steam Guard 429 / lockouts from any new getlist timer.
+Expand beyond current `CsFloatTradeSummary(id, state, sellerId)` before building the pending-sales UI:
+
+| Field | Source (bot) | UI use |
+|-------|--------------|--------|
+| `buyerSteamId` | `buyer.steam_id` | Show counterparty |
+| `priceCents` | listing/contract price | Sort / display |
+| `marketHashName` | `item.market_hash_name` | Primary label |
+| `assetId` | `item.asset_id` | Later Guard match |
+| `floatValue` | optional | Detail line |
+| `steamOfferId` / `steamOfferState` | `steam_offer` | Pending vs needs confirm |
+| `tradeUrl` / token | trade fields | Later T020 send |
+
+Parse in `CsFloatClient.listQueuedTrades()`; keep POST accept out of T012.
 - API key leakage in logs, exports, or shared backups.
 - CSFloat ToS / 429 — respect cooloff; no aggressive mobile polling.
 - Phone + VPS both accepting the same sales → races.
