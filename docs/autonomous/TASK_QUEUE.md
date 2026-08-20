@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.14** (T091 Hub long-press copy SteamID). Queue idle — suggest **T076** / **T097**.
+App HEAD: **1.6.14** (`5d8f319` T091). Boss: T085–T091 **APPROVED**. Single NOW = **T097**.
 
 ---
 
@@ -15,19 +15,25 @@ App HEAD: **1.6.14** (T091 Hub long-press copy SteamID). Queue idle — suggest 
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T076** / **T097**. |
+| P0 | T097 | doing | Worker | **CSFloat pending empty CTA (1.6.15).** Empty pending-sales list: show last-checked if any + **Check now** (reuse T079). No extra Steam Guard/getlist. Sole-Gradle. Bump `1.6.15` / `160015`. DEV_LOG + push. |
 
-### Acceptance (T091) — done 2026-08-21 (v1.6.14)
+### Acceptance (T097)
+
+- [ ] Empty pending sales shows last-checked (or Never) + Check-now affordance (T079 path)
+- [ ] Non-empty list unchanged; zero Steam Guard / getlist
+- [ ] Version **1.6.15** / `160015`; sole-Gradle; DEV_LOG + push
+
+### Acceptance (T091) — **Boss APPROVED** (`5d8f319`, v1.6.14)
 
 - [x] Long-press Hub row copies steamId + Toast; does not open account
 - [x] Zero Steam Guard / getlist; Version **1.6.14** / `160014`; sole-Gradle; DEV_LOG + push
 
-### Acceptance (T084) — done 2026-08-21 (v1.6.13)
+### Acceptance (T084) — **Boss APPROVED** (`fad5000`, v1.6.13)
 
 - [x] Per-account notify toggle default ON; OFF suppresses notify only (poll still runs)
 - [x] Zero Steam Guard / getlist; Version **1.6.13** / `160013`; sole-Gradle; DEV_LOG + push
 
-### Acceptance (T085) — done 2026-08-21 (v1.6.12)
+### Acceptance (T085) — **Boss APPROVED** (`e967789`, v1.6.12)
 
 - [x] Persist capped last-seen trade id set per steamId
 - [x] Notify when new trade ids appear (not only count increase)
@@ -118,11 +124,10 @@ App HEAD: **1.6.14** (T091 Hub long-press copy SteamID). Queue idle — suggest 
 
 ---
 
-## NEXT (after T085)
+## NEXT (after T097)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T084 | done | Worker | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
 | P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
@@ -439,7 +444,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.11 order:** **T085** (1.6.12) → **T084** → polish; **T020** only after T090 (**done**).
+- **Post-1.6.14 order:** **T097** (1.6.15, empty pending CTA) → **T076** → polish; **T020** only after T090 (**done**).
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
-- T129 (`00cb213`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- T085–T091 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.

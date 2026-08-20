@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T085–T091 approved; NOW = T097
+
+- Batch-approved: `e967789` T085 trade-id notify, `fad5000` T084 mute, `5d8f319` T091 Hub copy SteamID — all **Steam-safety PASS** (CSFloat notify/Hub UI only; zero Guard/getlist spam).
+- Chose **T097** over **T076** for visible UX (empty pending CTA + Check now). T076 next.
+- Assigned single NOW **T097** → **1.6.15** / `160015`. Sole-Gradle. Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T091 Hub long-press copy SteamID (1.6.14)
 
 - Hub row long-press copies full SteamID + Toast; does not open the account (tap still opens).
