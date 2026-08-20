@@ -1,5 +1,24 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T013 approved; NOW = T068
+
+- Reviewed `33c10ff`: CSFloat count-delta notify — **Steam-safety PASS** (CSFloat HTTP + local notify only; zero Guard/getlist; baseline prevents first-run spam).
+- Version **1.6.3** / `160003`. T081 cancel-on-clear accepted inside T013.
+- Chose **T068** over **T065**: status strip reuses prefs T013 already writes; CSFloat path continuity. Single NOW **T068** (+ optional **T088**) → **1.6.4** / `160004`.
+- Docs-only; no Kotlin / watchers.
+
+## 2026-08-21 — Architect Cycle 8b: expand after T068/T065
+
+- App still **1.6.3**. Expanded backlog wave **T091–T102**: Hub copy SteamID, Load offline/session hints, share-sheet 2FA, batch import summary, export-all ZIP, confirmation relative time, CSFloat empty CTA, biometric gate, widget account flip, archive, 429 UX, renew timestamp.
+- Strengthened **T065** acceptance (steamId Replace/Keep both/Cancel). Recommend order: **T068** → **T065** → daily-driver UX before **T020**.
+- Docs-only; no Kotlin.
+
+## 2026-08-21 — Architect Cycle 8: post-T013 backlog
+
+- T013 shipped (**1.6.3** `33c10ff`): baseline + count↑ notify; tap → Pending sales; `cancelForSteamId` on clear → mark **T081 done**.
+- Recommend Boss NOW **T068** (status strip; prefs already exist) → **1.6.4**. Added **T088** (Refresh syncs last_*), **T089** (notif icon), **T090** (dual-bot warning on enable).
+- Gate **T020** until **T090**/notify reliability. Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T013 CSFloat sale notifications (1.6.3)
 
 - `CsFloatSaleWorker` baselines queued count then notifies only on increase (no first-run spam).
