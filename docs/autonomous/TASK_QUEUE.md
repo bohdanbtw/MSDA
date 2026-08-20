@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.9** (`5eb853a` T090). Boss: T090 **APPROVED**. Single NOW = **T141**.
+App HEAD: **1.6.10** (T141 strip accent). Queue idle — suggest **T129**.
 
 ---
 
@@ -15,14 +15,14 @@ App HEAD: **1.6.9** (`5eb853a` T090). Boss: T090 **APPROVED**. Single NOW = **T1
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T141 | doing | Worker | **Status strip accent when pending N&gt;0 (1.6.10).** Visual only (bold/accent when last-queued &gt; 0); keep T103 tap → pending. No extra HTTP / Steam Guard / getlist. Bump `1.6.10` / `160010`. DEV_LOG + push. **Sole-Gradle:** only one `assembleDebug`/Gradle daemon build at a time (no parallel isolated packaging builds). |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T129** / **T085**. |
 
-### Acceptance (T141)
+### Acceptance (T141) — done 2026-08-21 (v1.6.10)
 
-- [ ] Status strip uses accent/bold when pending count N&gt;0; still tappable (T103)
-- [ ] Visual only; no extra HTTP / Steam Guard / getlist
-- [ ] Version **1.6.10** / `160010`; DEV_LOG + push
-- [ ] Sole-Gradle respected (no concurrent packaging builds)
+- [x] Status strip uses accent/bold when pending count N&gt;0; still tappable (T103)
+- [x] Visual only; no extra HTTP / Steam Guard / getlist
+- [x] Version **1.6.10** / `160010`; DEV_LOG + push
+- [x] Sole-Gradle respected (single assembleDebug)
 
 ### Acceptance (T090) — **Boss APPROVED** (`5eb853a`, v1.6.9)
 
@@ -204,7 +204,7 @@ Do **not** steal NOW. After **T065** lands, Boss next is **T103**; these fill ga
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T141 | todo | — | **T103+**: status strip shows pending count as accent/color when N&gt;0 (still tappable). |
+| P0 | T141 | done | Worker | **T103+**: status strip accent when N&gt;0 (**1.6.10**). |
 | P1 | T142 | todo | — | **Swipe-to-refresh** on Pending sales list (same as Refresh button; T088 rules — no notify). |
 | P1 | T143 | todo | — | **Confirm Load shows account name** in progress/empty so multi-account users know which Guard list. |
 | P1 | T144 | todo | — | **Copy Steam Guard code from confirmation row?** No — instead **show matching 2FA** sticky while confirm list open (auto-updates). |
@@ -387,6 +387,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T141 | done | Worker | Status strip accent when pending N&gt;0 (**1.6.10**) |
 | P0 | T090 | done | Worker | Dual-bot warning on CSFloat enable (**1.6.9**) |
 | P0 | T079 | done | Worker | Check now one-shot WorkManager (**1.6.8**) |
 | P1 | T089 | done | Worker | CSFloat notif icon → launcher mipmap (inside 1.6.8) |

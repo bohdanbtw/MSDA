@@ -543,6 +543,26 @@ class MainActivity : AppCompatActivity() {
         return getString(R.string.csfloat_status_strip, relative, count)
     }
 
+    /** T141: accent pending count when N>0; otherwise secondary text color. */
+    private fun applyCsFloatStatusStripStyle(view: TextView, steamId: String) {
+        val count = CsFloatAccountSettings.getLastQueuedCount(this, steamId)
+        val lastAt = CsFloatAccountSettings.getLastCheckAtMs(this, steamId)
+        if (lastAt > 0L && count > 0) {
+            view.setTextColor(ContextCompat.getColor(this, R.color.csfloat_pending_accent))
+            view.setTypeface(view.typeface, android.graphics.Typeface.BOLD)
+        } else {
+            val tv = android.util.TypedValue()
+            theme.resolveAttribute(android.R.attr.textColorSecondary, tv, true)
+            val color = if (tv.resourceId != 0) {
+                ContextCompat.getColor(this, tv.resourceId)
+            } else {
+                tv.data
+            }
+            view.setTextColor(color)
+            view.setTypeface(android.graphics.Typeface.create(view.typeface, android.graphics.Typeface.NORMAL))
+        }
+    }
+
     private fun showCsFloatSettingsDialog() {
         updateActiveAuthContext()
         val auth = activeAuthContext
@@ -579,7 +599,9 @@ class MainActivity : AppCompatActivity() {
         }
         fun refreshStatusStrip() {
             statusStrip.text = formatCsFloatStatusStrip(steamId)
+            applyCsFloatStatusStripStyle(statusStrip, steamId)
         }
+        refreshStatusStrip()
         fun openPendingSales() {
             val typed = apiKeyInput.text?.toString().orEmpty().trim()
             val keyToUse = typed.ifEmpty {

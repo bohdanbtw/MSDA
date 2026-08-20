@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T141 status strip pending accent (1.6.10)
+
+- CSFloat status strip bold + accent color when last-queued count &gt; 0 (after a real check); secondary/normal otherwise. T103 tap unchanged.
+- Visual only; zero HTTP / Guard / getlist. Version **1.6.10** / `160010`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T090 approved; NOW = T141
 
 - Reviewed `5eb853a`: dual-bot enable warning — **Steam-safety PASS** (CSFloat enable UI/prefs only; does not block enable; zero Guard/getlist).
