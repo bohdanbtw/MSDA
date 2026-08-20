@@ -13,15 +13,22 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Recommend **T012** (pending sales) or **T060** (session renewal toggle). |
+| P0 | T012 | todo | Worker | **CSFloat read-only pending sales (1.5.6).** Foreground list of queued/pending trades (expand DTO: buyer steamId, price cents, market_hash_name, asset_id, steam_offer id/state as available). User **Refresh** only — no accept, no Steam offer, no Guard, no new WorkManager. Bump `1.5.6` / `150006`. DEV_LOG + push. |
 
-### Acceptance (T011) — done 2026-08-21
+### Acceptance (T012)
+
+- [ ] Parses queued/pending trades; clear empty/error states
+- [ ] Refresh is user-initiated only
+- [ ] No POST accept / Steam offer / Guard / getlist from this screen
+- [ ] Version `1.5.6` / `150006`; DEV_LOG + push
+
+### Acceptance (T011) — **Boss APPROVED** (`b5392b0`, v1.5.5)
 
 - [x] Test connection in Main CSFloat dialog → `/me` with ok/401/429/network UX
 - [x] Clear key + scheduler cancel when ready set empty; never log key
 - [x] Version `1.5.5` / `150005`
 
-### Acceptance (T041) — done 2026-08-21
+### Acceptance (T041) — **Boss APPROVED** (`d0a0263`, v1.5.4)
 
 - [x] Accept-all / trade auto-confirm wait **400ms** between Steam ops
 - [x] Hard failure or 429-like error **stops** remaining accepts (no silent hammering)
@@ -37,11 +44,10 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 ---
 
-## NEXT (after T011)
+## NEXT (after T012)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T012 | todo | — | **CSFloat read-only pending sales (foreground).** Queued/pending list; user refresh only; no accept/offer/Guard. |
 | P0 | T060 | todo | — | **Opt-in proactive session renewal.** Wire dead `SessionRenewalManager.schedule()` behind Settings toggle (default OFF). Renew near-expiry with refresh token; never getlist. |
 | P1 | T013 | todo | — | **CSFloat notification: actionable trades.** WorkManager cheap `/me` probe; notify only; no Steam Guard. |
 | P1 | T063 | todo | — | **Confirm All type breakdown + trade friction.** Dialog shows market/trade/other counts; trades need extra checkbox (default off). |
@@ -148,5 +154,5 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- Worker shipped **T041** (1.5.4) + **T011** (1.5.5). Recommend next **T012** or **T060**.
+- **Boss Cycle 5:** Approved T041 + T011. Single NOW = **T012** (CSFloat pending sales → 1.5.6). T060 next. No code fights; no watchers.
 - Architect docs-only; do not fight Worker on Kotlin during active NOW.

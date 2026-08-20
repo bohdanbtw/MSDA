@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T011/T041 approved; NOW = T012
+
+- Queue was idle at **1.5.5** (`b5392b0` Test connection). Chose **T012** over T060: Worker is warm on CSFloat; screen is foreground/refresh-only (no Guard/getlist). T060 next.
+- NOW **T012** → bump **1.5.6 / 150006**. Docs-only push.
+
 ## 2026-08-21 — Worker: T011 CSFloat Test connection (1.5.5)
 
 - Main CSFloat dialog: **Test connection** → `CsFloatClient.me()` with ok/401/429/network UX; never logs API key.
