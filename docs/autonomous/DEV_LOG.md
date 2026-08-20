@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T076 approved; NOW = T092
+
+- Approved `7edbcd2` T076 cheap `/me` actionable probe — **Steam-safety PASS** (CSFloat SaleWorker only; skip trades when hint unchanged; Check-now still fetches; zero Guard/getlist).
+- Assigned single NOW **T092** → **1.6.17** / `160017` (Confirm Load offline vs session hint + Renew). Sole-Gradle.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T076 cheap `/me` actionable probe (1.6.16)
 
 - Parse `actionable_trades` hint from `/me`; periodic SaleWorker skips `listQueuedTrades` when hint unchanged + baseline exists; Check-now always fetches; missing hint → full list fallback; touch last-checked on skip.
