@@ -576,6 +576,10 @@ class MainActivity : AppCompatActivity() {
             text = getString(R.string.csfloat_enable)
             isChecked = CsFloatAccountSettings.isEnabled(this@MainActivity, steamId)
         }
+        val notifySwitch = Switch(this).apply {
+            text = getString(R.string.csfloat_notify_enabled)
+            isChecked = CsFloatAccountSettings.isNotifyEnabled(this@MainActivity, steamId)
+        }
         val apiKeyInput = EditText(this).apply {
             hint = getString(R.string.csfloat_api_key_hint)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -656,6 +660,7 @@ class MainActivity : AppCompatActivity() {
             addView(statusStrip)
             addView(balanceLine)
             addView(enableSwitch)
+            addView(notifySwitch)
             addView(apiKeyInput)
             addView(intervalInput)
             addView(btnTest)
@@ -806,6 +811,14 @@ class MainActivity : AppCompatActivity() {
             val wasEnabled = CsFloatAccountSettings.isEnabled(this, steamId)
             fun applyEnableAndSchedule() {
                 CsFloatAccountSettings.setEnabled(this@MainActivity, steamId, enable)
+                CsFloatAccountSettings.setNotifyEnabled(
+                    this@MainActivity,
+                    steamId,
+                    notifySwitch.isChecked
+                )
+                if (!notifySwitch.isChecked) {
+                    CsFloatNotifier.cancelForSteamId(this@MainActivity, steamId)
+                }
                 if (!enable) {
                     CsFloatAccountSettings.clearCheckStatus(this@MainActivity, steamId)
                 }

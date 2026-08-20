@@ -14,6 +14,7 @@ object CsFloatAccountSettings {
     private const val KEY_LAST_CHECK_AT_PREFIX = "last_check_at_"
     private const val KEY_DUAL_BOT_WARNED_PREFIX = "dual_bot_warned_"
     private const val KEY_SEEN_TRADE_IDS_PREFIX = "seen_trade_ids_"
+    private const val KEY_NOTIFY_ENABLED_PREFIX = "notify_enabled_"
 
     /** Cap for T085 last-seen trade id set (SharedPreferences StringSet-ish CSV). */
     const val MAX_SEEN_TRADE_IDS = 64
@@ -34,6 +35,21 @@ object CsFloatAccountSettings {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean("$KEY_ENABLED_PREFIX$steamId", enabled)
+            .apply()
+    }
+
+    /** T084: sale notifications default ON; OFF suppresses notify only (poll still runs). */
+    fun isNotifyEnabled(context: Context, steamId: String): Boolean {
+        if (steamId.isBlank()) return true
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("$KEY_NOTIFY_ENABLED_PREFIX$steamId", true)
+    }
+
+    fun setNotifyEnabled(context: Context, steamId: String, enabled: Boolean) {
+        if (steamId.isBlank()) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("$KEY_NOTIFY_ENABLED_PREFIX$steamId", enabled)
             .apply()
     }
 
@@ -148,6 +164,7 @@ object CsFloatAccountSettings {
             .remove("$KEY_LAST_CHECK_AT_PREFIX$steamId")
             .remove("$KEY_DUAL_BOT_WARNED_PREFIX$steamId")
             .remove("$KEY_SEEN_TRADE_IDS_PREFIX$steamId")
+            .remove("$KEY_NOTIFY_ENABLED_PREFIX$steamId")
             .apply()
         CsFloatSecureStore.clearApiKey(context, steamId)
         CsFloatNotifier.cancelForSteamId(context, steamId)

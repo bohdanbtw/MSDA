@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T084 per-account notify mute (1.6.13)
+
+- CSFloat dialog **Notify on new sales** toggle (default ON); OFF skips Notifier only; cancels active sale notif on mute. Poll/Check-now unchanged.
+- Zero Steam Guard/getlist. Version **1.6.13** / `160013`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Worker: T085 notify on new trade ids (1.6.12)
 
 - Capped seen trade-id set (64) per steamId; SaleWorker notifies on new ids or count↑ after baseline; first poll + pending Refresh sync ids without notify.

@@ -33,6 +33,8 @@ object CsFloatNotifier {
 
     fun notifyPendingIncrease(context: Context, steamId: String, count: Int, accountName: String) {
         if (steamId.isBlank() || count <= 0) return
+        // T084: per-account mute — OFF suppresses notify only; polling still OK.
+        if (!CsFloatAccountSettings.isNotifyEnabled(context, steamId)) return
         ensureChannel(context)
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
 

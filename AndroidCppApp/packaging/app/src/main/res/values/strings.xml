@@ -202,6 +202,7 @@
     <string name="csfloat_menu">CSFloat integration</string>
     <string name="csfloat_dialog_title">CSFloat for this account</string>
     <string name="csfloat_enable">Enable CSFloat sale checks</string>
+    <string name="csfloat_notify_enabled">Notify on new sales</string>
     <string name="csfloat_api_key_hint">CSFloat API key</string>
     <string name="csfloat_interval_hint">Poll interval (minutes, 15–240)</string>
     <string name="csfloat_saved">CSFloat settings saved</string>
