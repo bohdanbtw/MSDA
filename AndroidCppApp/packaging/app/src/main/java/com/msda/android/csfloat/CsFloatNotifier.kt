@@ -59,7 +59,7 @@ object CsFloatNotifier {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(context.getString(R.string.csfloat_notification_title, titleAccount))
             .setContentText(context.getString(R.string.csfloat_notification_body, count))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

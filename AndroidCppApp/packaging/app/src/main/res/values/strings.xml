@@ -226,6 +226,9 @@
     <string name="session_renewal_hint">Optional. Quietly renews Steam login tokens in the background when they are near expiry. Does not check or confirm Guard trades. Default off.</string>
     <string name="session_renewal_enable">Keep Steam sessions alive</string>
     <string name="csfloat_pending_sales">Pending sales</string>
+    <string name="csfloat_check_now">Check now</string>
+    <string name="csfloat_check_now_started">CSFloat check started</string>
+    <string name="csfloat_check_now_need_enable">Enable CSFloat with an API key first</string>
     <string name="csfloat_pending_title">CSFloat pending sales</string>
     <string name="csfloat_pending_refresh">Refresh</string>
     <string name="csfloat_pending_loading">Loading queued/pending trades…</string>

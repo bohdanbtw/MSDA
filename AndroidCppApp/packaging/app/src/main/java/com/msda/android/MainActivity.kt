@@ -611,6 +611,11 @@ class MainActivity : AppCompatActivity() {
             text = getString(R.string.csfloat_pending_sales)
             isEnabled = CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
         }
+        val btnCheckNow = Button(this).apply {
+            text = getString(R.string.csfloat_check_now)
+            isEnabled = CsFloatAccountSettings.isEnabled(this@MainActivity, steamId) &&
+                CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
+        }
         statusStrip.setOnClickListener { openPendingSales() }
         run {
             val hasKey = CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
@@ -634,6 +639,7 @@ class MainActivity : AppCompatActivity() {
             addView(btnTest)
             addView(btnClearKey)
             addView(btnPending)
+            addView(btnCheckNow)
             addView(testResult)
         }
 
@@ -691,6 +697,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        fun refreshCheckNowEnabled(running: Boolean = false) {
+            val ready = CsFloatAccountSettings.isEnabled(this@MainActivity, steamId) &&
+                CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
+            btnCheckNow.isEnabled = ready && !running
+        }
+
         btnClearKey.setOnClickListener {
             CsFloatSecureStore.clearApiKey(this, steamId)
             CsFloatNotifier.cancelForSteamId(this, steamId)
@@ -702,6 +714,7 @@ class MainActivity : AppCompatActivity() {
             apiKeyInput.hint = getString(R.string.csfloat_api_key_hint)
             btnClearKey.isEnabled = false
             btnPending.isEnabled = false
+            refreshCheckNowEnabled()
             statusStrip.isClickable = false
             statusStrip.isFocusable = false
             statusStrip.alpha = 0.55f
@@ -712,6 +725,42 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnPending.setOnClickListener { openPendingSales() }
+
+        btnCheckNow.setOnClickListener {
+            if (!CsFloatAccountSettings.isEnabled(this, steamId) ||
+                !CsFloatSecureStore.hasApiKey(this, steamId)
+            ) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.csfloat_check_now_need_enable),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            // Ensure periodic scheduler knows about this account before one-shot.
+            CsFloatScheduler.refresh(this)
+            if (!CsFloatScheduler.enqueueCheckNow(this, steamId)) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.csfloat_check_now_need_enable),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            btnCheckNow.isEnabled = false
+            Toast.makeText(this, getString(R.string.csfloat_check_now_started), Toast.LENGTH_SHORT).show()
+        }
+
+        val checkNowObserver = androidx.lifecycle.Observer<List<androidx.work.WorkInfo>> { infos ->
+            if (isFinishing) return@Observer
+            val running = CsFloatScheduler.isCheckNowActive(infos)
+            refreshCheckNowEnabled(running = running)
+            if (!running) {
+                refreshStatusStrip()
+            }
+        }
+        val checkNowLiveData = CsFloatScheduler.checkNowWorkInfos(this)
+        checkNowLiveData.observe(this, checkNowObserver)
 
         fun saveCsFloatSettings() {
             val newKey = apiKeyInput.text?.toString().orEmpty().trim()
@@ -757,7 +806,13 @@ class MainActivity : AppCompatActivity() {
                     saveCsFloatSettings()
                 }
             }
-            .show()
+            .create()
+            .also { dialog ->
+                dialog.setOnDismissListener {
+                    checkNowLiveData.removeObserver(checkNowObserver)
+                }
+                dialog.show()
+            }
     }
 
     /**

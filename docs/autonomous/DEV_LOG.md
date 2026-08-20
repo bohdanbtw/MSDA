@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T079 Check now + T089 notif icon (1.6.8)
+
+- CSFloat dialog **Check now** enqueues unique one-shot `CsFloatSaleWorker` (`KEEP`); button disabled while active; strip refreshes when work finishes.
+- Notification small icon → `R.mipmap.ic_launcher` (T089). Zero Steam Guard/getlist.
+- Version **1.6.8** / `160008`; `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T077+T072 approved; NOW = T079
 
 - Reviewed `8beb19a`: POST_NOTIFICATIONS on enable + `/me` balance line — **Steam-safety PASS** (CSFloat UI/HTTP only; soft-fail permission; zero Guard/getlist).

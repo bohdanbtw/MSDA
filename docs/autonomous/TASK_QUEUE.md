@@ -1,4 +1,4 @@
-﻿# TASK_QUEUE
+# TASK_QUEUE
 
 Prioritized backlog. **Architect** invents / refines, **Boss** orders NOW, **Worker** implements.
 
@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.7** (`8beb19a` T077+T072). Boss: T077+T072 **APPROVED**. Single NOW = **T079**.
+App HEAD: **1.6.8** (T079 Check now + T089 notif icon). Queue idle — suggest **T090** / **T129** / **T141**.
 
 ---
 
@@ -15,14 +15,15 @@ App HEAD: **1.6.7** (`8beb19a` T077+T072). Boss: T077+T072 **APPROVED**. Single 
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T079 | doing | Worker | **Check now one-shot WorkManager (1.6.8).** CSFloat dialog button enqueues unique one-time work (same path as periodic SaleWorker); disable button while running; honor 429; **zero Steam Guard/getlist**. Prefer refreshing status strip after. Bump `1.6.8` / `160008`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T090** (dual-bot warn) or **T085**. |
 
-### Acceptance (T079)
+### Acceptance (T079) — done 2026-08-21 (v1.6.8)
 
-- [ ] “Check now” enqueues unique one-time CSFloat work for that steamId
-- [ ] Button disabled while running; re-enables on finish
-- [ ] Same notify/baseline rules as periodic worker; honor 429
-- [ ] Zero Steam Guard / getlist; Version **1.6.8** / `160008`; DEV_LOG + push
+- [x] “Check now” enqueues unique one-time CSFloat work (same SaleWorker path)
+- [x] Button disabled while running; re-enables on finish; strip refresh after
+- [x] Same notify/baseline rules as periodic worker; honor 429
+- [x] T089 same ship: notification small icon → `R.mipmap.ic_launcher`
+- [x] Zero Steam Guard / getlist; Version **1.6.8** / `160008`; DEV_LOG + push
 
 ### Acceptance (T077+T072) — **Boss APPROVED** (`8beb19a`, v1.6.7)
 
@@ -83,7 +84,7 @@ App HEAD: **1.6.7** (`8beb19a` T077+T072). Boss: T077+T072 **APPROVED**. Single 
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T089 | todo | — | CSFloat notification small icon → app launcher icon (replace `ic_dialog_info`). |
+| P1 | T089 | done | Worker | CSFloat notification small icon → app launcher icon (**1.6.8**). |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
@@ -373,6 +374,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T079 | done | Worker | Check now one-shot WorkManager (**1.6.8**) |
+| P1 | T089 | done | Worker | CSFloat notif icon → launcher mipmap (inside 1.6.8) |
 | P0 | T077 | done | Worker | POST_NOTIFICATIONS on CSFloat enable (**1.6.7**) |
 | P1 | T072 | done | Worker | Balance line after Test (inside 1.6.7) |
 | P0 | T103 | done | Worker | Tap status strip → pending (**1.6.6**) |

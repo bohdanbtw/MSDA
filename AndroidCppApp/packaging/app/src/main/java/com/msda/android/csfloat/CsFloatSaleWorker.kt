@@ -17,10 +17,22 @@ class CsFloatSaleWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val ready = CsFloatAccountSettings.readySteamIds(applicationContext)
+        val onlySteamId = inputData.getString(CsFloatScheduler.KEY_STEAM_ID)?.trim().orEmpty()
+        val ready = if (onlySteamId.isNotEmpty()) {
+            // One-shot Check-now for a single account (API key required).
+            if (CsFloatSecureStore.hasApiKey(applicationContext, onlySteamId)) {
+                listOf(onlySteamId)
+            } else {
+                emptyList()
+            }
+        } else {
+            CsFloatAccountSettings.readySteamIds(applicationContext)
+        }
         if (ready.isEmpty()) {
             Log.d(TAG, "No opted-in CSFloat accounts with API keys; skipping")
-            CsFloatScheduler.cancel(applicationContext)
+            if (onlySteamId.isEmpty()) {
+                CsFloatScheduler.cancel(applicationContext)
+            }
             return Result.success()
         }
 
