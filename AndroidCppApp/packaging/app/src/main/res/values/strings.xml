@@ -222,4 +222,8 @@
     <string name="csfloat_pending_count">%1$d queued/pending sale(s) — read-only</string>
     <string name="csfloat_pending_unknown_item">Unknown item</string>
     <string name="csfloat_pending_row">%1$s\n%2$s · %3$s · buyer …%4$s</string>
+    <string name="csfloat_notification_channel">CSFloat sales</string>
+    <string name="csfloat_notification_channel_desc">Alerts when new queued or pending CSFloat sales appear</string>
+    <string name="csfloat_notification_title">CSFloat · %1$s</string>
+    <string name="csfloat_notification_body">%1$d pending sale(s) — tap to review</string>
 </resources>

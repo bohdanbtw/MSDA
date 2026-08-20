@@ -6,10 +6,10 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 
 /**
- * Background CSFloat check skeleton.
+ * Background CSFloat check.
  *
  * Polls CSFloat for queued/pending trades only. Does **not** call Steam Guard
- * or confirmation APIs — that stays manual / sale-triggered in later slices.
+ * or confirmation APIs. Notifies only when queued count increases after a baseline.
  */
 class CsFloatSaleWorker(
     appContext: Context,
@@ -28,27 +28,25 @@ class CsFloatSaleWorker(
         for (steamId in ready) {
             val apiKey = CsFloatSecureStore.getApiKey(applicationContext, steamId) ?: continue
             val client = CsFloatClient(apiKey)
+            var accountName = ""
 
             when (val me = client.me()) {
                 is CsFloatResult.Ok -> {
-                    Log.d(
-                        TAG,
-                        "CSFloat /me ok for $steamId user=${me.value.username} " +
-                            "balance=${me.value.balanceCents}"
-                    )
+                    accountName = me.value.username
+                    Log.d(TAG, "CSFloat /me ok for …${steamId.takeLast(4)}")
                 }
                 is CsFloatResult.RateLimited -> {
-                    Log.w(TAG, "CSFloat rate-limited for $steamId retryAfter=${me.retryAfterSec}")
+                    Log.w(TAG, "CSFloat rate-limited for …${steamId.takeLast(4)}")
                     sawRetryable = true
                     continue
                 }
                 is CsFloatResult.HttpError -> {
-                    Log.w(TAG, "CSFloat /me HTTP ${me.code} for $steamId")
+                    Log.w(TAG, "CSFloat /me HTTP ${me.code}")
                     if (me.code in 500..599) sawRetryable = true
                     continue
                 }
                 is CsFloatResult.NetworkError -> {
-                    Log.w(TAG, "CSFloat /me network for $steamId: ${me.message}")
+                    Log.w(TAG, "CSFloat /me network")
                     sawRetryable = true
                     continue
                 }
@@ -56,25 +54,40 @@ class CsFloatSaleWorker(
 
             when (val trades = client.listQueuedTrades()) {
                 is CsFloatResult.Ok -> {
-                    Log.d(TAG, "CSFloat trades for $steamId: ${trades.value.size} queued/pending")
-                    // Future: accept sale + Steam trade + Guard only for real offers.
+                    val count = trades.value.size
+                    Log.d(TAG, "CSFloat trades …${steamId.takeLast(4)}: $count queued/pending")
+                    handleQueuedCount(steamId, accountName, count)
                 }
                 is CsFloatResult.RateLimited -> {
-                    Log.w(TAG, "CSFloat trades rate-limited for $steamId")
+                    Log.w(TAG, "CSFloat trades rate-limited")
                     sawRetryable = true
                 }
                 is CsFloatResult.HttpError -> {
-                    Log.w(TAG, "CSFloat trades HTTP ${trades.code} for $steamId")
+                    Log.w(TAG, "CSFloat trades HTTP ${trades.code}")
                     if (trades.code in 500..599) sawRetryable = true
                 }
                 is CsFloatResult.NetworkError -> {
-                    Log.w(TAG, "CSFloat trades network for $steamId: ${trades.message}")
+                    Log.w(TAG, "CSFloat trades network")
                     sawRetryable = true
                 }
             }
         }
 
         return if (sawRetryable) Result.retry() else Result.success()
+    }
+
+    private fun handleQueuedCount(steamId: String, accountName: String, count: Int) {
+        val baselined = CsFloatAccountSettings.hasQueuedBaseline(applicationContext, steamId)
+        val last = CsFloatAccountSettings.getLastQueuedCount(applicationContext, steamId)
+        if (!baselined) {
+            // First successful poll: store baseline, do not spam notify.
+            CsFloatAccountSettings.setLastQueuedCount(applicationContext, steamId, count, baselined = true)
+            return
+        }
+        if (count > last) {
+            CsFloatNotifier.notifyPendingIncrease(applicationContext, steamId, count, accountName)
+        }
+        CsFloatAccountSettings.setLastQueuedCount(applicationContext, steamId, count, baselined = true)
     }
 
     companion object {

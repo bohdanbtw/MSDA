@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.2** (`d91a475` T063). Boss: T030 + T063 **APPROVED**. Single NOW = **T013**.
+App HEAD: **1.6.3** (T013 CSFloat notify).
 
 ---
 
@@ -15,19 +15,15 @@ App HEAD: **1.6.2** (`d91a475` T063). Boss: T030 + T063 **APPROVED**. Single NOW
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T013 | doing | Worker | **CSFloat notification on new queued/pending sales (1.6.3).** Count-delta in `CsFloatSaleWorker`; notify only on increase; first run baseline only (no spam). Tap → Pending sales / Main for that steamId. Touch `csfloat/*` + notification channel only. **Zero Steam Guard / getlist / confirm.** Honor 429; interval floor ≥15m. Optional same-batch **T076** if small. Bump `1.6.3` / `160003`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Recommend **T065** or **T068**. |
 
-### Acceptance (T013) — concrete
+### Acceptance (T013) — done 2026-08-21
 
-- [ ] After successful `listQueuedTrades` (or T076 cheap probe), compare `count` vs `last_queued_count_<steamId>`
-- [ ] Notify **only** when `count > last` (first run: store baseline, **no** notify spam)
-- [ ] Notification title/body: account label/name + “N pending CSFloat sale(s)” — never API key / secrets
-- [ ] Tap → open Main for that account **or** Pending sales dialog (extra Intent extras OK)
-- [ ] Channel `csfloat_sales`, importance DEFAULT or LOW; create once
-- [ ] `clearAccount` / disable / clear key cancels notifications for that steamId + clears last_* prefs
-- [ ] **Zero** Steam getlist/confirm/offer; honor 429 (no notify storm on retries)
-- [ ] Version **1.6.3** / `160003`; DEV_LOG + push
-- [ ] Prefer shipping **T076** in same batch if small; else follow immediately
+- [x] Count-delta vs last_queued; first run baseline only
+- [x] Notify only on increase; never API key in notification
+- [x] Tap → Main Pending sales dialog
+- [x] Channel `csfloat_sales`; clearAccount cancels notification
+- [x] Zero Steam Guard; Version **1.6.3** / `160003`
 
 ### Acceptance (T063) — **Boss APPROVED** (`d91a475`, v1.6.2)
 

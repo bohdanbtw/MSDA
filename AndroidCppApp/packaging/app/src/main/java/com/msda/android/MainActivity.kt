@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_ACCOUNT_INDEX = "extra_account_index"
         const val EXTRA_ACCOUNT_NAME = "extra_account_name"
         const val EXTRA_STEAM_ID = "extra_steam_id"
+        const val EXTRA_OPEN_CSFLOAT_PENDING = "extra_open_csfloat_pending"
         /** Gap between Steam confirmation ops (accept-all / trade auto-confirm). */
         private const val STEAM_CONFIRM_GAP_MS = 400L
     }
@@ -180,6 +181,8 @@ class MainActivity : AppCompatActivity() {
             txtStatus.text = getString(R.string.status_loading_confirmations)
             refreshConfirmationsAsync()
         }
+
+        maybeOpenCsFloatPendingFromIntent(intent)
     }
 
     private fun applyThemePreference() {
@@ -223,7 +226,33 @@ class MainActivity : AppCompatActivity() {
                 expandedBundleKeys.clear()
                 renderBundles(emptyList())
                 txtStatus.text = "Loaded account: $currentAccountName"
+            } else {
+                val steamId = intent.getStringExtra(EXTRA_STEAM_ID).orEmpty()
+                if (steamId.isNotBlank()) {
+                    currentSteamId = steamId
+                    currentAccountName = intent.getStringExtra(EXTRA_ACCOUNT_NAME).orEmpty()
+                        .ifBlank { currentAccountName }
+                    refreshAccountTitle()
+                    updateActiveAuthContext()
+                }
             }
+            maybeOpenCsFloatPendingFromIntent(intent)
+        }
+    }
+
+    private fun maybeOpenCsFloatPendingFromIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_CSFLOAT_PENDING, false) != true) return
+        intent.removeExtra(EXTRA_OPEN_CSFLOAT_PENDING)
+        val steamId = currentSteamId.ifBlank { intent.getStringExtra(EXTRA_STEAM_ID).orEmpty() }
+        if (steamId.isBlank()) return
+        val key = CsFloatSecureStore.getApiKey(this, steamId)
+        if (key.isNullOrBlank()) {
+            Toast.makeText(this, getString(R.string.csfloat_test_no_key), Toast.LENGTH_SHORT).show()
+            return
+        }
+        // Defer until window is ready.
+        uiHandler.post {
+            if (!isFinishing) showCsFloatPendingSalesDialog(key)
         }
     }
 
@@ -547,6 +576,8 @@ class MainActivity : AppCompatActivity() {
 
         btnClearKey.setOnClickListener {
             CsFloatSecureStore.clearApiKey(this, steamId)
+            CsFloatNotifier.cancelForSteamId(this, steamId)
+            CsFloatAccountSettings.setLastQueuedCount(this, steamId, 0, baselined = false)
             apiKeyInput.setText("")
             apiKeyInput.hint = getString(R.string.csfloat_api_key_hint)
             btnClearKey.isEnabled = false

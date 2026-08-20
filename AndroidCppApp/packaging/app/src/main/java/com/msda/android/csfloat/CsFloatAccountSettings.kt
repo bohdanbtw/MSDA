@@ -9,6 +9,9 @@ object CsFloatAccountSettings {
     private const val PREFS = "msda_csfloat_ui"
     private const val KEY_ENABLED_PREFIX = "enabled_"
     private const val KEY_INTERVAL_PREFIX = "interval_min_"
+    private const val KEY_LAST_QUEUED_COUNT_PREFIX = "last_queued_count_"
+    private const val KEY_LAST_QUEUED_BASELINED_PREFIX = "last_queued_baselined_"
+    private const val KEY_LAST_CHECK_AT_PREFIX = "last_check_at_"
 
     /** WorkManager periodic floor is 15; we default higher for battery. */
     const val DEFAULT_INTERVAL_MINUTES = 30L
@@ -45,14 +48,46 @@ object CsFloatAccountSettings {
             .apply()
     }
 
+    fun getLastQueuedCount(context: Context, steamId: String): Int {
+        if (steamId.isBlank()) return 0
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt("$KEY_LAST_QUEUED_COUNT_PREFIX$steamId", 0)
+    }
+
+    fun hasQueuedBaseline(context: Context, steamId: String): Boolean {
+        if (steamId.isBlank()) return false
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("$KEY_LAST_QUEUED_BASELINED_PREFIX$steamId", false)
+    }
+
+    fun setLastQueuedCount(context: Context, steamId: String, count: Int, baselined: Boolean = true) {
+        if (steamId.isBlank()) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt("$KEY_LAST_QUEUED_COUNT_PREFIX$steamId", count.coerceAtLeast(0))
+            .putBoolean("$KEY_LAST_QUEUED_BASELINED_PREFIX$steamId", baselined)
+            .putLong("$KEY_LAST_CHECK_AT_PREFIX$steamId", System.currentTimeMillis())
+            .apply()
+    }
+
+    fun getLastCheckAtMs(context: Context, steamId: String): Long {
+        if (steamId.isBlank()) return 0L
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getLong("$KEY_LAST_CHECK_AT_PREFIX$steamId", 0L)
+    }
+
     fun clearAccount(context: Context, steamId: String) {
         if (steamId.isBlank()) return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .remove("$KEY_ENABLED_PREFIX$steamId")
             .remove("$KEY_INTERVAL_PREFIX$steamId")
+            .remove("$KEY_LAST_QUEUED_COUNT_PREFIX$steamId")
+            .remove("$KEY_LAST_QUEUED_BASELINED_PREFIX$steamId")
+            .remove("$KEY_LAST_CHECK_AT_PREFIX$steamId")
             .apply()
         CsFloatSecureStore.clearApiKey(context, steamId)
+        CsFloatNotifier.cancelForSteamId(context, steamId)
     }
 
     /** SteamIds that opted in (may still lack an API key). */
