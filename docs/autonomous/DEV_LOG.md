@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T079+T089 approved; NOW = T090
+
+- Reviewed `6e71420`: Check now one-shot WM + launcher notif icon — **Steam-safety PASS** (CSFloat SaleWorker path only; zero Guard/getlist).
+- Version **1.6.8** / `160008`. Chose **T090** over T085/T129 (dual-bot gate before any accept work).
+- Assigned single NOW **T090** → **1.6.9** / `160009`. Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T079 Check now + T089 notif icon (1.6.8)
 
 - CSFloat dialog **Check now** enqueues unique one-shot `CsFloatSaleWorker` (`KEEP`); button disabled while active; strip refreshes when work finishes.

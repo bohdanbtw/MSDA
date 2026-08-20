@@ -1,4 +1,4 @@
-# TASK_QUEUE
+﻿# TASK_QUEUE
 
 Prioritized backlog. **Architect** invents / refines, **Boss** orders NOW, **Worker** implements.
 
@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.8** (T079 Check now + T089 notif icon). Queue idle — suggest **T090** / **T129** / **T141**.
+App HEAD: **1.6.8** (`6e71420` T079+T089). Boss: T079+T089 **APPROVED**. Single NOW = **T090**.
 
 ---
 
@@ -15,9 +15,16 @@ App HEAD: **1.6.8** (T079 Check now + T089 notif icon). Queue idle — suggest *
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T090** (dual-bot warn) or **T085**. |
+| P0 | T090 | doing | Worker | **Dual-bot warning on CSFloat enable (1.6.9).** One-time dialog/copy when enabling CSFloat: don’t run VPS/other bot on same account. Does **not** block enable. Persist “seen” pref. Touch CSFloat enable path only. **Zero Steam Guard / getlist.** Bump `1.6.9` / `160009`. DEV_LOG + push. |
 
-### Acceptance (T079) — done 2026-08-21 (v1.6.8)
+### Acceptance (T090)
+
+- [ ] On first enable (or first enable after never-seen), show dual-bot warning dialog/copy
+- [ ] User can dismiss and still enable; pref records seen so not spammy
+- [ ] Never logs API key; zero Steam Guard / getlist
+- [ ] Version **1.6.9** / `160009`; DEV_LOG + push
+
+### Acceptance (T079+T089) — **Boss APPROVED** (`6e71420`, v1.6.8)
 
 - [x] “Check now” enqueues unique one-time CSFloat work (same SaleWorker path)
 - [x] Button disabled while running; re-enables on finish; strip refresh after
@@ -80,18 +87,18 @@ App HEAD: **1.6.8** (T079 Check now + T089 notif icon). Queue idle — suggest *
 
 ---
 
-## NEXT (after T079)
+## NEXT (after T090)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T089 | done | Worker | CSFloat notification small icon → app launcher icon (**1.6.8**). |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
 | P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
 | P1 | T042 | todo | — | **Wire or remove** dead market/gift auto-confirm APIs. |
-| P1 | T090 | todo | — | When enabling CSFloat: one-time dual-bot warning (“don’t run VPS bot on same account”). |
+| P0 | T129 | todo | — | **Hub secondary line = SteamID** so Keep-both clones are distinguishable. |
+| P0 | T141 | todo | — | **T103+**: status strip accent when N&gt;0 (still tappable). |
 | P1 | T020 | todo | — | **Opt-in CSFloat accept + Steam offer send** (second toggle default OFF); **no** auto Guard. |
 | P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit. |
 | P2 | T022 | todo | — | Dual-bot conflict banner + sales audit UI. |
@@ -398,6 +405,6 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.7 order:** **T079** (1.6.8) → **T089/T085** → **T129+** / **T141+**; **T090** before **T020**.
-- T077+T072 (`8beb19a`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
-- Boss docs-only for queue; no Kotlin fights. Cycles 9–12 seeded through **T152**.
+- **Post-1.6.8 order:** **T090** (1.6.9, gate before T020) → **T085/T084** or **T129/T141** → **T020** only after T090.
+- T079+T089 (`6e71420`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- Boss docs-only for queue; no Kotlin fights.
