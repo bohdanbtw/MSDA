@@ -93,13 +93,20 @@ Constants (from botCsFloat): getlist floor **35s**, GetTradeOffers floor **20s**
 
 | Phase | Scope | Status target |
 |-------|--------|---------------|
-| **1 Scaffold** | Package, models, client stub/`/me`, secure key store, settings flags, optional WorkManager skeleton **disabled by default**, bump **1.5.1** | T010 |
-| **2 Credentials UI** | Per-account CSFloat screen: enable, API key, test `/me`, interval | T011 |
-| **3 Read-only sales** | Foreground list of queued/pending; notification on new actionable | T012 |
-| **4 Accept + offer** | Opt-in accept; send Steam offer; steam-status; **no** auto Guard yet | T020 |
+| **1 Scaffold** | Package, models, client `/me`, secure key store, settings flags, WM skeleton default OFF | T010 **done** (1.5.1) |
+| **2 Credentials UI** | Enable, API key, test `/me`, interval, clear key | T011 **done** (1.5.5) |
+| **3 Read-only sales** | Expand DTO + foreground queued/pending + Refresh | T012 **done** (1.6.0) |
+| **3b Notify + status** | Count-delta notification; last-checked strip; balance line | T013 + T068 + T072 |
+| **4 Accept + offer** | Opt-in accept; send Steam offer; steam-status; **no** auto Guard | T020 |
 | **5 Safe confirm** | Whitelist Guard only for CSFloat offer ids; floors + 429 cooloff | T021 |
-| **6 Harden** | Dual-bot conflict banner, battery budget doc in UI, sales log | T022 |
-| **Later** | Away toggle, reprice, ledger — only if still needed | backlog |
+| **6 Harden** | Dual-bot conflict banner, battery budget in UI, sales log | T022 |
+| **Later** | Away toggle (T069), reprice, ledger | backlog |
+
+### T012 UI (shipped) / follow-ups
+
+- Shipped: Main CSFloat dialog → **Pending sales** AlertDialog, Refresh, row = name · price · state · buyer.
+- Follow-ups: T068 last-checked on parent dialog; T073 sort + offer-state chip; T013 notify on count increase.
+- Explicit non-goals until T020: accept, offer send, Guard.
 
 **Out of first scope:** buy orders, market neighbor search loops, Telegram, bulk auto-reprice.
 
