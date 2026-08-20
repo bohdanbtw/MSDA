@@ -186,4 +186,16 @@
     <string name="widget_timer_placeholder">--s</string>
     <string name="widget_no_account">Tap to configure</string>
     <string name="widget_account_missing">Account unavailable</string>
+    <string name="csfloat_settings_title">CSFloat (opt-in)</string>
+    <string name="csfloat_settings_hint">Per-account enable + API key from the account menu. Background checks use long intervals and never poll Steam Guard on a timer.</string>
+    <string name="csfloat_status_none">No accounts opted in</string>
+    <string name="csfloat_status_summary">Opted in: %1$d · ready (key set): %2$d · interval ≥ %3$d min</string>
+    <string name="csfloat_menu">CSFloat integration</string>
+    <string name="csfloat_dialog_title">CSFloat for this account</string>
+    <string name="csfloat_enable">Enable CSFloat sale checks</string>
+    <string name="csfloat_api_key_hint">CSFloat API key</string>
+    <string name="csfloat_interval_hint">Poll interval (minutes, 15–240)</string>
+    <string name="csfloat_saved">CSFloat settings saved</string>
+    <string name="csfloat_need_key">Enable requires an API key</string>
+    <string name="csfloat_disabled">CSFloat disabled for this account</string>
 </resources>

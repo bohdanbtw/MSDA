@@ -16,6 +16,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.biometric.BiometricManager
 import androidx.core.content.FileProvider
+import com.msda.android.csfloat.CsFloatAccountSettings
+import com.msda.android.csfloat.CsFloatScheduler
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -31,6 +33,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_settings)
 
         BackgroundSyncScheduler.disable(this)
+        CsFloatScheduler.refresh(this)
 
         val group = findViewById<RadioGroup>(R.id.radioThemeGroup)
         val txtPinLockStatus = findViewById<TextView>(R.id.txtPinLockStatus)
@@ -40,6 +43,7 @@ class SettingsActivity : AppCompatActivity() {
         val btnExport = findViewById<Button>(R.id.btnExportMafiles)
         val btnDefaultProxy = findViewById<Button>(R.id.btnDefaultProxy)
         val txtDefaultProxyStatus = findViewById<TextView>(R.id.txtDefaultProxyStatus)
+        val txtCsFloatStatus = findViewById<TextView>(R.id.txtCsFloatStatus)
         val layoutVersionFooter = findViewById<android.widget.LinearLayout>(R.id.layoutVersionFooter)
         val txtUpdateAvailable = findViewById<TextView>(R.id.txtUpdateAvailable)
 
@@ -51,6 +55,7 @@ class SettingsActivity : AppCompatActivity() {
 
         refreshSecurityViews(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
         refreshDefaultProxyStatus(txtDefaultProxyStatus)
+        refreshCsFloatStatus(txtCsFloatStatus)
 
         group.setOnCheckedChangeListener { _, checkedId ->
             val newMode = when (checkedId) {
@@ -146,6 +151,25 @@ class SettingsActivity : AppCompatActivity() {
                 getString(R.string.proxy_using_default) + " — $summary"
             }
         }
+    }
+
+    private fun refreshCsFloatStatus(txtCsFloatStatus: TextView) {
+        val enabled = CsFloatAccountSettings.enabledSteamIds(this)
+        val ready = CsFloatAccountSettings.readySteamIds(this)
+        if (enabled.isEmpty()) {
+            txtCsFloatStatus.text = getString(R.string.csfloat_status_none)
+            return
+        }
+        val minInterval = ready
+            .map { CsFloatAccountSettings.getPollIntervalMinutes(this, it) }
+            .minOrNull()
+            ?: CsFloatAccountSettings.DEFAULT_INTERVAL_MINUTES
+        txtCsFloatStatus.text = getString(
+            R.string.csfloat_status_summary,
+            enabled.size,
+            ready.size,
+            minInterval.toInt()
+        )
     }
 
     private fun showDefaultProxyDialog(txtDefaultProxyStatus: TextView) {

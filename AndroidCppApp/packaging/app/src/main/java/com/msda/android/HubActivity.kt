@@ -16,6 +16,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.SessionHandler
+import com.msda.android.csfloat.CsFloatAccountSettings
+import com.msda.android.csfloat.CsFloatScheduler
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +59,7 @@ class HubActivity : AppCompatActivity() {
 
         renderAccounts()
         BackgroundSyncScheduler.disable(this)
+        CsFloatScheduler.refresh(this)
         checkSessionAndPromptIfNeeded()
         UpdateChecker.checkOnLaunch(this)
 
@@ -366,8 +369,10 @@ class HubActivity : AppCompatActivity() {
             try { SessionStore.delete(this, steamId) } catch (_: Throwable) {}
             try { AppSettings.clearAccountProxyConfig(this, steamId) } catch (_: Throwable) {}
             try { AppSettings.setAccountLabel(this, steamId, "") } catch (_: Throwable) {}
+            try { CsFloatAccountSettings.clearAccount(this, steamId) } catch (_: Throwable) {}
         }
         try { PasswordManager.deletePassword(this, accountName) } catch (_: Throwable) {}
+        try { CsFloatScheduler.refresh(this) } catch (_: Throwable) {}
 
         try {
             NativeBridge.importMafilesFromFolder(importDir.absolutePath)

@@ -30,6 +30,9 @@ import com.msda.android.steam.AdmissionHelper
 import com.msda.android.steam.AuthContextMerger
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.MafileRepository
+import com.msda.android.csfloat.CsFloatAccountSettings
+import com.msda.android.csfloat.CsFloatScheduler
+import com.msda.android.csfloat.CsFloatSecureStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -339,10 +342,11 @@ class MainActivity : AppCompatActivity() {
         menu.menu.add(0, 6, 2, getString(R.string.export_single_mafile))
         menu.menu.add(0, 9, 3, getString(R.string.account_label_edit))
         menu.menu.add(0, 7, 4, getString(R.string.auto_market_confirmations))
-        menu.menu.add(0, 8, 5, getString(R.string.proxy_settings))
-        menu.menu.add(0, 3, 6, getString(R.string.login_steam))
-        menu.menu.add(0, 4, 7, getString(R.string.load_confirmations))
-        menu.menu.add(0, 5, 8, getString(R.string.settings))
+        menu.menu.add(0, 10, 5, getString(R.string.csfloat_menu))
+        menu.menu.add(0, 8, 6, getString(R.string.proxy_settings))
+        menu.menu.add(0, 3, 7, getString(R.string.login_steam))
+        menu.menu.add(0, 4, 8, getString(R.string.load_confirmations))
+        menu.menu.add(0, 5, 9, getString(R.string.settings))
 
         menu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
@@ -365,6 +369,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 7 -> {
                     showTradeAutoConfirmDialog()
+                    true
+                }
+                10 -> {
+                    showCsFloatSettingsDialog()
                     true
                 }
                 8 -> {
@@ -427,6 +435,82 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     getString(R.string.trade_auto_confirm_disabled)
                 }
+            }
+            .show()
+    }
+
+    private fun showCsFloatSettingsDialog() {
+        updateActiveAuthContext()
+        val auth = activeAuthContext
+        if (auth == null || auth.steamId.isBlank()) {
+            txtStatus.text = getString(R.string.status_login_unavailable)
+            return
+        }
+        val steamId = auth.steamId
+
+        val enableSwitch = Switch(this).apply {
+            text = getString(R.string.csfloat_enable)
+            isChecked = CsFloatAccountSettings.isEnabled(this@MainActivity, steamId)
+        }
+        val apiKeyInput = EditText(this).apply {
+            hint = getString(R.string.csfloat_api_key_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText("")
+            // Do not prefill the secret; show placeholder if one is stored.
+            if (CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)) {
+                hint = getString(R.string.csfloat_api_key_hint) + " (saved)"
+            }
+        }
+        val intervalInput = EditText(this).apply {
+            hint = getString(R.string.csfloat_interval_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(
+                CsFloatAccountSettings.getPollIntervalMinutes(this@MainActivity, steamId).toString()
+            )
+        }
+        val hint = TextView(this).apply {
+            text = getString(R.string.csfloat_settings_hint)
+            setPadding(0, 8, 0, 8)
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 24, 40, 0)
+            addView(hint)
+            addView(enableSwitch)
+            addView(apiKeyInput)
+            addView(intervalInput)
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.csfloat_dialog_title))
+            .setView(container)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val newKey = apiKeyInput.text?.toString().orEmpty().trim()
+                if (newKey.isNotEmpty()) {
+                    CsFloatSecureStore.saveApiKey(this, steamId, newKey)
+                }
+                val interval = intervalInput.text?.toString()?.toLongOrNull()
+                    ?: CsFloatAccountSettings.DEFAULT_INTERVAL_MINUTES
+                CsFloatAccountSettings.setPollIntervalMinutes(this, steamId, interval)
+
+                val enable = enableSwitch.isChecked
+                if (enable && !CsFloatSecureStore.hasApiKey(this, steamId)) {
+                    CsFloatAccountSettings.setEnabled(this, steamId, false)
+                    CsFloatScheduler.refresh(this)
+                    txtStatus.text = getString(R.string.csfloat_need_key)
+                    Toast.makeText(this, getString(R.string.csfloat_need_key), Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                CsFloatAccountSettings.setEnabled(this, steamId, enable)
+                CsFloatScheduler.refresh(this)
+                txtStatus.text = if (enable) {
+                    getString(R.string.csfloat_saved)
+                } else {
+                    getString(R.string.csfloat_disabled)
+                }
+                Toast.makeText(this, getString(R.string.csfloat_saved), Toast.LENGTH_SHORT).show()
             }
             .show()
     }
