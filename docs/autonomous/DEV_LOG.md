@@ -1,5 +1,12 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T040 approved; NOW = T061
+
+- Reviewed `5234051`: Hub delete steamId/exact-name match — **PASS**. Version **1.5.2 / 150002**.
+- Overrode Architect T011 NOW: Steam-safety first → **T061** (ConfirmationService + TimeAligner) → **1.5.3**.
+- After T061: **T041** (pace accept-all) then **T011** (CSFloat Test connection).
+- Docs-only push.
+
 ## 2026-08-21 — Architect Cycle 4: T040 verified; NOW T011
 
 - Verified Hub delete fix `5234051` (1.5.2): `isMafileForAccount` uses steamId / exact account_name — substring body match removed. Marked T040 done.

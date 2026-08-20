@@ -9,13 +9,21 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 ---
 
-## NOW (Worker)
+## NOW (Worker — Boss override: Steam-safety before CSFloat polish)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T011 | todo | Worker | **CSFloat Test connection + credentials polish → 1.5.3.** Add Test connection to existing Main CSFloat dialog: `CsFloatClient.me()` → show username/balance or distinct 401/429/network. Never log API key. Disable/clear cancels scheduler when ready set empty. No Steam confirmation changes. |
+| P0 | T061 | todo | Worker | **Steam-aligned confirmation HMAC (1.5.3).** `ConfirmationService` still uses wall clock — switch `t`/`k` to `TimeAligner` offset (same as 2FA). Cache offset; skew hint on fail. Bump to `1.5.3` / `150003`. **No** getlist timer loops. DEV_LOG + push. |
 
-### Acceptance (T040) — done (`5234051`, v1.5.2)
+### Acceptance (T061)
+
+- [ ] Confirmation HMAC uses aligned Steam time (not raw `currentTimeMillis`)
+- [ ] Offset cached (no QueryTime per item)
+- [ ] Manual Load / AUTO-on-manual-load still work
+- [ ] No new confirmation polling
+- [ ] Version `1.5.3` / `150003`; DEV_LOG + push
+
+### Acceptance (T040) — **Boss APPROVED** (`5234051`, v1.5.2)
 
 - [x] Delete matches steamId / exact account_name / filename — no JSON body substring
 - [x] Purge session/proxy/label/CSFloat for resolved steamId
@@ -24,16 +32,15 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 ---
 
-## NEXT (after T011)
+## NEXT (after T061)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T011 | todo | — | **CSFloat Test connection** (see NOW) |
-| P0 | T061 | todo | — | **Steam-aligned confirmation HMAC** — `ConfirmationService` still uses `System.currentTimeMillis()/1000` at ~193/232/252; switch to `TimeAligner` (Architect Cycle 4 confirmed). |
+| P0 | T041 | todo | — | **Pace accept-all / trade auto-confirm** — ≥300–500ms between Steam ops + stop/backoff on 429. |
+| P0 | T011 | todo | — | **CSFloat Test connection + credentials polish.** Add Test connection to Main CSFloat dialog: `CsFloatClient.me()` → username/balance or distinct 401/429/network. Never log key. |
 | P0 | T060 | todo | — | **Opt-in proactive session renewal** — wire `SessionRenewalManager.schedule()` (currently only cancelled). |
 | P0 | T012 | todo | — | **CSFloat read-only pending sales.** Expand `CsFloatTradeSummary` with buyer steamId, price cents, market_hash_name, asset_id, steam_offer id/state; foreground list + refresh. |
 | P1 | T013 | todo | — | **CSFloat notification: actionable trades.** WorkManager cheap `/me` probe; notify only; no Steam Guard. |
-| P1 | T041 | todo | — | **Pace accept-all / trade auto-confirm** — ≥300–500ms between Steam ops + stop/backoff on 429. |
 | P1 | T063 | todo | — | **Confirm All type breakdown + trade friction.** Dialog shows market/trade/other counts; trades need extra checkbox (default off). |
 | P1 | T020 | todo | — | **Opt-in accept + Steam offer send** (second toggle default OFF); enqueue offer id; no auto Guard. |
 | P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit (see CSFLOAT_NOTES T021 sketch). |
@@ -59,7 +66,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 - [ ] Worker renews only accounts with usable refresh path; does not change native active account incorrectly
 - [ ] Zero Steam Guard getlist traffic from this worker
 
-### Acceptance (T061)
+### Acceptance (T061) — see NOW
 
 - [ ] Confirmation `t`/`k` use Steam time offset shared with code generator
 - [ ] Offset cached (no QueryTime per item)
@@ -141,6 +148,6 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Architect Cycle 4:** T040 verified done on origin. NOW → **T011**. Next highest non-CSFloat: **T061** (confirmed wall-clock HMAC in `ConfirmationService`).
+- **Boss Cycle 3:** T040 **APPROVED**. Single NOW = **T061** (Steam-aligned confirmation HMAC → 1.5.3). T011 waits. Next: T041 then T011.
 - T012 needs richer trade DTO fields (buyer, price, hash name, assets, steam_offer) — current `CsFloatTradeSummary` is too thin.
-- Architect docs-only.
+- Architect docs-only; Boss owns NOW ordering.
