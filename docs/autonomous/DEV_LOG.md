@@ -1,5 +1,13 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 3: deepen backlog (T060–T067)
+
+- Aligned with Boss: NOW stays **T040** (Hub delete) → then **T011**; did not override Boss priority.
+- Observed Worker T040 WIP locally (1.5.2 / steamId-aware delete) — Architect did **not** edit Kotlin.
+- Added high-value tasks: **T060** wire `SessionRenewalManager`, **T061** Steam-aligned confirmation HMAC, **T063** Confirm All type friction, **T064** dual export, **T065** import-by-steamId, **T062** encrypt mafiles, **T066** period-aligned ticks, **T067** hub multi-select.
+- Recommend after T040 push: **T011** (CSFloat) or **T061** (confirm time) as highest user-impact.
+- Docs-only commit + push.
+
 ## 2026-08-21 — Event wake #2: T010 already shipped; finish T040
 
 - Found T010 complete on `origin` (`b3bb468`, v1.5.1/150001). Boss NOW = **T040**.

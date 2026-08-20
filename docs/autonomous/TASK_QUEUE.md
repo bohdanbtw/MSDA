@@ -9,69 +9,78 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 ---
 
-## NOW (Worker — start immediately)
+## NOW (Worker)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss** — recommend next **T011** (CSFloat Test connection) or **T041**. |
+| P0 | T040 | doing | Worker | **Fix Hub delete-by-substring → 1.5.2.** Match mafile by steamId / exact `account_name` / filename — **never** `body.contains(accountName)`. Purge session/proxy/label/CSFloat for that steamId only. Commit + push `development`. |
 
-### Acceptance (T040) — done 2026-08-21 (event wake #2)
+### Acceptance (T040)
 
-- [x] Delete matches steamId / exact `account_name` / filename — no JSON body substring
-- [x] Regression: swipe-delete still wired with steamId from row
-- [x] Version `1.5.2` / `150002`
-- [x] DEV_LOG + push
-
-### Acceptance (T010) — **Boss APPROVED** (`b3bb468` on `origin/development`)
-
-- [x] `.../csfloat/` sources (models, client, settings, secure store, WM skeleton)
-- [x] Default OFF; scheduler no-ops without enabled+key
-- [x] Version `1.5.1` / `versionCode` **150001**
-- [x] `CsFloatSaleWorker` CSFloat-HTTP only — no Steam getlist/confirm
-- [x] Manual Load confirmations / AUTO-on-manual-load unchanged
-- [x] Commit on `origin/development`
+- [ ] Repro: account A’s display name appears inside B’s mafile JSON → delete A never removes B
+- [ ] Delete by steamId preferred; fallback exact account_name field / filename stem
+- [ ] SessionStore + proxy + label + CsFloat prefs cleared for that steamId only
+- [ ] Version **1.5.2** / code ≥ 150002
+- [ ] DEV_LOG + push
 
 ---
 
-## NEXT (queue after T040 — Boss promotes one at a time)
+## NEXT (Boss promotes one at a time after T040)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T011 | todo | — | **CSFloat Test connection + credentials polish.** Add **Test connection** → `CsFloatClient.me()` with distinct ok/401/429/network UX; never log key. Verify disable/clear cancels `CsFloatScheduler`. Main CSFloat dialog only — not Hub delete. |
-| P0 | T012 | todo | — | **CSFloat read-only pending sales (foreground).** When enabled+key: show queued/pending count + list (item name, price cents, state, buyer steamId). Refresh button only (no background accept). Empty/error states clear. |
-| P1 | T013 | todo | — | **CSFloat notification: actionable trades.** WorkManager (enabled accounts only) cheap-probes `/me`; if `actionable_trades`>0 (or queued), post notification opening the pending screen. Respect interval + battery-not-low. **Still no Steam Guard calls.** |
-| P1 | T020 | todo | — | **Opt-in accept + Steam offer send.** User (or explicit “auto-accept sales” second toggle, default OFF) accepts queued CSFloat trades, creates Steam offer, posts steam-status. Enqueue offer id for later confirm — **do not auto-confirm yet.** |
-| P1 | T021 | todo | — | **Safe CSFloat Guard confirm.** Confirm **only** whitelisted offer ids from T020; match creator_id; floors ≥35s getlist; drop on asset mismatch; audit log. Never blanket accept-all from worker. |
-| P2 | T022 | todo | — | **Dual-bot conflict + sales audit.** Detect/warn if pending sales change without local accept; show last CSFloat check time; optional “pause MSDA CSFloat” one-tap. |
+| P0 | T011 | todo | — | **CSFloat Test connection + credentials polish (1.5.3).** Add Test connection → `CsFloatClient.me()` with distinct ok/401/429/network UX; never log key. Verify disable/clear cancels scheduler. |
+| P0 | T060 | todo | — | **Opt-in proactive session renewal.** Wire dead `SessionRenewalManager.schedule()` behind Settings toggle (default OFF). Renew near-expiry with refresh token; never getlist. |
+| P0 | T061 | todo | — | **Steam-aligned time for confirmation HMAC.** `ConfirmationService` must use `TimeAligner` offset (like codes), not raw wall clock; cache offset; skew warning on fail. |
+| P0 | T012 | todo | — | **CSFloat read-only pending sales (foreground).** Queued/pending list; user refresh only; no accept/offer/Guard. |
+| P1 | T013 | todo | — | **CSFloat notification: actionable trades.** WorkManager cheap `/me` probe; notify only; no Steam Guard. |
+| P1 | T041 | todo | — | **Pace accept-all / trade auto-confirm** — ≥300–500ms between Steam ops + stop/backoff on 429. |
+| P1 | T063 | todo | — | **Confirm All type breakdown + trade friction.** Dialog shows market/trade/other counts; trades need extra checkbox (default off). |
+| P1 | T020 | todo | — | **Opt-in accept + Steam offer send** (second toggle default OFF); enqueue offer id; no auto Guard. |
+| P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit (see CSFLOAT_NOTES T021 sketch). |
+| P1 | T065 | todo | — | **Import conflict by SteamID** — Replace / Keep both / Cancel; never silent filename clobber of different accounts. |
+| P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData chooser. |
+| P1 | T042 | todo | — | **Wire or remove** dead market/gift auto-confirm APIs in `AppSettings`. |
+| P2 | T022 | todo | — | Dual-bot conflict + sales audit UI. |
+| P2 | T062 | todo | — | Encrypt mafile secrets at rest (Keystore); plaintext import migrates; export still SDA-compatible. |
+| P2 | T066 | todo | — | Period-aligned 2FA UI tick (Main + widget) — cut 1 Hz wakeups. |
+| P2 | T067 | todo | — | Hub multi-select: renew selected + disable auto-confirm panic switch. |
 
 ### Acceptance (T011)
 
-- [ ] Opt-in UI reachable from account context; default OFF (already in WIP — verify after commit)
-- [ ] API key never written to plaintext prefs / logs / mafile export
-- [ ] **Test connection** button: live `/me`; distinct UX for ok / 401 / 429 / network
-- [ ] Disabling or clearing key cancels `CsFloatScheduler` for empty ready set
-- [ ] Existing Steam flows untouched
-- [ ] DEV_LOG + push; version patch if shipping UI alone after 1.5.1
+- [ ] Test connection button: live `/me`; distinct ok / 401 / 429 / network
+- [ ] API key never in plaintext prefs / logs / mafile export
+- [ ] Disabling or clearing key cancels `CsFloatScheduler` when ready set empty
+- [ ] Steam confirmation flows untouched
+- [ ] Patch version bump if shipped alone
 
-### Acceptance (T012)
+### Acceptance (T060)
 
-- [ ] List parses `queued`/`pending` trades used by botCsFloat
-- [ ] No POST accept / no Steam offer / no Guard from this screen
-- [ ] Pull/refresh is user-initiated only
-- [ ] Works offline-failure without crashing Main confirmation UI
+- [ ] Settings toggle default OFF; OFF cancels WorkManager
+- [ ] Worker renews only accounts with usable refresh path; does not change native active account incorrectly
+- [ ] Zero Steam Guard getlist traffic from this worker
 
-### Acceptance (T013)
+### Acceptance (T061)
 
-- [ ] Worker runs only for `readySteamIds()` (enabled + key)
-- [ ] Min interval ≥15 min; default 30
-- [ ] Notification does not call Steam APIs
-- [ ] Doze-safe (WorkManager); no AlarmManager 1s loops
+- [ ] Confirmation `t`/`k` use Steam time offset shared with code generator
+- [ ] Offset cached (no QueryTime per item)
+- [ ] Fallback + visible skew hint if align fails
 
-### Acceptance (T020–T021) — summary
+### Acceptance (T012) / (T013) / (T020–T021)
 
-- [ ] Second toggle for auto-accept (default OFF) separate from “CSFloat enabled”
-- [ ] Guard path uses offer whitelist only; PROTOCOL floors respected
-- [ ] Unit/instrumentation or clearly documented manual test checklist in DEV_LOG
+- Unchanged from prior Architect pass — see older checklists in DEV_LOG Cycle 1 if needed; keep PROTOCOL floors.
+
+### Acceptance (T063)
+
+- [ ] Accept-all dialog lists counts by confirmation type
+- [ ] Including trades requires explicit checkbox (default unchecked)
+- [ ] Single-item accept/decline unchanged
+
+### Acceptance (T065)
+
+- [ ] Same steamId import prompts Replace / Keep both / Cancel
+- [ ] Replace leaves one mafile per steamId
+- [ ] Different steamId + same filename warned before overwrite
 
 ---
 
@@ -79,48 +88,33 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T030 | todo | — | **Widget tap-to-copy 2FA** + brief Toast; optional auto-clear clipboard after 60s. Fix countdown `-1` when bound by steamId (`Code2FAWidgetProvider`). |
-| P1 | T031 | todo | — | **Hub search/filter** by account name + label; keep swipe-delete but delete by **exact mafile/account id**, not substring body match (`HubActivity.deleteAccount`). |
-| P2 | T032 | todo | — | **Session health chip** on Hub/Main: OK / needs login / renewing — reduce surprise confirmation failures. |
-| P2 | T033 | todo | — | **Material confirmation rows:** Coil/Glide icons (cancel on detach), clearer accept/decline affordances; replace raw `Thread`+`URL.openStream` in `MainActivity`. |
-| P2 | T034 | todo | — | **Code display polish:** monospace + letter-spacing; progress maps remaining seconds accurately (`activity_main` / `refreshCodeViews`). |
-| P3 | T035 | todo | — | **Settings sections** (security / backup / network / about) — Preference-style grouping without redesigning flows. |
+| P1 | T030 | todo | — | **Widget tap-to-copy 2FA** + Toast; fix countdown `-1` for steamId binding (`Code2FAWidgetProvider`). |
+| P1 | T031 | todo | — | **Hub search/filter** by name + label (after T040 delete fix). |
+| P2 | T032 | todo | — | **Session health chip** on Hub/Main. |
+| P2 | T033 | todo | — | Material confirmation rows + Coil/Glide (cancel on detach). |
+| P2 | T034 | todo | — | Code display monospace + letter-spacing; accurate progress. |
+| P3 | T035 | todo | — | Settings Preference-style sections. |
 
-### Acceptance (T030)
-
-- [ ] Tap widget copies current code; works when app backgrounded
-- [ ] Countdown shows 0–30 correctly for steamId-bound widgets
-- [ ] No 1s exact-alarm battery regression beyond current behavior (prefer align to period boundary if touched)
-
-### Acceptance (T031)
-
-- [ ] Filter updates list live; empty state message
-- [ ] Delete removes only the intended account file
-- [ ] Long-press copy 2FA still works
+### Acceptance (T030) / (T031) — unchanged (widget copy; filter + safe delete).
 
 ---
 
-## Bugs / tech debt (high value)
+## Bugs / tech debt
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T040 | done | Worker | **Fix Hub delete-by-substring** — steamId/exact name/filename match (1.5.2) |
-| P1 | T041 | todo | — | **Pace accept-all / trade auto-confirm** — ≥300–500ms between Steam ops + stop/backoff on failure/429 (`MainActivity`, `ConfirmationService`). |
-| P1 | T042 | todo | — | **Wire or remove dead market/gift auto-confirm** APIs in `AppSettings` (menu already hints market) — either UI+behavior or delete dead flags. |
-| P2 | T043 | todo | — | **PasswordManager case bug:** `hasPassword` case-sensitive vs `getPassword` case-insensitive — unify. |
-| P2 | T044 | todo | — | **Remove or quarantine dead background sync** (`BackgroundSyncScheduler`, `ConfirmationBackgroundWorker`) OR document why kept disabled — reduce confusion before CSFloat WorkManager. |
-| P2 | T045 | todo | — | **Proxy passwords in plaintext `msda_ui`** — move to Keystore-backed store like sessions. |
-| P3 | T046 | todo | — | Delete or fix orphaned `PasswordBackupHelper` (db path vs live prefs). |
-
-### Acceptance (T040)
-
-- [x] Delete no longer uses JSON body substring match (steamId / exact account_name / filename)
-- [x] Swipe-delete still works (passes steamId from row)
+| P0 | T040 | doing | Worker | Hub delete-by-substring — see NOW |
+| P1 | T041 | todo | — | Pace accept-all / trade auto-confirm |
+| P1 | T042 | todo | — | Wire or remove market/gift auto-confirm dead API |
+| P2 | T043 | todo | — | PasswordManager case: unify `hasPassword` / `getPassword` |
+| P2 | T044 | todo | — | Quarantine/remove dead `BackgroundSyncScheduler` / `ConfirmationBackgroundWorker` |
+| P2 | T045 | todo | — | Proxy passwords → Keystore store |
+| P3 | T046 | todo | — | Fix/delete orphaned `PasswordBackupHelper` |
 
 ### Acceptance (T041)
 
-- [ ] Accept-all with N>3 confirmations does not fire N Steam calls with zero delay
-- [ ] On hard failure, remaining items stop or user is prompted — no silent hammering
+- [ ] Accept-all N>3 does not fire N Steam calls with zero delay
+- [ ] Hard failure stops or prompts — no silent hammering
 
 ---
 
@@ -128,9 +122,9 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P2 | T050 | todo | — | Clipboard auto-clear after copy from Hub long-press / Main code tap (30–60s). |
-| P2 | T051 | todo | — | Export mafile warning dialog: “contains Guard secrets — share only with yourself”. |
-| P3 | T052 | todo | — | PIN attempt lockout / backoff after N failures (`LockActivity`). |
+| P2 | T050 | todo | — | Clipboard auto-clear after copy (30–60s). |
+| P2 | T051 | todo | — | Export mafile secrets warning dialog. |
+| P3 | T052 | todo | — | PIN attempt lockout / backoff. |
 
 ---
 
@@ -138,16 +132,16 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T010 | done | Worker | CSFloat Phase-1 scaffold + 1.5.1 (`com.msda.android.csfloat`, opt-in stubs, WorkManager skeleton) |
+| P0 | T010 | done | Worker | CSFloat Phase-1 scaffold + 1.5.1 (`b3bb468`) |
 | P0 | T001 | done | Architect | Review PROTOCOL + CSFLOAT_NOTES; first slice = T010 |
-| P1 | T002 | done | Architect | Settings shape documented in CSFLOAT_NOTES + mirrored by scaffold (`enabled` / interval / secure key) |
-| P1 | T003 | deferred | — | Spike Guard-vs-UX — fold into T021 design; keep deferred until T012 lands |
-| P2 | T004 | done | Architect | Battery/network budget written in CSFLOAT_NOTES |
+| P1 | T002 | done | Architect | Settings shape in CSFLOAT_NOTES + scaffold |
+| P1 | T003 | deferred | — | Fold into T021 after T012 |
+| P2 | T004 | done | Architect | Battery/network budget in CSFLOAT_NOTES |
 
-## Boss notes
+## Boss / Architect notes
 
-- Steam-safety gate: any Worker change that adds confirmation **timer** polling → reject.
-- **Boss Cycle 2:** T010 **APPROVED** (`b3bb468`). WorkManager for CSFloat API ≥15m / opt-in / battery-not-low is OK; Steam Guard spam is not.
-- Priority order: bugfixes before more CSFloat — single NOW = **T040** (Hub). Then **T011** (Main CSFloat dialog Test connection).
-- T021 design sketch in `CSFLOAT_NOTES.md` — implement only after T012/T020.
-- Coordinate via docs; do not fight Worker on the same Kotlin files.
+- Steam-safety gate: confirmation **timer** polling → reject.
+- **Boss:** T010 APPROVED; NOW = **T040** then **T011**.
+- **Architect Cycle 3:** added T060–T067 (session renew, confirm time align, confirm-all friction, import/export, mafile encrypt, tick battery, hub multi-select). Prefer **T061** soon after T040 — silent confirm failures from clock skew hurt all users.
+- T021 sketch in `CSFLOAT_NOTES.md` — after T012/T020.
+- Architect docs-only; do not fight Worker on `HubActivity.kt` during T040.
