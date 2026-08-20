@@ -1,33 +1,73 @@
-# CSFLOAT_NOTES — Integration constraints for MSDA
+﻿# CSFloat notes (from bohdanbtw/botCsFloat)
 
-Source skim: https://github.com/bohdanbtw/botCsFloat (desktop bot). MSDA must adapt, not copy polling habits.
+Reference: shallow clone of https://github.com/bohdanbtw/botCsFloat (Python seller bot + Telegram UI).
+Purpose: map what MSDA can reuse on Android without copying secrets or breaking Guard rate limits.
 
-## Hard rules (Boss / PROTOCOL)
+## APIs (CSFloat `https://csfloat.com/api/v1`)
 
-- **Opt-in per Steam account** — default OFF. No global silent enable.
-- **No aggressive Steam Guard confirmation polling** — confirm only when a real CSFloat sale/trade needs it (event-driven), never on a timer spam loop.
-- Do **not** break existing MSDA Steam login, session revive, or manual confirmation UX (`MainActivity` load/accept flows stay as-is).
-- Respect battery/network: prefer WorkManager with long flex intervals only after Phase 1 scaffold is stable; Phase 1 is **manual / foreground** only.
+Auth header: `Authorization: <CSFLOAT_API_KEY>` (Profile → Developer). Also send JSON Accept/Content-Type.
 
-## botCsFloat → MSDA mapping (high level)
+| Method | Path | Role |
+|--------|------|------|
+| GET | `/me` | Profile, balance, away flag |
+| PATCH | `/me` | `{ "away": bool }` — stall Online/Offline |
+| GET | `/me/inventory` | Seller inventory / stall stock |
+| GET | `/me/trades?state=&role=&page=&limit=` | Trades (`queued,pending`, history states) |
+| POST | `/trades/{id}/accept` | Accept a queued sale |
+| POST | `/trades/bulk/accept` | `{ "trade_ids": [...] }` |
+| POST | `/trades/{id}/cannot-deliver` | Seller cannot send item |
+| POST | `/trades/steam-status/new-offer` | Notify CSFloat of sent Steam offer |
+| POST | `/trades/steam-status/offer` | Update offer state (`sent_offers` objects) |
+| PATCH | `/listings/{id}` | `{ "price": cents }` reprice |
+| GET | `/me/transactions?type=&page=&limit=` | Ledger (`trade_verified`, etc.) |
+| GET | `/me/notifications?limit=` | Unread sale/trade hints |
 
-| botCsFloat idea | MSDA Phase 1 stance |
-|-----------------|---------------------|
-| API key auth to CSFloat | Store encrypted / EncryptedSharedPreferences per account; never log key |
-| Poll listings / sales | Scaffold client + models only; no background poll yet |
-| Auto-confirm Steam trades | Reuse existing Guard confirm APIs **on demand** when a sale requires it; no new timer |
-| Continuous loop | Forbidden on Android for Steam confirmations |
+Client behavior of note: retry on 429 (backoff), network errors, and non-JSON bodies; poll interval env `POLL_SECONDS` (default ~15–20s) is **CSFloat only**.
 
-## Suggested phased slices
+## Auth model (bot vs MSDA)
 
-1. **Scaffold (NOW / T010)** — package + API client stub + settings shape + version bump; zero Steam behavior change.
-2. **Settings UI** — per-account enable + API key field (later task).
-3. **Foreground fetch** — pull pending sales when user opens CSFloat screen.
-4. **On-demand Guard** — if a sale needs confirmation, call existing confirm path once.
-5. **Optional WorkManager** — only with documented battery budget (T004); never sub-minute Steam polls.
+- **CSFloat:** API key only (no OAuth in this bot).
+- **Steam:** maFile (`shared_secret`, `identity_secret`, `Session.RefreshToken`) + optional password fallback; session cookies under `data/`.
+- **Telegram:** bot token + chat id (desktop/VPS UX — not required for MSDA core).
 
-## Out of scope for scaffold
+MSDA already owns Steam session / Guard; do **not** duplicate maFile export into a second always-on process on the same phone without a clear ownership model.
 
-- Changing confirmation refresh intervals
-- Push/FCM for CSFloat
-- Touching `NativeAuthBridge` session revive unless a bugfix is separately assigned
+## Sale pipeline (bot)
+
+1. Poll CSFloat for `queued`/`pending` seller trades.
+2. Accept on CSFloat when needed.
+3. Send Steam trade offer to buyer (trade URL/token from sale).
+4. Enqueue **Guard confirm for that offer id only** (`GuardConfirmService`).
+5. Notify Telegram; append sales log / ledger.
+
+**Hard rule (also in MSDA PROTOCOL):** no timer-based Steam Guard polling. `mobileconf/getlist` only when a queued offer is NeedsConfirmation (state 9). Floors: getlist ≥35s, GetTradeOffers ≥20s; 429 → long cooloff.
+
+## What can run on Android (MSDA)
+
+Feasible / desirable:
+
+- Opt-in per Steam account: store CSFloat API key in app settings (encrypted prefs), enable flag, poll interval.
+- Lightweight WorkManager / background jobs: poll `/me/trades` for queued sales; surface notifications; optional accept + hand off to existing trade/confirm UX.
+- Stall status: `/me` balances, away toggle.
+- Guard confirm **only** when MSDA is about to confirm a CSFloat-driven offer (reuse existing confirmation path — no new Guard spam loop).
+
+Poor fit / keep on VPS bot for now:
+
+- Full Telegram UI, analytics charts, bulk auto-reprice loops, long-lived Docker/systemd process.
+- Aggressive multi-account stall management while the phone sleeps (battery + Doze).
+
+## Risks
+
+- **Steam Guard 429 / lockouts** if confirm or getlist is polled on a timer.
+- **API key + session leakage** if logged or committed; never put keys in git.
+- **CSFloat ToS / rate limits** — respect 429 backoff; avoid sub-15s polling on mobile.
+- **Battery/network** — WorkManager constraints (unmetered optional, battery not low); default poll slower than VPS bot.
+- **Dual automation** — phone + VPS both accepting/confirming the same sales → race conditions; one owner per account.
+
+## Phased plan for MSDA
+
+1. **Docs + settings stubs (NOW):** package `com.msda.android.csfloat`, per-account toggle + API key field stubs, WorkManager skeleton; version **1.5.1**.
+2. **Read-only:** authenticated `/me` + queued trades list in UI; no auto-accept.
+3. **Opt-in accept + trade send:** wire to existing Steam offer helpers; Guard confirm only for that offer.
+4. **Hardening:** battery budget, 429 cooloff, conflict detection with external botCsFloat, sales notifications.
+5. **Later (optional):** listing reprice, away toggle, ledger sync — only if still needed after phone-side sales flow works.
