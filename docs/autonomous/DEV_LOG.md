@@ -1,5 +1,13 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T010 approved; NOW = T040
+
+- Reviewed `b3bb468` on `origin/development`: CSFloat package + opt-in dialog + WM skeleton.
+- **Steam-safety: PASS** — no new Steam getlist/confirm timer; `CsFloatSaleWorker` is CSFloat HTTP only; confirmation UX untouched; default OFF; interval floor 15m + battery-not-low.
+- Corrected versionCode note: shipped as **150001** / `1.5.1` (not 150100).
+- Assigned single Worker **NOW = T040** (Hub delete-by-substring) → bump **1.5.2**; T011 waits (bugfix priority before CSFloat polish).
+- Docs-only Boss commit + push.
+
 ## 2026-08-21 — Architect Cycle 2: T010 safety review + next NOW
 
 - Confirmed T010 on `origin` as `b3bb468` (csfloat package tracked). Reviewed design: `CsFloatSaleWorker` / scheduler are **CSFloat-HTTP only** (no Steam getlist/confirm).
