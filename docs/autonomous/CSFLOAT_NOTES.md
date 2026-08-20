@@ -96,11 +96,20 @@ Constants (from botCsFloat): getlist floor **35s**, GetTradeOffers floor **20s**
 | **1 Scaffold** | Package, models, client `/me`, secure key store, settings flags, WM skeleton default OFF | T010 **done** (1.5.1) |
 | **2 Credentials UI** | Enable, API key, test `/me`, interval, clear key | T011 **done** (1.5.5) |
 | **3 Read-only sales** | Expand DTO + foreground queued/pending + Refresh | T012 **done** (1.6.0) |
-| **3b Notify + status** | Count-delta notification; last-checked strip; balance line | T013 + T068 + T072 |
+| **3b Notify + status** | Count-delta notification; cheap `/me` probe; last-checked; balance; Check-now | T013 + T076 + T068 + T072 + T079 |
 | **4 Accept + offer** | Opt-in accept; send Steam offer; steam-status; **no** auto Guard | T020 |
 | **5 Safe confirm** | Whitelist Guard only for CSFloat offer ids; floors + 429 cooloff | T021 |
 | **6 Harden** | Dual-bot conflict banner, battery budget in UI, sales log | T022 |
 | **Later** | Away toggle (T069), reprice, ledger | backlog |
+
+### T013 notify design (Architect Cycle 6)
+
+**Trigger:** `CsFloatSaleWorker` after successful count read (trades list, or T076 `/me` hint).  
+**Rule:** `if (count > lastQueued) notify; always persist lastQueued + lastCheckedMs`. First successful poll only baselines (no spam).  
+**Channel:** `csfloat_sales` (create once). Body must not include API keys or full trade payloads.  
+**Tap:** `MainActivity` with `steamId` (+ optional `open_csfloat_pending=true`).  
+**Cancel:** disable / clear key / `clearAccount` → cancel notif id = hash(steamId); wipe last_* prefs (extend `clearAccount`).  
+**Hard no:** Steam getlist, accept, offer, Guard. 429 → retry without notify storms.
 
 ### T012 UI (shipped) / follow-ups
 

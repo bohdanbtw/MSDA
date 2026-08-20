@@ -57,7 +57,6 @@ App HEAD: **1.6.1** (`161dae2` T030). Worker WIP observed: **T063** → **1.6.2*
 | P1 | T077 | todo | — | **POST_NOTIFICATIONS runtime prompt** when enabling CSFloat on API 33+ (manifest already declares). Soft-fail if denied; still poll silently. |
 | P1 | T072 | todo | — | **CSFloat dialog balance line** from `/me` after Test/Refresh. |
 | P1 | T079 | todo | — | **Check now** one-shot WorkManager from CSFloat dialog (same path as periodic; no Steam). |
-| P1 | T063 | doing | Worker | **Confirm All type breakdown + trade friction** (NOW / 1.6.2) |
 | P1 | T065 | todo | — | **Import conflict by SteamID** — Replace / Keep both / Cancel. |
 | P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
@@ -183,6 +182,6 @@ App HEAD: **1.6.1** (`161dae2` T030). Worker WIP observed: **T063** → **1.6.2*
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.1 order:** **T013** (+ **T076** if cheap) → **T068/T077/T072** → **T063** / Hub → **T020** only after notify.
-- Manifest already has `POST_NOTIFICATIONS` (landed with T030) — T077 is runtime UX.
+- **Post-1.6.1 order:** finish **T063** (1.6.2) → **T013** (+ **T076**) → **T068/T077/T072** → Hub polish → **T020** only after notify.
+- Manifest already has `POST_NOTIFICATIONS` (with T030) — T077 is runtime UX.
 - Architect docs-only; never touch Kotlin / `event_wake` watchers while Worker owns app code.

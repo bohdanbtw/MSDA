@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 6: post-T030 backlog + T013 design
+
+- T030 done (**1.6.1**). Observed Worker **T063** WIP → **1.6.2**; left Kotlin alone; set NOW = T063 in queue.
+- Seeded T013 path: concrete notify acceptance, **T076** cheap `/me` probe, **T077** runtime notif permission, **T079** Check-now, **T078** widget a11y, **T080** log hygiene. T013 targets **1.6.3** after T063.
+- Docs-only; no watchers.
+
 ## 2026-08-21 — Worker: T063 confirm-all trade friction (1.6.2)
 
 - Accept-all dialog shows market/trade/other counts; **Also accept trades** checkbox default OFF.
