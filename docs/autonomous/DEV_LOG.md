@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T097 approved; NOW = T076
+
+- Approved `966dc62` T097 empty pending Check-now CTA — **Steam-safety PASS** (CSFloat pending dialog + T079 one-shot WM only; zero Guard/getlist).
+- Assigned single NOW **T076** → **1.6.16** / `160016` (cheap `/me` actionable probe; skip trades list when hint unchanged). Sole-Gradle.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T097 pending empty Check-now CTA (1.6.15)
 
 - Empty pending-sales dialog shows last-checked / Never + **Check now** (T079 one-shot WM); reloads when work finishes. Non-empty list unchanged.

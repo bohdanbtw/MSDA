@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.15** (T097 pending empty Check-now CTA). Queue idle — suggest **T076**.
+App HEAD: **1.6.15** (`966dc62` T097). Boss: T097 **APPROVED**. Single NOW = **T076**.
 
 ---
 
@@ -15,9 +15,17 @@ App HEAD: **1.6.15** (T097 pending empty Check-now CTA). Queue idle — suggest 
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T076**. |
+| P0 | T076 | doing | Worker | **Cheap `/me` actionable probe (1.6.16).** Skip full trades list when actionable/queued hint unchanged. Fallback if hint missing. Still write last-checked; notify rules unchanged. No Steam Guard. Sole-Gradle. Bump `1.6.16` / `160016`. DEV_LOG + push. |
 
-### Acceptance (T097) — done 2026-08-21 (v1.6.15)
+### Acceptance (T076)
+
+- [ ] Parse actionable/queued hint from `/me` into `CsFloatMeSummary` when present
+- [ ] If hint unchanged vs last stored + baseline exists → **skip** `listQueuedTrades`
+- [ ] If hint missing/unparseable → fall back to current trades-list behavior
+- [ ] Still write last-checked; notify rules (T085/T084) unchanged when trades fetched
+- [ ] Zero Steam Guard; Version **1.6.16** / `160016`; sole-Gradle; DEV_LOG + push
+
+### Acceptance (T097) — **Boss APPROVED** (`966dc62`, v1.6.15)
 
 - [x] Empty pending sales shows last-checked (or Never) + Check-now affordance (T079 path)
 - [x] Non-empty list unchanged; zero Steam Guard / getlist
@@ -124,11 +132,11 @@ App HEAD: **1.6.15** (T097 pending empty Check-now CTA). Queue idle — suggest 
 
 ---
 
-## NEXT (after T097)
+## NEXT (after T076)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T076 | todo | — | **Cheap `/me` actionable probe** — skip full trades list when actionable/queued hint unchanged. Battery win. → **1.6.16**. |
+| P0 | T076 | doing | Worker | **Cheap `/me` actionable probe** → **1.6.16** (NOW). |
 | P0 | T092 | todo | — | **Offline / session hint on Confirm Load** + Renew shortcut. |
 | P1 | T096 | todo | — | **Confirmation row relative time** + type icon. |
 | P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count`. |
@@ -157,13 +165,9 @@ App HEAD: **1.6.15** (T097 pending empty Check-now CTA). Queue idle — suggest 
 | P2 | T067 | todo | — | Hub multi-select renew + panic switch. |
 | P2 | T061b | todo | — | Tighten `looksLikeClockSkew`. |
 
-### Acceptance (T076) — concrete (next after T097)
+### Acceptance (T076) — concrete (NOW)
 
-- [ ] Parse actionable/queued hint from `/me` into `CsFloatMeSummary` when present
-- [ ] If hint unchanged vs last stored + baseline exists → **skip** `listQueuedTrades`
-- [ ] If hint missing/unparseable → fall back to current trades-list behavior
-- [ ] Still write last-checked; notify rules (T085/T084) unchanged when trades fetched
-- [ ] Zero Steam Guard; sole-Gradle; patch bump when shipped
+- See NOW block checklist (same criteria).
 
 ## Cycle 13 — after T076 / T097 (CSFloat UX mature)
 
@@ -385,7 +389,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 ### Acceptance (T076) / (T084) / (T085) / (T089) / (T090)
 
-- T076: see concrete checklist under NEXT (after T097)
+- T076: see NOW checklist (1.6.16 in flight)
 - T084–T090: **done** (1.6.8–1.6.13)
 
 ### Acceptance (T065) / (T073)
@@ -535,8 +539,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.15:** **T076** next; then **T092/T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
+- **NOW = T076** (1.6.16) — do not steal. Then **T092/T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
-- T085–T091 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- T085–T097 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.
