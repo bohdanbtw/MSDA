@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 12: T141–T152 (keep NOW=T065)
+
+- Left **NOW = T065** untouched (Worker still shipping import conflict → 1.6.5).
+- Seeded **T141–T152** for post-T103 path: strip accent, pending PTR, Load account label, sticky 2FA on confirm screen, session banner, strict Test-before-enable, pending sort, last Load time, menu declutter, a11y labels, landscape Hub, backup reminder.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Architect Cycle 11: post-T065 import follow-ups
 
 - T065 still **doing** (local WIP: `ConflictChoice`, same-SteamID / filename-clash dialogs). No Kotlin from Architect.

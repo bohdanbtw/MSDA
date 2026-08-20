@@ -171,6 +171,43 @@ Invented from T065 WIP (`ConflictChoice`, same-SteamID / filename-clash paths). 
 | P2 | T139 | todo | — | SAF **multi-select** import with progress (“3 of 10”) using T065 per file. |
 | P2 | T140 | todo | — | Detect **orphan SessionStore** entries after Replace/delete; cleanup helper. |
 
+## Cycle 12 — T065→T103 path and beyond
+
+Do **not** steal NOW. After **T065** lands, Boss next is **T103**; these fill gaps around that path.
+
+| Priority | ID | Status | Owner | Task |
+|----------|----|--------|-------|------|
+| P0 | T141 | todo | — | **T103+**: status strip shows pending count as accent/color when N&gt;0 (still tappable). |
+| P1 | T142 | todo | — | **Swipe-to-refresh** on Pending sales list (same as Refresh button; T088 rules — no notify). |
+| P1 | T143 | todo | — | **Confirm Load shows account name** in progress/empty so multi-account users know which Guard list. |
+| P1 | T144 | todo | — | **Copy Steam Guard code from confirmation row?** No — instead **show matching 2FA** sticky while confirm list open (auto-updates). |
+| P1 | T145 | todo | — | **Session expired banner** on Main with one-tap Renew (distinct from T092 Load hint). |
+| P1 | T146 | todo | — | **CSFloat enable requires Test success once** (optional Settings strict mode, default OFF). |
+| P1 | T147 | todo | — | **Pending sales sort toggle**: newest / price high / name (pairs T073). |
+| P1 | T148 | todo | — | **Hub: last Guard Load time** per account (prefs); “Loaded 5m ago”. |
+| P2 | T149 | todo | — | **Reduce Main overflow clutter**: move CSFloat + export under “Account tools” submenu. |
+| P2 | T150 | todo | — | **Accessibility: contentDescription** on confirm Accept/Decline and CSFloat Test/Refresh. |
+| P2 | T151 | todo | — | **Landscape Hub**: two-pane list + preview code (phones/tablets). |
+| P2 | T152 | todo | — | **Backup reminder**: if no export in 30 days, gentle Hub banner (dismissible 7d). |
+
+### Acceptance (T141–T148)
+
+- T141: visual only + existing T103 tap; no extra HTTP
+- T142: pull triggers same load path as button; respects 429 UX (T101)
+- T143: string includes account/label; no steamId secrets beyond what’s already shown
+- T144: sticky code uses active account; period-aligned updates; no clipboard force
+- T145: banner only when session known-bad/expired; Renew uses existing path; no getlist
+- T146: strict mode OFF by default; when ON, enable blocked until Test ok for that steamId
+- T147: sort persists per account; default current order
+- T148: update timestamp only on successful Load; clear on account delete
+
+### Acceptance (T149–T152)
+
+- T149: no lost actions; deep links/menus still reachable
+- T150: TalkBack announces actions; no behavior change
+- T151: phone portrait unchanged; large width shows preview
+- T152: never blocks app use; tracks last export time from existing export paths
+
 ### Acceptance (T129–T135)
 
 - T129: Hub shows steamId secondary text; Keep-both duplicates no longer look identical
@@ -341,6 +378,6 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **NOW = T065** → **1.6.5**. After ship: **T103** (Boss) then **T077/T072**; import follow-ups **T129–T140**; still **T090** before **T020**.
-- Worker on T065 (`MafileImportHelper` conflict UX) — Architect docs-only; no Kotlin / watchers.
-- Cycles 9–11 seeded through **T140**.
+- **NOW = T065** (do not steal). After **1.6.5**: **T103** → **T077/T072** → **T129+** / **T141+** / **T116+**; **T090** before **T020**.
+- Architect docs-only; no Kotlin / `event_wake` watchers.
+- Cycles 9–12 seeded through **T152**.
