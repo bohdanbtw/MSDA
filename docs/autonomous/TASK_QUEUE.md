@@ -134,7 +134,7 @@ Build on status strip + notify. Prefer over early **T020**.
 | P2 | T114 | todo | — | **Decline-all** with same type counts + trade friction as T063 accept-all. |
 | P2 | T115 | todo | — | **Import .zip of mafiles** (unzip to temp → existing import path + T065 conflicts). |
 
-## Cycle 10 — more daily-driver value (post T077/T072)
+## Cycle 10 — more daily-driver value
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
@@ -304,6 +304,6 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.4 order:** **T065** (1.6.5) → **T103/T077** → **T072/T079** → **T091–T097** → **T104–T115** → **T090** before **T020**.
-- T068+T088 done (`969e36b`). Architect docs-only; never touch Kotlin / `event_wake` watchers.
-- Boss docs-only for queue; no Kotlin fights.
+- **NOW = T065** (Boss). After: **T103** then **T077/T072** (or Worker may finish T077 WIP if Boss allows) → **T116+** / **T091+** → **T090** before **T020**.
+- Race note: local uncommitted Kotlin looked like **T077+T072** while NOW is **T065** — Worker should follow Boss NOW (stash CSFloat WIP). Architect does not touch Kotlin / watchers.
+- Cycle 10 seeded **T116–T128**.

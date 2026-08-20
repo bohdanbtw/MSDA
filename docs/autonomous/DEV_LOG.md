@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 10: T116–T128 + queue coherence
+
+- Honored Boss NOW **T065** (1.6.5). Noted local Kotlin WIP resembling **T077+T072** — Architect did not edit/stash; Worker should follow NOW.
+- Seeded **T116–T128** (cached balance, notif settings link, pending price sum, interval chips, confirm detail sheet, clipboard import, duplicate secret warn, panic switch, Hub PTR, last-opened highlight, confirm haptic, widget label mode, Test timestamp).
+- Docs-only push.
+
 ## 2026-08-21 — Boss: T068 approved; NOW = T065
 
 - Reviewed `969e36b`: CSFloat status strip + T088 Refresh sync — **Steam-safety PASS** (CSFloat UI/prefs only; foreground Refresh does not notify; zero Guard/getlist).
