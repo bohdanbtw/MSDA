@@ -4,6 +4,7 @@ import android.content.Context
 import com.msda.android.steam.EncryptionHelper
 import com.msda.android.steam.SessionHandler
 import com.msda.android.steam.SessionInvalidException
+import com.msda.android.steam.TimeAligner
 import org.json.JSONObject
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -91,14 +92,7 @@ object ConfirmationService {
         if (context == null) return loadBundles(auth)
         return kotlinx.coroutines.runBlocking {
             SessionHandler.handle(context, auth) { renewed, client ->
-                val json = getJson(
-                    "https://steamcommunity.com/mobileconf/getlist?${withConfirmationQuery(renewed, "conf")}",
-                    client
-                )
-                if (json.optBoolean("needauth", false)) {
-                    throw SessionInvalidException("needauth")
-                }
-                parseBundlesOrThrow(json)
+                loadBundlesAligned(renewed, client)
             }
         }
     }
@@ -126,12 +120,35 @@ object ConfirmationService {
         if (renewed != auth) onSessionRenewed?.invoke(renewed)
         return SessionHandler.handle(context, renewed) { latest, client ->
             if (latest != renewed) onSessionRenewed?.invoke(latest)
+            loadBundlesAligned(latest, client)
+        }
+    }
+
+    /**
+     * getlist with Steam-aligned HMAC. On clock-skew-ish failures, invalidate cache,
+     * force QueryTime once, and retry — still no timer polling.
+     */
+    private fun loadBundlesAligned(auth: ConfirmationAuthContext, client: OkHttpClient): List<ConfirmationBundle> {
+        try {
             val json = getJson(
-                "https://steamcommunity.com/mobileconf/getlist?${withConfirmationQuery(latest, "conf")}",
+                "https://steamcommunity.com/mobileconf/getlist?${withConfirmationQuery(auth, "conf", client)}",
                 client
             )
             if (json.optBoolean("needauth", false)) throw SessionInvalidException("needauth")
-            parseBundlesOrThrow(json)
+            return parseBundlesOrThrow(json)
+        } catch (e: SessionInvalidException) {
+            throw e
+        } catch (e: Throwable) {
+            if (!looksLikeClockSkew(e)) throw e
+            TimeAligner.invalidateCache()
+            val json = getJson(
+                "https://steamcommunity.com/mobileconf/getlist?${
+                    withConfirmationQuery(auth, "conf", client, forceRefresh = true)
+                }",
+                client
+            )
+            if (json.optBoolean("needauth", false)) throw SessionInvalidException("needauth")
+            return parseBundlesOrThrow(json)
         }
     }
 
@@ -190,7 +207,7 @@ object ConfirmationService {
         return kotlinx.coroutines.runBlocking {
             SessionHandler.handle(context, auth) { renewed, client ->
                 val op = if (accept) "allow" else "cancel"
-                val time = System.currentTimeMillis() / 1000L
+                val time = TimeAligner(client).alignedEpochSecondsBlocking()
                 val key = confirmationKey(renewed.identitySecret, time, op)
                 val pairs = mutableListOf(
                     "p" to renewed.deviceId,
@@ -229,7 +246,7 @@ object ConfirmationService {
         return kotlinx.coroutines.runBlocking {
             SessionHandler.handle(context, auth) { renewed, client ->
                 val op = if (accept) "allow" else "cancel"
-                val time = System.currentTimeMillis() / 1000L
+                val time = TimeAligner(client).alignedEpochSecondsBlocking()
                 val key = confirmationKey(renewed.identitySecret, time, op)
                 val query = StringBuilder()
                     .append("p=").append(url(renewed.deviceId))
@@ -248,11 +265,25 @@ object ConfirmationService {
         }
     }
 
-    private fun withConfirmationQuery(auth: ConfirmationAuthContext, tag: String): String {
-        val time = System.currentTimeMillis() / 1000L
+    private fun withConfirmationQuery(
+        auth: ConfirmationAuthContext,
+        tag: String,
+        client: OkHttpClient,
+        forceRefresh: Boolean = false
+    ): String {
+        val time = TimeAligner(client).alignedEpochSecondsBlocking(forceRefresh)
         val key = confirmationKey(auth.identitySecret, time, tag)
 
         return "p=${url(auth.deviceId)}&a=${url(auth.steamId)}&k=${url(key)}&t=$time&m=react&tag=$tag"
+    }
+
+    private fun looksLikeClockSkew(error: Throwable): Boolean {
+        val message = error.message.orEmpty().lowercase()
+        return message.contains("invalid") ||
+            message.contains("expired") ||
+            message.contains("time") ||
+            message.contains("clock") ||
+            message.contains("confirmation load failed")
     }
 
     private fun confirmationKey(identitySecret: String, time: Long, tag: String): String {

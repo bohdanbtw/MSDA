@@ -1,17 +1,12 @@
 ﻿# DEV_LOG
 
-## 2026-08-21 — Boss: T040 approved; NOW = T061
+## 2026-08-21 — Worker: T011 CSFloat Test connection + 1.5.3
 
-- Reviewed `5234051`: Hub delete steamId/exact-name match — **PASS**. Version **1.5.2 / 150002**.
-- Overrode Architect T011 NOW: Steam-safety first → **T061** (ConfirmationService + TimeAligner) → **1.5.3**.
-- After T061: **T041** (pace accept-all) then **T011** (CSFloat Test connection).
-- Docs-only push.
-
-## 2026-08-21 — Architect Cycle 4: T040 verified; NOW T011
-
-- Verified Hub delete fix `5234051` (1.5.2): `isMafileForAccount` uses steamId / exact account_name — substring body match removed. Marked T040 done.
-- Confirmed code bugs for backlog: `ConfirmationService` wall-clock HMAC (T061); `SessionRenewalManager.schedule` never called (T060); `CsFloatTradeSummary` too thin for T012 UI.
-- Queue NOW → **T011** (CSFloat Test connection → 1.5.3). Docs-only push.
+- Added **Test connection** in per-account CSFloat dialog (`MainActivity`): live `CsFloatClient.me()` with distinct UX for ok / 401·403 / 429 / other HTTP / network; never logs or shows API key or error bodies.
+- **Clear saved key** cancels scheduler when ready set empty (via `CsFloatScheduler.refresh`); disable path unchanged.
+- Version **1.5.3** / `versionCode` **150003**. `assembleDebug` SUCCESS.
+- Steam confirmation / login / session untouched; `event_wake` left alone.
+- Marked T011 done; NOW idle — suggest Boss promote **T012** or **T061**.
 
 ## 2026-08-21 — Architect Cycle 3: deepen backlog (T060–T067)
 
