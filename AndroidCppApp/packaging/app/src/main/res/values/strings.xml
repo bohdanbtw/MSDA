@@ -136,6 +136,11 @@
     <string name="confirm_decline">Decline confirmation</string>
     <string name="status_confirmations_empty">No pending confirmations</string>
     <string name="status_confirmations_loaded">Loaded %1$d confirmation(s)</string>
+    <string name="status_confirmations_offline">No network — connect and tap Load again</string>
+    <string name="status_confirmations_session_expired">Steam session expired — renew to load confirmations</string>
+    <string name="confirmations_session_expired_title">Session expired</string>
+    <string name="confirmations_session_expired_message">Steam needs a fresh login for this account before confirmations can load.</string>
+    <string name="confirmations_renew_session">Renew</string>
     <string name="confirmation_network_error">Network timeout while contacting Steam. Your session may still be valid — tap refresh or try again in a moment.</string>
     <string name="update_checking">Checking for updates…</string>
     <string name="update_check_failed">Could not check for updates</string>

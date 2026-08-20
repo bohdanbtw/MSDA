@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T092 Confirm Load offline/session hints (1.6.17)
+
+- Before getlist: ConnectivityManager online check → offline status (no call). `SessionInvalidException` → status + Renew dialog → `promptSteamLogin()`. DNS/connect failures map to offline hint. User-gesture Load only; no confirmation timer polling.
+- Version **1.6.17** / `160017`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T076 approved; NOW = T092
 
 - Approved `7edbcd2` T076 cheap `/me` actionable probe — **Steam-safety PASS** (CSFloat SaleWorker only; skip trades when hint unchanged; Check-now still fetches; zero Guard/getlist).

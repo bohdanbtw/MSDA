@@ -6,6 +6,8 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -36,6 +38,7 @@ import com.msda.android.steam.AdmissionHelper
 import com.msda.android.steam.AuthContextMerger
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.MafileRepository
+import com.msda.android.steam.SessionInvalidException
 import com.msda.android.csfloat.CsFloatAccountSettings
 import com.msda.android.csfloat.CsFloatClient
 import com.msda.android.csfloat.CsFloatMeSummary
@@ -48,6 +51,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.ConnectException
+import java.net.UnknownHostException
 import java.net.URL
 
 class MainActivity : AppCompatActivity() {
@@ -1381,9 +1386,16 @@ class MainActivity : AppCompatActivity() {
             if (initialDelayMs > 0L) {
                 kotlinx.coroutines.delay(initialDelayMs)
             }
+            if (!isNetworkOnline()) {
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    txtStatus.text = getString(R.string.status_confirmations_offline)
+                }
+                return@launch
+            }
             val latestAuth = activeAuthContext ?: auth
             var workingAuth = latestAuth
             var error: String? = null
+            var sessionExpired = false
             var autoAccepted = 0
             var bundles: List<ConfirmationBundle>? = try {
                 ConfirmationService.loadBundlesWithAutoRenew(
@@ -1399,13 +1411,16 @@ class MainActivity : AppCompatActivity() {
                     promptSteamLogin()
                 }
                 return@launch
+            } catch (ex: SessionInvalidException) {
+                sessionExpired = true
+                null
             } catch (ex: Throwable) {
                 error = formatConfirmationLoadError(ex)
                 null
             }
 
             // Auto-accept trades only from this manually loaded list (no background polling).
-            if (error == null && bundles != null &&
+            if (!sessionExpired && error == null && bundles != null &&
                 AppSettings.isTradeAutoConfirmEnabled(this@MainActivity, workingAuth.steamId)
             ) {
                 val tradeItems = bundles
@@ -1450,6 +1465,9 @@ class MainActivity : AppCompatActivity() {
                                 activeAuthContext = renewed
                             }
                         )
+                    } catch (ex: SessionInvalidException) {
+                        sessionExpired = true
+                        bundles
                     } catch (ex: Throwable) {
                         error = formatConfirmationLoadError(ex)
                         bundles
@@ -1458,8 +1476,17 @@ class MainActivity : AppCompatActivity() {
             }
 
             runOnUiThread {
+                if (sessionExpired) {
+                    showConfirmationsSessionExpiredDialog()
+                    return@runOnUiThread
+                }
                 if (error != null) {
-                    txtStatus.text = getString(R.string.status_confirmation_load_failed, error)
+                    val offlineHint = getString(R.string.status_confirmations_offline)
+                    txtStatus.text = if (error == offlineHint) {
+                        offlineHint
+                    } else {
+                        getString(R.string.status_confirmation_load_failed, error)
+                    }
                     return@runOnUiThread
                 }
 
@@ -1481,6 +1508,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isNetworkOnline(): Boolean {
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return true
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun showConfirmationsSessionExpiredDialog() {
+        txtStatus.text = getString(R.string.status_confirmations_session_expired)
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.confirmations_session_expired_title)
+            .setMessage(R.string.confirmations_session_expired_message)
+            .setPositiveButton(R.string.confirmations_renew_session) { _, _ -> promptSteamLogin() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun isTradeConfirmation(item: ConfirmationItem): Boolean {
         return item.type == 2 || item.typeName.contains("trade", ignoreCase = true)
     }
@@ -1491,6 +1535,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun formatConfirmationLoadError(ex: Throwable): String {
+        var current: Throwable? = ex
+        while (current != null) {
+            if (current is UnknownHostException || current is ConnectException) {
+                return applicationContext.getString(R.string.status_confirmations_offline)
+            }
+            val message = current.message.orEmpty().lowercase()
+            if (
+                message.contains("unable to resolve") ||
+                message.contains("unknownhost") ||
+                message.contains("network is unreachable") ||
+                message.contains("failed to connect") ||
+                message.contains("no address associated")
+            ) {
+                return applicationContext.getString(R.string.status_confirmations_offline)
+            }
+            current = current.cause
+        }
         val message = ex.message.orEmpty().lowercase()
         return if (
             message.contains("ssl") ||

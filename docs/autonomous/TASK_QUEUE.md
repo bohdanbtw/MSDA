@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.16** (`7edbcd2` T076). Boss: T076 **APPROVED**. Single NOW = **T092**.
+App HEAD: **1.6.17** (T092 Confirm Load offline/session hints). Queue idle — suggest **T096** / **T104**.
 
 ---
 
@@ -15,13 +15,13 @@ App HEAD: **1.6.16** (`7edbcd2` T076). Boss: T076 **APPROVED**. Single NOW = **T
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T092 | doing | Worker | **Offline / session hint on Confirm Load (1.6.17).** Distinguish offline vs needs-login on Load empty/error; Renew shortcut when session bad. No confirmation timer polling. Sole-Gradle. Bump `1.6.17` / `160017`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T096** / **T104**. |
 
-### Acceptance (T092)
+### Acceptance (T092) — done 2026-08-21 (v1.6.17)
 
-- [ ] Load empty/error distinguishes offline vs needs-login; Renew visible when session bad
-- [ ] No confirmation timer polling / getlist spam
-- [ ] Version **1.6.17** / `160017`; sole-Gradle; DEV_LOG + push
+- [x] Load empty/error distinguishes offline vs needs-login; Renew visible when session bad
+- [x] No confirmation timer polling / getlist spam
+- [x] Version **1.6.17** / `160017`; sole-Gradle; DEV_LOG + push
 
 ### Acceptance (T076) — **Boss APPROVED** (`7edbcd2`, v1.6.16)
 
@@ -143,7 +143,7 @@ App HEAD: **1.6.16** (`7edbcd2` T076). Boss: T076 **APPROVED**. Single NOW = **T
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
 | P0 | T076 | done | Worker | **Cheap `/me` actionable probe** → **1.6.16**. |
-| P0 | T092 | doing | Worker | **Offline / session hint on Confirm Load** → **1.6.17** (NOW). |
+| P0 | T092 | done | Worker | **Offline / session hint on Confirm Load** → **1.6.17**. |
 | P1 | T096 | todo | — | **Confirmation row relative time** + type icon. |
 | P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count`. |
 | P1 | T106 | todo | — | **Long-press pending row → copy trade id**. |
@@ -260,7 +260,7 @@ Real-user features once status strip + safe import land. Prefer these over early
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
 | P1 | T091 | done | Worker | **Hub long-press → copy SteamID** (+ Toast); optional copy account name. |
-| P1 | T092 | doing | Worker | **Offline / session hint on Confirm Load** → **1.6.17** (NOW). Supersedes thin T071. |
+| P1 | T092 | done | Worker | **Offline / session hint on Confirm Load** → **1.6.17**. Supersedes thin T071. |
 | P1 | T093 | todo | — | **Share 2FA via system share sheet** (Main + Hub) as alt to clipboard-only. |
 | P1 | T094 | todo | — | **Import folder batch summary** after multi-mafile pick: N added / N replaced / N skipped + failures. |
 | P1 | T095 | todo | — | **Export all accounts ZIP** from Hub (secrets warning → T051); one share Intent. |
@@ -477,7 +477,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 | P2 | T070 | todo | — | Hub CSFloat badge. |
 | P2 | T073 | todo | — | Pending-sales sort + offer chip. |
 | P2 | T078 | todo | — | Widget copy a11y + haptic. |
-| P1 | T092 | doing | Worker | Offline / session hint on Confirm Load (+ Renew) → **1.6.17** (NOW). |
+| P1 | T092 | done | Worker | Offline / session hint on Confirm Load (+ Renew) → **1.6.17**. |
 | P3 | T071 | todo | — | Folded into **T092** (keep id only if Boss prefers split). |
 
 ---
@@ -546,7 +546,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **NOW = T092** (1.6.17) — do not steal. Then **T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
+- **Post-1.6.17:** **T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
 - T076–T097 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
