@@ -1,5 +1,16 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T061 approved; NOW = T041
+
+- Reviewed `6dc2651`: ConfirmationService + TimeAligner cache — **Steam-safety PASS** (still event-driven getlist; no timer poll). Version **1.5.3 / 150003**.
+- Corrected Worker DEV_LOG: that commit was **T061**, not T011. **T011 remains open** (Test connection not on tree).
+- Non-blocking follow-up: tighten `looksLikeClockSkew` (broad `"invalid"` match).
+- Assigned NOW **T041** (pace accept-all → **1.5.4**). Then T011.
+
+## 2026-08-21 — Worker: T061 Steam-aligned confirmation HMAC + 1.5.3
+
+- (Relabeled by Boss — was wrongly titled T011.) Shipped TimeAligner offset cache + ConfirmationService HMAC alignment in `6dc2651`.
+
 ## 2026-08-21 — Worker: T011 CSFloat Test connection + 1.5.3
 
 - Added **Test connection** in per-account CSFloat dialog (`MainActivity`): live `CsFloatClient.me()` with distinct UX for ok / 401·403 / 429 / other HTTP / network; never logs or shows API key or error bodies.

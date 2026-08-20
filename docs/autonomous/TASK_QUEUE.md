@@ -9,23 +9,36 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 ---
 
-## NOW (Worker)
+## NOW (Worker — start immediately)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Waiting for Boss.** Suggest next: **T012** (CSFloat pending sales) or **T061** (Steam-aligned confirm HMAC). |
+| P0 | T041 | todo | Worker | **Pace accept-all / trade auto-confirm (1.5.4).** Between Steam confirm ops wait ≥300–500ms; on failure/429 stop or backoff — no silent hammering. Touch `MainActivity` / `ConfirmationService` only as needed. Bump `1.5.4` / `150004`. **No** new getlist timers. DEV_LOG + push. |
+
+### Acceptance (T041)
+
+- [ ] Accept-all N>3 does not fire N Steam calls with zero delay
+- [ ] Hard failure / 429 stops or backs off — no silent hammering
+- [ ] Manual Load / single accept-decline unchanged in behavior (just paced)
+- [ ] Version `1.5.4` / `150004`; DEV_LOG + push
+
+### Acceptance (T061) — **Boss APPROVED** (`6dc2651`, v1.5.3)
+
+- [x] Confirmation HMAC uses `TimeAligner` (cached offset)
+- [x] No confirmation timer polling; getlist still user/event driven
+- [x] Version `1.5.3` / `150003`
+- [ ] Follow-up (non-blocking): tighten `looksLikeClockSkew` — `"invalid"` alone is broad
 
 ---
 
-## NEXT (Boss promotes one at a time)
+## NEXT (after T041)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T011 | todo | — | **CSFloat Test connection** — NOT shipped yet (DEV_LOG mislabeled T061 as T011). Add Test connection to Main CSFloat dialog; never log key. |
 | P0 | T012 | todo | — | **CSFloat read-only pending sales (foreground).** Queued/pending list; user refresh only; no accept/offer/Guard. |
 | P0 | T060 | todo | — | **Opt-in proactive session renewal.** Wire dead `SessionRenewalManager.schedule()` behind Settings toggle (default OFF). Renew near-expiry with refresh token; never getlist. |
-| P0 | T061 | todo | — | **Steam-aligned time for confirmation HMAC.** `ConfirmationService` must use `TimeAligner` offset (like codes), not raw wall clock; cache offset; skew warning on fail. |
 | P1 | T013 | todo | — | **CSFloat notification: actionable trades.** WorkManager cheap `/me` probe; notify only; no Steam Guard. |
-| P1 | T041 | todo | — | **Pace accept-all / trade auto-confirm** — ≥300–500ms between Steam ops + stop/backoff on 429. |
 | P1 | T063 | todo | — | **Confirm All type breakdown + trade friction.** Dialog shows market/trade/other counts; trades need extra checkbox (default off). |
 | P1 | T020 | todo | — | **Opt-in accept + Steam offer send** (second toggle default OFF); enqueue offer id; no auto Guard. |
 | P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit (see CSFLOAT_NOTES T021 sketch). |
@@ -47,11 +60,14 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 - [ ] Worker renews only accounts with usable refresh path; does not change native active account incorrectly
 - [ ] Zero Steam Guard getlist traffic from this worker
 
-### Acceptance (T061)
+### Acceptance (T061) — see Boss APPROVED above
 
-- [ ] Confirmation `t`/`k` use Steam time offset shared with code generator
-- [ ] Offset cached (no QueryTime per item)
-- [ ] Fallback + visible skew hint if align fails
+### Acceptance (T011)
+
+- [ ] Test connection button: live `/me`; distinct ok / 401 / 429 / network
+- [ ] API key never in plaintext prefs / logs
+- [ ] Steam confirmation flows untouched
+- [ ] Patch version bump when shipped
 
 ### Acceptance (T063)
 
@@ -86,7 +102,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T041 | todo | — | Pace accept-all / trade auto-confirm |
+| P1 | T041 | doing | Worker | Pace accept-all / trade auto-confirm — see NOW |
 | P1 | T042 | todo | — | Wire or remove market/gift auto-confirm dead API |
 | P2 | T043 | todo | — | PasswordManager case: unify `hasPassword` / `getPassword` |
 | P2 | T044 | todo | — | Quarantine/remove dead `BackgroundSyncScheduler` / `ConfirmationBackgroundWorker` |
@@ -125,7 +141,5 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Boss Cycle 3:** T040 APPROVED; Worker shipped **T061** (1.5.3). Recommend next **T041** or **T011**.
-- **Architect Cycle 3:** added T060–T067. Prefer **T041** / **T011** / **T012** next.
-- T021 sketch in `CSFLOAT_NOTES.md` — after T012/T020.
+- **Boss Cycle 4:** T061 **APPROVED** (`6dc2651`). NOW = **T041** (pace accept-all → 1.5.4). T011 still open (mislabeled log). Follow-up: tighten `looksLikeClockSkew`.
 - Architect docs-only; do not fight Worker on Kotlin during active NOW.
