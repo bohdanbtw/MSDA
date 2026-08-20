@@ -15,6 +15,7 @@ object CsFloatAccountSettings {
     private const val KEY_DUAL_BOT_WARNED_PREFIX = "dual_bot_warned_"
     private const val KEY_SEEN_TRADE_IDS_PREFIX = "seen_trade_ids_"
     private const val KEY_NOTIFY_ENABLED_PREFIX = "notify_enabled_"
+    private const val KEY_ACTIONABLE_HINT_PREFIX = "actionable_hint_"
 
     /** Cap for T085 last-seen trade id set (SharedPreferences StringSet-ish CSV). */
     const val MAX_SEEN_TRADE_IDS = 64
@@ -50,6 +51,35 @@ object CsFloatAccountSettings {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean("$KEY_NOTIFY_ENABLED_PREFIX$steamId", enabled)
+            .apply()
+    }
+
+    /** T076: last `/me` actionable hint used to skip trades list when unchanged. */
+    fun getLastActionableHint(context: Context, steamId: String): String? {
+        if (steamId.isBlank()) return null
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("$KEY_ACTIONABLE_HINT_PREFIX$steamId", null)
+            ?: return null
+        return raw.takeIf { it.isNotBlank() }
+    }
+
+    fun setLastActionableHint(context: Context, steamId: String, hint: String?) {
+        if (steamId.isBlank()) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        if (hint.isNullOrBlank()) {
+            prefs.remove("$KEY_ACTIONABLE_HINT_PREFIX$steamId")
+        } else {
+            prefs.putString("$KEY_ACTIONABLE_HINT_PREFIX$steamId", hint)
+        }
+        prefs.apply()
+    }
+
+    /** Update last-checked only (T076 skip path — no new trade fetch). */
+    fun touchLastCheckAt(context: Context, steamId: String) {
+        if (steamId.isBlank()) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putLong("$KEY_LAST_CHECK_AT_PREFIX$steamId", System.currentTimeMillis())
             .apply()
     }
 
@@ -150,6 +180,7 @@ object CsFloatAccountSettings {
             .remove("$KEY_LAST_QUEUED_BASELINED_PREFIX$steamId")
             .remove("$KEY_LAST_CHECK_AT_PREFIX$steamId")
             .remove("$KEY_SEEN_TRADE_IDS_PREFIX$steamId")
+            .remove("$KEY_ACTIONABLE_HINT_PREFIX$steamId")
             .apply()
     }
 
@@ -165,6 +196,7 @@ object CsFloatAccountSettings {
             .remove("$KEY_DUAL_BOT_WARNED_PREFIX$steamId")
             .remove("$KEY_SEEN_TRADE_IDS_PREFIX$steamId")
             .remove("$KEY_NOTIFY_ENABLED_PREFIX$steamId")
+            .remove("$KEY_ACTIONABLE_HINT_PREFIX$steamId")
             .apply()
         CsFloatSecureStore.clearApiKey(context, steamId)
         CsFloatNotifier.cancelForSteamId(context, steamId)

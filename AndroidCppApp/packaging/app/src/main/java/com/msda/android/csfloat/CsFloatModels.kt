@@ -7,7 +7,12 @@ data class CsFloatMeSummary(
     val userId: String = "",
     val username: String = "",
     val balanceCents: Int = 0,
-    val pendingBalanceCents: Int = 0
+    val pendingBalanceCents: Int = 0,
+    /**
+     * T076: opaque hint from `/me` (`actionable_trades` count/array).
+     * Null when missing/unparseable → worker must fetch trades list.
+     */
+    val actionableHint: String? = null
 )
 
 data class CsFloatTradeSummary(

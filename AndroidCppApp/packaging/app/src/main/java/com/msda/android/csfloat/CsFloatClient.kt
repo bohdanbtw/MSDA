@@ -67,7 +67,8 @@ class CsFloatClient(
                             userId = user.optString("id", user.optString("steam_id", "")),
                             username = user.optString("username", user.optString("name", "")),
                             balanceCents = user.optInt("balance", 0),
-                            pendingBalanceCents = user.optInt("pending_balance", 0)
+                            pendingBalanceCents = user.optInt("pending_balance", 0),
+                            actionableHint = parseActionableHint(root, user)
                         )
                     )
                 } catch (e: Exception) {
@@ -165,6 +166,33 @@ class CsFloatClient(
             steamOfferId = steamOfferId,
             steamOfferState = steamOfferState
         )
+    }
+
+    private fun parseActionableHint(root: JSONObject, user: JSONObject): String? {
+        val stats = root.optJSONObject("statistics") ?: user.optJSONObject("statistics")
+        val candidates = listOf(
+            root.opt("actionable_trades"),
+            user.opt("actionable_trades"),
+            stats?.opt("actionable_trades"),
+            root.opt("pending_trades"),
+            user.opt("pending_trades")
+        )
+        for (raw in candidates) {
+            when (raw) {
+                null, JSONObject.NULL -> continue
+                is Number -> return raw.toInt().toString()
+                is org.json.JSONArray -> return raw.length().toString()
+                is String -> {
+                    val t = raw.trim()
+                    if (t.isNotEmpty() && t != "null") return t
+                }
+                is Boolean -> continue
+                else -> {
+                    // e.g. nested object — skip
+                }
+            }
+        }
+        return null
     }
 
     private fun firstNonBlank(vararg values: String?): String {

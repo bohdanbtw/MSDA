@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.15** (`966dc62` T097). Boss: T097 **APPROVED**. Single NOW = **T076**.
+App HEAD: **1.6.16** (T076 cheap `/me` actionable probe). Queue idle — suggest **T092** / **T096**.
 
 ---
 
@@ -15,15 +15,15 @@ App HEAD: **1.6.15** (`966dc62` T097). Boss: T097 **APPROVED**. Single NOW = **T
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T076 | doing | Worker | **Cheap `/me` actionable probe (1.6.16).** Skip full trades list when actionable/queued hint unchanged. Fallback if hint missing. Still write last-checked; notify rules unchanged. No Steam Guard. Sole-Gradle. Bump `1.6.16` / `160016`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T092** / **T096**. |
 
-### Acceptance (T076)
+### Acceptance (T076) — done 2026-08-21 (v1.6.16)
 
-- [ ] Parse actionable/queued hint from `/me` into `CsFloatMeSummary` when present
-- [ ] If hint unchanged vs last stored + baseline exists → **skip** `listQueuedTrades`
-- [ ] If hint missing/unparseable → fall back to current trades-list behavior
-- [ ] Still write last-checked; notify rules (T085/T084) unchanged when trades fetched
-- [ ] Zero Steam Guard; Version **1.6.16** / `160016`; sole-Gradle; DEV_LOG + push
+- [x] Parse actionable/queued hint from `/me` into `CsFloatMeSummary` when present
+- [x] If hint unchanged vs last stored + baseline exists → **skip** `listQueuedTrades`
+- [x] If hint missing/unparseable → fall back to current trades-list behavior
+- [x] Still write last-checked; notify rules (T085/T084) unchanged when trades fetched
+- [x] Zero Steam Guard; Version **1.6.16** / `160016`; sole-Gradle; DEV_LOG + push
 
 ### Acceptance (T097) — **Boss APPROVED** (`966dc62`, v1.6.15)
 
@@ -136,7 +136,7 @@ App HEAD: **1.6.15** (`966dc62` T097). Boss: T097 **APPROVED**. Single NOW = **T
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T076 | doing | Worker | **Cheap `/me` actionable probe** → **1.6.16** (NOW). |
+| P0 | T076 | done | Worker | **Cheap `/me` actionable probe** → **1.6.16**. |
 | P0 | T092 | todo | — | **Offline / session hint on Confirm Load** + Renew shortcut. |
 | P1 | T096 | todo | — | **Confirmation row relative time** + type icon. |
 | P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count`. |
@@ -389,7 +389,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 ### Acceptance (T076) / (T084) / (T085) / (T089) / (T090)
 
-- T076: see NOW checklist (1.6.16 in flight)
+- T076: capped `/me` actionable hint skip (**1.6.16**)
 - T084–T090: **done** (1.6.8–1.6.13)
 
 ### Acceptance (T065) / (T073)
@@ -508,6 +508,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T076 | done | Worker | Cheap `/me` actionable probe (**1.6.16**) |
 | P1 | T097 | done | Worker | Pending empty Check-now CTA (**1.6.15**) |
 | P1 | T091 | done | Worker | Hub long-press copy SteamID (**1.6.14**) |
 | P1 | T084 | done | Worker | Per-account CSFloat notify mute (**1.6.13**) |
@@ -539,7 +540,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **NOW = T076** (1.6.16) — do not steal. Then **T092/T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
+- **Post-1.6.16:** **T092/T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
 - T085–T097 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.

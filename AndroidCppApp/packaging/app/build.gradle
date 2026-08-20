@@ -19,8 +19,8 @@ android {
         applicationId "com.msda.android"
         minSdk 26
         targetSdk 34
-        versionCode 160015
-        versionName "1.6.15"
+        versionCode 160016
+        versionName "1.6.16"
         resValue "string", "settings_app_version", "Version ${versionName}"
     }
 

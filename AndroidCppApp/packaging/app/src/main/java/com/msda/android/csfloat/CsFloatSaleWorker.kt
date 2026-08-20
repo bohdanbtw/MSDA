@@ -38,14 +38,17 @@ class CsFloatSaleWorker(
         }
 
         var sawRetryable = false
+        val forceTrades = onlySteamId.isNotEmpty() // Check-now always fetches trades.
         for (steamId in ready) {
             val apiKey = CsFloatSecureStore.getApiKey(applicationContext, steamId) ?: continue
             val client = CsFloatClient(apiKey)
             var accountName = ""
+            var actionableHint: String? = null
 
             when (val me = client.me()) {
                 is CsFloatResult.Ok -> {
                     accountName = me.value.username
+                    actionableHint = me.value.actionableHint
                     Log.d(TAG, "CSFloat /me ok for …${steamId.takeLast(4)}")
                 }
                 is CsFloatResult.RateLimited -> {
@@ -65,11 +68,29 @@ class CsFloatSaleWorker(
                 }
             }
 
+            // T076: skip trades list when /me actionable hint unchanged (periodic only).
+            val baselined = CsFloatAccountSettings.hasQueuedBaseline(applicationContext, steamId)
+            val lastHint = CsFloatAccountSettings.getLastActionableHint(applicationContext, steamId)
+            if (!forceTrades &&
+                actionableHint != null &&
+                baselined &&
+                actionableHint == lastHint
+            ) {
+                CsFloatAccountSettings.touchLastCheckAt(applicationContext, steamId)
+                Log.d(TAG, "CSFloat skip trades …${steamId.takeLast(4)} (hint unchanged)")
+                continue
+            }
+
             when (val trades = client.listQueuedTrades()) {
                 is CsFloatResult.Ok -> {
                     val count = trades.value.size
                     Log.d(TAG, "CSFloat trades …${steamId.takeLast(4)}: $count queued/pending")
                     handleQueuedTrades(steamId, accountName, trades.value)
+                    CsFloatAccountSettings.setLastActionableHint(
+                        applicationContext,
+                        steamId,
+                        actionableHint
+                    )
                 }
                 is CsFloatResult.RateLimited -> {
                     Log.w(TAG, "CSFloat trades rate-limited")

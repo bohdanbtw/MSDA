@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T076 cheap `/me` actionable probe (1.6.16)
+
+- Parse `actionable_trades` hint from `/me`; periodic SaleWorker skips `listQueuedTrades` when hint unchanged + baseline exists; Check-now always fetches; missing hint → full list fallback; touch last-checked on skip.
+- Zero Steam Guard/getlist. Version **1.6.16** / `160016`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T097 approved; NOW = T076
 
 - Approved `966dc62` T097 empty pending Check-now CTA — **Steam-safety PASS** (CSFloat pending dialog + T079 one-shot WM only; zero Guard/getlist).
