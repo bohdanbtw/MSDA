@@ -4,11 +4,15 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import android.widget.RemoteViews
+import android.widget.Toast
+import com.msda.android.steam.TimeAligner
 import java.io.File
 
 class Code2FAWidgetProvider : AppWidgetProvider() {
@@ -36,19 +40,29 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_TICK || intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, Code2FAWidgetProvider::class.java))
-            if (ids.isNotEmpty()) {
-                onUpdate(context, manager, ids)
-            } else {
-                cancelTick(context)
+        when (intent.action) {
+            ACTION_COPY -> {
+                val appWidgetId = intent.getIntExtra(EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+                if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    copyCodeForWidget(context, appWidgetId)
+                }
+            }
+            ACTION_TICK, AppWidgetManager.ACTION_APPWIDGET_UPDATE -> {
+                val manager = AppWidgetManager.getInstance(context)
+                val ids = manager.getAppWidgetIds(ComponentName(context, Code2FAWidgetProvider::class.java))
+                if (ids.isNotEmpty()) {
+                    onUpdate(context, manager, ids)
+                } else {
+                    cancelTick(context)
+                }
             }
         }
     }
 
     companion object {
         const val ACTION_TICK = "com.msda.android.action.WIDGET_CODE_TICK"
+        const val ACTION_COPY = "com.msda.android.action.WIDGET_CODE_COPY"
+        private const val EXTRA_APPWIDGET_ID = "msda_widget_id"
         private const val TICK_INTERVAL_MS = 1000L
 
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
@@ -67,7 +81,11 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
                 configureIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            // Title / root → reconfigure; code → copy
+            views.setOnClickPendingIntent(R.id.widgetAccountName, configurePending)
+            views.setOnClickPendingIntent(R.id.widgetTimer, configurePending)
             views.setOnClickPendingIntent(R.id.widgetRoot, configurePending)
+            views.setOnClickPendingIntent(R.id.widgetCode, copyPendingIntent(context, appWidgetId))
 
             if (steamId.isBlank() && accountIndex < 0) {
                 views.setTextViewText(R.id.widgetAccountName, context.getString(R.string.widget_no_account))
@@ -99,16 +117,7 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
                 ""
             }
 
-            val seconds = try {
-                if (accountIndex >= 0) {
-                    NativeBridge.setActiveAccount(accountIndex)
-                    NativeBridge.getSecondsToNextCode()
-                } else {
-                    -1
-                }
-            } catch (_: Throwable) {
-                -1
-            }
+            val seconds = resolveSecondsRemaining(accountIndex)
 
             if (code.isBlank()) {
                 views.setTextViewText(R.id.widgetCode, context.getString(R.string.widget_account_missing))
@@ -117,8 +126,7 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widgetCode, code)
                 views.setTextViewText(
                     R.id.widgetTimer,
-                    if (seconds >= 0) context.getString(R.string.code_timer_value, seconds)
-                    else context.getString(R.string.widget_timer_placeholder)
+                    context.getString(R.string.code_timer_value, seconds.coerceIn(1, 30))
                 )
             }
 
@@ -130,6 +138,65 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             }
             context.sendBroadcast(intent)
+        }
+
+        private fun resolveSecondsRemaining(accountIndex: Int): Int {
+            try {
+                if (accountIndex >= 0) {
+                    NativeBridge.setActiveAccount(accountIndex)
+                    val native = NativeBridge.getSecondsToNextCode()
+                    if (native in 0..30) {
+                        return if (native == 0) 30 else native
+                    }
+                }
+            } catch (_: Throwable) {
+            }
+            // steamId-bound widgets (or native miss): derive from Steam-aligned epoch when cached.
+            val epoch = if (TimeAligner.hasFreshCache()) {
+                TimeAligner.cachedAlignedEpochSeconds()
+            } else {
+                System.currentTimeMillis() / 1000L
+            }
+            val mod = (epoch % 30L).toInt()
+            return if (mod == 0) 30 else 30 - mod
+        }
+
+        private fun copyCodeForWidget(context: Context, appWidgetId: Int) {
+            ensureMafilesLoaded(context)
+            val steamId = AppSettings.getWidgetSteamId(context, appWidgetId)
+            val accountIndex = AppSettings.getWidgetAccountIndex(context, appWidgetId)
+            val code = try {
+                when {
+                    steamId.isNotBlank() -> NativeBridge.getCodeForSteamId(steamId).trim()
+                    accountIndex >= 0 -> {
+                        NativeBridge.setActiveAccount(accountIndex)
+                        NativeBridge.getActiveCode().trim()
+                    }
+                    else -> ""
+                }
+            } catch (_: Throwable) {
+                ""
+            }
+            if (code.isBlank()) {
+                Toast.makeText(context, context.getString(R.string.code_copy_failed), Toast.LENGTH_SHORT).show()
+                return
+            }
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("MSDA 2FA", code))
+            Toast.makeText(context, context.getString(R.string.code_copied), Toast.LENGTH_SHORT).show()
+        }
+
+        private fun copyPendingIntent(context: Context, appWidgetId: Int): PendingIntent {
+            val intent = Intent(context, Code2FAWidgetProvider::class.java).apply {
+                action = ACTION_COPY
+                putExtra(EXTRA_APPWIDGET_ID, appWidgetId)
+            }
+            return PendingIntent.getBroadcast(
+                context,
+                10_000 + appWidgetId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
         }
 
         private fun ensureMafilesLoaded(context: Context) {

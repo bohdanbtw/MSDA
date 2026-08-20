@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T030 widget tap-to-copy (1.6.1)
+
+- Tap widget **code** copies 2FA + Toast; account title still opens configure.
+- Fixed countdown for steamId-bound widgets (was `-1`); uses TimeAligner cache or local epoch mod 30 without flipping native active account.
+- Bumped **1.6.1 / 160001**.
+
 ## 2026-08-21 — Architect Cycle 5b: align with Boss T030 + deepen NEXT
 
 - Confirmed Boss NOW **T030** (matches Cycle 5 recommendation). Marked doing; merged duplicate acceptance; noted Worker WIP on widget files (Architect does not touch).

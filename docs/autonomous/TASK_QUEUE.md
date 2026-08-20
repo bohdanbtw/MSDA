@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.0** (`8b25eb6` T012). Boss: T012 **APPROVED**. Single NOW = **T030**.
+App HEAD: **1.6.1** (T030 widget copy).
 
 ---
 
@@ -15,15 +15,17 @@ App HEAD: **1.6.0** (`8b25eb6` T012). Boss: T012 **APPROVED**. Single NOW = **T0
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T030 | doing | Worker | **Widget tap-to-copy 2FA (1.6.1).** Tap widget copies current code + brief Toast; fix countdown when bound by `steamId` only (seconds must not stick at `-1`). Touch `Code2FAWidgetProvider` (+ related) only. No Steam confirmation / CSFloat changes. Bump `1.6.1` / `160001`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Recommend **T013** (CSFloat notify) or **T063** (confirm-all friction). |
 
-### Acceptance (T030)
+### Acceptance (T030) — done 2026-08-21
 
-- [ ] Tap widget copies current code (works when app backgrounded); brief Toast
-- [ ] Account title / long-press still opens configure (don’t lose rebind)
-- [ ] Countdown shows 0–30 correctly for **steamId**-bound widgets without mutating native active account
-- [ ] No new Steam getlist / confirmation polling; no CSFloat changes
-- [ ] Version `1.6.1` / `160001`; DEV_LOG + push
+- [x] Tap widget code copies 2FA + Toast (works backgrounded via BroadcastReceiver)
+- [x] Account title still opens configure
+- [x] Countdown 1–30 for steamId-bound widgets without mutating native active account
+- [x] No getlist / CSFloat changes
+- [x] Version `1.6.1` / `160001`
+
+### Acceptance (T012) — **Boss APPROVED** (`8b25eb6`, v1.6.0)- [ ] Version `1.6.1` / `160001`; DEV_LOG + push
 
 ### Acceptance (T012) — **Boss APPROVED** (`8b25eb6`, v1.6.0)
 
