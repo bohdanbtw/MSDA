@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.18** (T096 confirmation row relative time + type icon). Queue idle — suggest **T104** / **T106**.
+App HEAD: **1.6.18** (`2476d14` T096). Boss: T096 **APPROVED**. Single NOW = **T104**.
 
 ---
 
@@ -15,9 +15,15 @@ App HEAD: **1.6.18** (T096 confirmation row relative time + type icon). Queue id
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T104** / **T106**. |
+| P1 | T104 | doing | Worker | **Hub pending-sales badge (1.6.19).** Show count/dot from `last_queued_count` when CSFloat enabled + count&gt;0; tap opens account Main + pending. No Steam Guard/getlist. Sole-Gradle. Bump `1.6.19` / `160019`. DEV_LOG + push. |
 
-### Acceptance (T096) — done 2026-08-21 (v1.6.18)
+### Acceptance (T104)
+
+- [ ] Hub shows pending count only when CSFloat enabled + count&gt;0
+- [ ] Tap navigates to account Main + pending; zero Steam Guard / getlist
+- [ ] Version **1.6.19** / `160019`; sole-Gradle; DEV_LOG + push
+
+### Acceptance (T096) — **Boss APPROVED** (`2476d14`, v1.6.18)
 
 - [x] Each confirmation row shows relative time + type icon (market/trade/other)
 - [x] Load path unchanged otherwise; no confirmation timer polling / getlist spam
@@ -144,14 +150,14 @@ App HEAD: **1.6.18** (T096 confirmation row relative time + type icon). Queue id
 
 ---
 
-## NEXT (after T096)
+## NEXT (after T104)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
 | P0 | T076 | done | Worker | **Cheap `/me` actionable probe** → **1.6.16**. |
 | P0 | T092 | done | Worker | **Offline / session hint on Confirm Load** → **1.6.17**. |
 | P1 | T096 | done | Worker | **Confirmation row relative time** + type icon → **1.6.18**. |
-| P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count`. |
+| P1 | T104 | doing | Worker | **Hub pending-sales badge** from `last_queued_count` → **1.6.19** (NOW). |
 | P1 | T106 | todo | — | **Long-press pending row → copy trade id**. |
 | P1 | T142 | todo | — | **Swipe-to-refresh** pending sales (no notify). |
 | P1 | T101 | todo | — | **CSFloat 429 cooloff UX** (`Retry-After`). |
@@ -284,7 +290,7 @@ Build on status strip + notify. Prefer over early **T020**.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count` (dot/count); tap opens account Main + pending. |
+| P1 | T104 | doing | Worker | **Hub pending-sales badge** from `last_queued_count` (dot/count); tap opens account Main + pending → **1.6.19** (NOW). |
 | P1 | T105 | todo | — | **Last CSFloat error chip** on dialog (401 / 429 / network) from worker/Test; cleared on success. |
 | P1 | T106 | todo | — | **Long-press pending row → copy trade id** (+ optional buyer SteamID). |
 | P1 | T107 | todo | — | **Confirm Load cancelable** (dismiss progress / ignore late result); no duplicate Load spam. |
@@ -552,8 +558,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.18:** **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
+- **NOW = T104** (1.6.19) — do not steal. Then **T106/T142** → **T153+** / **T166+**; **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
-- T076–T092 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- T076–T096 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.

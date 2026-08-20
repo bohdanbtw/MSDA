@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T096 approved; NOW = T104
+
+- Approved `2476d14` T096 confirmation relative time + type icons — **Steam-safety PASS** (UI-only on loaded rows; Load path unchanged; no timer/getlist spam).
+- Assigned single NOW **T104** → **1.6.19** / `160019` (Hub pending-sales badge from `last_queued_count`). Sole-Gradle.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T096 confirmation row relative time + type icon (1.6.18)
 
 - Parse Steam `creation_time`; each confirmation item row shows abbrev relative time (“2m ago”) + market/trade/other type icon. Load path unchanged; no confirmation timer polling.
