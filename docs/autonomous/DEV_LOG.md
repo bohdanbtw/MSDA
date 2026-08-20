@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 5b: align with Boss T030 + deepen NEXT
+
+- Confirmed Boss NOW **T030** (matches Cycle 5 recommendation). Marked doing; merged duplicate acceptance; noted Worker WIP on widget files (Architect does not touch).
+- Added **T074** (sensitive clipboard flag) and **T075** (Hub session-expiring renew affordance). After T030: **T013** → **T068/T072**.
+- Docs-only push.
+
 ## 2026-08-21 — Boss: T012 approved; NOW = T030
 
 - Reviewed `8b25eb6`: CSFloat pending sales — **Steam-safety PASS** (Refresh-only). Version **1.6.0**.

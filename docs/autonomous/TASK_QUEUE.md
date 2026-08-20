@@ -15,13 +15,14 @@ App HEAD: **1.6.0** (`8b25eb6` T012). Boss: T012 **APPROVED**. Single NOW = **T0
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T030 | todo | Worker | **Widget tap-to-copy 2FA (1.6.1).** Tap widget copies current code + brief Toast; fix countdown when bound by `steamId` only (seconds must not stick at `-1`). Touch `Code2FAWidgetProvider` (+ related) only. No Steam confirmation / CSFloat changes. Bump `1.6.1` / `160001`. DEV_LOG + push. |
+| P0 | T030 | doing | Worker | **Widget tap-to-copy 2FA (1.6.1).** Tap widget copies current code + brief Toast; fix countdown when bound by `steamId` only (seconds must not stick at `-1`). Touch `Code2FAWidgetProvider` (+ related) only. No Steam confirmation / CSFloat changes. Bump `1.6.1` / `160001`. DEV_LOG + push. |
 
 ### Acceptance (T030)
 
-- [ ] Tap widget copies current code (works when app backgrounded)
-- [ ] Countdown shows 0–30 correctly for steamId-bound widgets
-- [ ] No new Steam getlist / confirmation polling
+- [ ] Tap widget copies current code (works when app backgrounded); brief Toast
+- [ ] Account title / long-press still opens configure (don’t lose rebind)
+- [ ] Countdown shows 0–30 correctly for **steamId**-bound widgets without mutating native active account
+- [ ] No new Steam getlist / confirmation polling; no CSFloat changes
 - [ ] Version `1.6.1` / `160001`; DEV_LOG + push
 
 ### Acceptance (T012) — **Boss APPROVED** (`8b25eb6`, v1.6.0)
@@ -63,13 +64,8 @@ App HEAD: **1.6.0** (`8b25eb6` T012). Boss: T012 **APPROVED**. Single NOW = **T0
 | P2 | T066 | todo | — | Period-aligned 2FA UI tick (Main + widget). |
 | P2 | T067 | todo | — | Hub multi-select: renew selected + panic disable auto-confirm. |
 | P2 | T061b | todo | — | Tighten `looksLikeClockSkew` (broad `"invalid"`). |
-
-### Acceptance (T030)
-
-- [ ] Tap widget code copies 2FA; Toast “Copied”
-- [ ] Account title / long-press still opens configure
-- [ ] Countdown works for **steamId**-bound widgets without mutating native active account
-- [ ] Version **1.6.1** / `160001` (or next patch)
+| P2 | T074 | todo | — | **Sensitive clipboard** on 2FA copy (Main/Hub): `ClipDescription.EXTRA_IS_SENSITIVE` / hide from keyboard suggestions where API allows. |
+| P2 | T075 | todo | — | Hub: show “session expiring soon” affordance that jumps to renew (pairs with T032). |
 
 ### Acceptance (T013)
 
@@ -141,7 +137,7 @@ App HEAD: **1.6.0** (`8b25eb6` T012). Boss: T012 **APPROVED**. Single NOW = **T0
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P2 | T050 | todo | — | Clipboard auto-clear 2FA after copy (30–60s). |
+| P2 | T050 | todo | — | Clipboard auto-clear 2FA after copy (30–60s) — pairs with T074. |
 | P2 | T051 | todo | — | Export mafile secrets warning dialog. |
 | P3 | T052 | todo | — | PIN attempt lockout / backoff. |
 

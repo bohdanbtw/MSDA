@@ -110,9 +110,9 @@ Constants (from botCsFloat): getlist floor **35s**, GetTradeOffers floor **20s**
 
 **Out of first scope:** buy orders, market neighbor search loops, Telegram, bulk auto-reprice.
 
-## T012 DTO fields (Architect Cycle 4)
+## T012 DTO fields — **shipped in 1.6.0**
 
-Expand beyond current `CsFloatTradeSummary(id, state, sellerId)` before building the pending-sales UI:
+`CsFloatTradeSummary` now includes the fields below (parse in `listQueuedTrades`). Keep POST accept out until T020.
 
 | Field | Source (bot) | UI use |
 |-------|--------------|--------|
