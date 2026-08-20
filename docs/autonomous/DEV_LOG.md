@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T129 Hub SteamID secondary line (1.6.11)
+
+- Hub account rows show muted truncated SteamID under the title (`…` + last 8); full id in contentDescription. Keep-both clones distinguishable.
+- Zero Steam Guard/getlist/CSFloat HTTP. Version **1.6.11** / `160011`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T141 approved; NOW = T129
 
 - Reviewed `2d9ae51`: status strip pending accent — **Steam-safety PASS** (visual-only prefs styling; T103 tap unchanged; zero HTTP/Guard/getlist).

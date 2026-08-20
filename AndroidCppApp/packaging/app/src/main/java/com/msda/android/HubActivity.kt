@@ -157,7 +157,11 @@ class HubActivity : AppCompatActivity() {
 
             if (steamId.isNotBlank()) {
                 addView(TextView(this@HubActivity).apply {
-                    text = steamId
+                    // T129: secondary SteamID so Keep-both clones are distinguishable.
+                    text = formatHubSteamIdSecondary(steamId)
+                    textSize = 12f
+                    setTextColor(0xFF6688AA.toInt())
+                    contentDescription = steamId
                 })
                 addView(TextView(this@HubActivity).apply {
                     text = getString(R.string.account_label_edit)
@@ -270,6 +274,13 @@ class HubActivity : AppCompatActivity() {
         }
 
         return rowContainer
+    }
+
+    /** T129: compact secondary SteamID for Hub rows (full id in contentDescription). */
+    private fun formatHubSteamIdSecondary(steamId: String): String {
+        val id = steamId.trim()
+        if (id.length <= 14) return id
+        return getString(R.string.hub_steamid_truncated, id.takeLast(8))
     }
 
     private fun copyAccountCode(index: Int, name: String, steamId: String) {

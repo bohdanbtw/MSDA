@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.10** (`2d9ae51` T141). Boss: T141 **APPROVED**. Single NOW = **T129**.
+App HEAD: **1.6.11** (T129 Hub SteamID secondary). Queue idle — suggest **T085** / **T084**.
 
 ---
 
@@ -15,14 +15,14 @@ App HEAD: **1.6.10** (`2d9ae51` T141). Boss: T141 **APPROVED**. Single NOW = **T
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T129 | doing | Worker | **Hub secondary line = SteamID (1.6.11).** Show steamId under account name so Keep-both clones are distinguishable (pairs T065). Touch Hub list UI primarily. **Zero Steam Guard / getlist / CSFloat network.** Sole-Gradle. Bump `1.6.11` / `160011`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T085** / **T084**. |
 
-### Acceptance (T129)
+### Acceptance (T129) — done 2026-08-21 (v1.6.11)
 
-- [ ] Hub row shows steamId as secondary text (truncated OK; full via existing long-press if present)
-- [ ] Keep-both duplicates no longer look identical in the list
-- [ ] Zero Steam Guard / getlist / new CSFloat HTTP
-- [ ] Version **1.6.11** / `160011`; sole-Gradle; DEV_LOG + push
+- [x] Hub row shows steamId as secondary text (truncated OK; full via existing long-press if present)
+- [x] Keep-both duplicates no longer look identical in the list
+- [x] Zero Steam Guard / getlist / new CSFloat HTTP
+- [x] Version **1.6.11** / `160011`; sole-Gradle; DEV_LOG + push
 
 ### Acceptance (T141) — **Boss APPROVED** (`2d9ae51`, v1.6.10)
 
@@ -191,7 +191,7 @@ Invented from T065 WIP (`ConflictChoice`, same-SteamID / filename-clash paths). 
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T129 | todo | — | **Hub secondary line = SteamID** (truncated or full on long-press already T091) so Keep-both clones are distinguishable. |
+| P0 | T129 | done | Worker | **Hub secondary line = SteamID** (truncated or full on long-press already T091) so Keep-both clones are distinguishable. |
 | P1 | T130 | todo | — | **Batch import “Apply to all”** for same conflict type in one multi-file pick (Replace all / Keep all / Ask each). |
 | P1 | T131 | todo | — | **Import outcome snackbar**: Added / Replaced / Kept both / Skipped / Failed counts (pairs T094). |
 | P1 | T132 | todo | — | **Reject mafile missing `shared_secret`** (or unusable Guard) with clear dialog before write. |
@@ -393,6 +393,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T129 | done | Worker | Hub secondary SteamID line (**1.6.11**) |
 | P0 | T141 | done | Worker | Status strip accent when pending N&gt;0 (**1.6.10**) |
 | P0 | T090 | done | Worker | Dual-bot warning on CSFloat enable (**1.6.9**) |
 | P0 | T079 | done | Worker | Check now one-shot WorkManager (**1.6.8**) |

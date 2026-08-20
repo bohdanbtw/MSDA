@@ -171,6 +171,7 @@
     <string name="account_label_saved">Label saved</string>
     <string name="account_label_edit">Edit label</string>
     <string name="hub_account_title_with_label">%1$s · %2$s</string>
+    <string name="hub_steamid_truncated">…%1$s</string>
     <string name="code_copied_for_account">Copied code for %1$s</string>
     <string name="code_copy_failed">Could not get 2FA code</string>
     <string name="default_proxy_title">Default proxy</string>
