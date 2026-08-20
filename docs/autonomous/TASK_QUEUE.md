@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.5.6** (T060 session renewal).
+App HEAD: **1.5.6** (T060 session renewal). Boss: T060 **APPROVED** (Steam-safe: default OFF, no getlist). Single NOW = **T012** → bump **1.5.7+** (or **1.6.0** if Worker already chose minor for the sales UI).
 
 ---
 
@@ -15,9 +15,9 @@ App HEAD: **1.5.6** (T060 session renewal).
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T012 | todo | Worker | **CSFloat pending sales (foreground, read-only).** Expand DTO → list UI → manual Refresh. No accept / offer / Guard. Bump **1.5.7**. |
+| P0 | T012 | doing | Worker | **CSFloat pending sales (foreground, read-only).** Expand DTO → list UI → manual Refresh. No accept / offer / Guard. Bump **1.5.7+** (Worker may ship **1.6.0**). |
 
-### Acceptance (T060) — done 2026-08-21
+### Acceptance (T060) — **Boss APPROVED** (`2fb1410`, v1.5.6)
 
 - [x] Settings Switch default **OFF**; explains no confirmation polling
 - [x] ON → schedule; OFF → cancel; worker early-exits if pref OFF

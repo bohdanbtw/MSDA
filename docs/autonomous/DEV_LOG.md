@@ -1,5 +1,17 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T060 approved; T012 remains NOW
+
+- Reviewed `2fb1410`: opt-in session renewal — **Steam-safety PASS** (default OFF, no getlist/confirm). Version **1.5.6**.
+- Worker shipped T060 while Boss had assigned T012 (race). Keep single NOW = **T012** (pending sales); accept Worker bump **1.5.7+** or **1.6.0**.
+- Docs-only; no Kotlin edits.
+
+## 2026-08-21 — Worker: T012 CSFloat pending sales (1.6.0)
+
+- Expanded `CsFloatTradeSummary` (+ parse) with market name, price cents, buyer steamId, asset/offer fields.
+- Main CSFloat dialog → **Pending sales**: read-only queued/pending list + Refresh; empty/401/429/network UX.
+- No accept / Steam offer / Guard. Bumped **1.6.0 / 160000**.
+
 ## 2026-08-21 — Worker: T060 opt-in session renewal (1.5.6)
 
 - Settings toggle **Keep Steam sessions alive** (default OFF) → `SessionRenewalManager.schedule/cancel`.
