@@ -522,9 +522,21 @@ class MainActivity : AppCompatActivity() {
         val statusStrip = TextView(this).apply {
             text = formatCsFloatStatusStrip(steamId)
             setPadding(0, 8, 0, 8)
+            contentDescription = getString(R.string.csfloat_status_strip_tap_hint)
         }
         fun refreshStatusStrip() {
             statusStrip.text = formatCsFloatStatusStrip(steamId)
+        }
+        fun openPendingSales() {
+            val typed = apiKeyInput.text?.toString().orEmpty().trim()
+            val keyToUse = typed.ifEmpty {
+                CsFloatSecureStore.getApiKey(this@MainActivity, steamId).orEmpty()
+            }
+            if (keyToUse.isBlank()) {
+                Toast.makeText(this, getString(R.string.csfloat_test_no_key), Toast.LENGTH_SHORT).show()
+                return
+            }
+            showCsFloatPendingSalesDialog(steamId, keyToUse, onStatusSynced = { refreshStatusStrip() })
         }
         val testResult = TextView(this).apply {
             text = ""
@@ -540,6 +552,13 @@ class MainActivity : AppCompatActivity() {
         val btnPending = Button(this).apply {
             text = getString(R.string.csfloat_pending_sales)
             isEnabled = CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
+        }
+        statusStrip.setOnClickListener { openPendingSales() }
+        run {
+            val hasKey = CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
+            statusStrip.isClickable = hasKey
+            statusStrip.isFocusable = hasKey
+            statusStrip.alpha = if (hasKey) 1f else 0.55f
         }
         val hint = TextView(this).apply {
             text = getString(R.string.csfloat_settings_hint)
@@ -608,23 +627,16 @@ class MainActivity : AppCompatActivity() {
             apiKeyInput.hint = getString(R.string.csfloat_api_key_hint)
             btnClearKey.isEnabled = false
             btnPending.isEnabled = false
+            statusStrip.isClickable = false
+            statusStrip.isFocusable = false
+            statusStrip.alpha = 0.55f
             // Clearing the key drops this account from readySteamIds → scheduler cancels if empty.
             CsFloatScheduler.refresh(this)
             testResult.text = getString(R.string.csfloat_key_cleared)
             Toast.makeText(this, getString(R.string.csfloat_key_cleared), Toast.LENGTH_SHORT).show()
         }
 
-        btnPending.setOnClickListener {
-            val typed = apiKeyInput.text?.toString().orEmpty().trim()
-            val keyToUse = typed.ifEmpty {
-                CsFloatSecureStore.getApiKey(this@MainActivity, steamId).orEmpty()
-            }
-            if (keyToUse.isBlank()) {
-                Toast.makeText(this, getString(R.string.csfloat_test_no_key), Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            showCsFloatPendingSalesDialog(steamId, keyToUse, onStatusSynced = { refreshStatusStrip() })
-        }
+        btnPending.setOnClickListener { openPendingSales() }
 
         android.app.AlertDialog.Builder(this)
             .setTitle(getString(R.string.csfloat_dialog_title))

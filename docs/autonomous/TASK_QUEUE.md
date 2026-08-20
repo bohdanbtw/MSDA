@@ -1,4 +1,4 @@
-﻿# TASK_QUEUE
+# TASK_QUEUE
 
 Prioritized backlog. **Architect** invents / refines, **Boss** orders NOW, **Worker** implements.
 
@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.5** (T065 import SteamID conflict). Queue idle — awaiting Boss (recommend **T103**).
+App HEAD: **1.6.6** (T103 tap status strip). Queue idle — suggest **T077**.
 
 ---
 
@@ -15,7 +15,12 @@ App HEAD: **1.6.5** (T065 import SteamID conflict). Queue idle — awaiting Boss
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Recommend **T103** (tap status strip → Pending sales) → **1.6.6**, or **T077** / **T072**. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T077** or **T072**. |
+
+### Acceptance (T103) — done 2026-08-21 (v1.6.6)
+
+- [x] Strip clickable when key present; opens pending dialog; no auto network beyond existing pending load
+- [x] Version **1.6.6** / `160006`
 
 ### Acceptance (T065) — done 2026-08-21 (v1.6.5)
 
@@ -65,7 +70,6 @@ App HEAD: **1.6.5** (T065 import SteamID conflict). Queue idle — awaiting Boss
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T103 | todo | — | **Tap status strip → Pending sales** (zero extra HTTP). |
 | P0 | T077 | todo | — | **POST_NOTIFICATIONS runtime prompt** on CSFloat enable (API 33+); soft-fail if denied. |
 | P1 | T072 | todo | — | **CSFloat balance line** from `/me` after Test connection. |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
@@ -120,7 +124,6 @@ Build on status strip + notify. Prefer over early **T020**.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T103 | todo | — | **Tap status strip → Pending sales** (same path as button; zero extra HTTP). |
 | P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count` (dot/count); tap opens account Main + pending. |
 | P1 | T105 | todo | — | **Last CSFloat error chip** on dialog (401 / 429 / network) from worker/Test; cleared on success. |
 | P1 | T106 | todo | — | **Long-press pending row → copy trade id** (+ optional buyer SteamID). |
@@ -360,6 +363,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T103 | done | Worker | Tap status strip → pending (**1.6.6**)
 | P0 | T065 | done | Worker | Import SteamID conflict Replace/Keep both/Cancel (**1.6.5**) |
 | P0 | T068 | done | Worker | CSFloat status strip (**1.6.4**) |
 | P1 | T088 | done | Worker | Pending Refresh syncs last_* (inside T068) |

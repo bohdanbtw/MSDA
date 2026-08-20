@@ -1,5 +1,10 @@
 # DEV_LOG
 
+## 2026-08-21 — Worker: T103 tap status strip (1.6.6)
+
+- CSFloat status strip opens Pending sales (same path as button) when API key present; disabled affordance without key.
+- Zero Steam Guard/getlist. Version **1.6.6** / `160006`; `assembleDebug` OK.
+
 ## 2026-08-21 — Worker: T065 import SteamID conflict (1.6.5)
 
 - Shared `MafileImportHelper.importFromUri`: detect same-SteamID and filename/different-SteamID clashes before write.
