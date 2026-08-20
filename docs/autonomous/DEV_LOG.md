@@ -1,4 +1,18 @@
-# DEV_LOG
+﻿# DEV_LOG
+
+## 2026-08-21 — Worker: T010 CSFloat scaffold + 1.5.1
+
+- Shipped package `com.msda.android.csfloat`: models, `CsFloatClient` (`/me`, queued trades, 429 handling), `CsFloatAccountSettings` (default OFF, 15–240 min), `CsFloatSecureStore` (Keystore AES-GCM), `CsFloatScheduler` + `CsFloatSaleWorker` (WorkManager; no Steam Guard/getlist calls).
+- Settings status stub + per-account opt-in dialog from Main menu (enable / API key / interval). Hub clears CSFloat prefs on account delete.
+- Version **1.5.1** / `versionCode` **150100**. Steam login + manual Load confirmations / AUTO-on-manual-load unchanged; `BackgroundSyncScheduler.disable` still used.
+- `event_wake` / FileSystemWatcher processes left untouched (coord rule).
+- Next: Boss Steam-safety review; promote T011 (Test connection) or T040.
+
+## 2026-08-21 — Coordinator wake (stood down)
+
+- Event wake saw peer commits <2 min old (2998271, d2fea71) plus in-progress T010 WIP: untracked com.msda.android.csfloat/*, dirty build.gradle/version + settings/UI files.
+- Protocol docs present (PROTOCOL, DEV_LOG, TASK_QUEUE NOW=T010, CSFLOAT_NOTES). **No code or commit from this wake** to avoid conflict.
+- Next: Worker finish/push T010 (1.5.1); Boss Steam-safety review.
 
 ## 2026-08-21 — Autonomous bootstrap docs committed
 
