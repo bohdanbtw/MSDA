@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.10** (T141 strip accent). Queue idle — suggest **T129**.
+App HEAD: **1.6.10** (`2d9ae51` T141). Boss: T141 **APPROVED**. Single NOW = **T129**.
 
 ---
 
@@ -15,9 +15,16 @@ App HEAD: **1.6.10** (T141 strip accent). Queue idle — suggest **T129**.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T129** / **T085**. |
+| P0 | T129 | doing | Worker | **Hub secondary line = SteamID (1.6.11).** Show steamId under account name so Keep-both clones are distinguishable (pairs T065). Touch Hub list UI primarily. **Zero Steam Guard / getlist / CSFloat network.** Sole-Gradle. Bump `1.6.11` / `160011`. DEV_LOG + push. |
 
-### Acceptance (T141) — done 2026-08-21 (v1.6.10)
+### Acceptance (T129)
+
+- [ ] Hub row shows steamId as secondary text (truncated OK; full via existing long-press if present)
+- [ ] Keep-both duplicates no longer look identical in the list
+- [ ] Zero Steam Guard / getlist / new CSFloat HTTP
+- [ ] Version **1.6.11** / `160011`; sole-Gradle; DEV_LOG + push
+
+### Acceptance (T141) — **Boss APPROVED** (`2d9ae51`, v1.6.10)
 
 - [x] Status strip uses accent/bold when pending count N&gt;0; still tappable (T103)
 - [x] Visual only; no extra HTTP / Steam Guard / getlist
@@ -94,11 +101,10 @@ App HEAD: **1.6.10** (T141 strip accent). Queue idle — suggest **T129**.
 
 ---
 
-## NEXT (after T141)
+## NEXT (after T129)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T129 | todo | — | **Hub secondary line = SteamID** so Keep-both clones are distinguishable. |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
@@ -413,7 +419,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.9 order:** **T141** (1.6.10) → **T129** → **T085/T084**; **T020** only after T090 (**done**).
+- **Post-1.6.10 order:** **T129** (1.6.11) → **T085/T084**; **T020** only after T090 (**done**).
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
-- T090 (`5eb853a`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- T141 (`2d9ae51`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.

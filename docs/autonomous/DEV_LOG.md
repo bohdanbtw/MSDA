@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T141 approved; NOW = T129
+
+- Reviewed `2d9ae51`: status strip pending accent — **Steam-safety PASS** (visual-only prefs styling; T103 tap unchanged; zero HTTP/Guard/getlist).
+- Version **1.6.10** / `160010`. Sole-Gradle OK.
+- Assigned single NOW **T129** (Hub SteamID secondary line → **1.6.11** / `160011`). Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T141 status strip pending accent (1.6.10)
 
 - CSFloat status strip bold + accent color when last-queued count &gt; 0 (after a real check); secondary/normal otherwise. T103 tap unchanged.
