@@ -1,4 +1,11 @@
-# DEV_LOG
+﻿# DEV_LOG
+
+## 2026-08-21 — Boss: T065+T103 approved; NOW = T077
+
+- Reviewed `db63077` (T065 import conflict): **Steam-safety PASS** — import/Hub/Main shared helper only; zero Guard/getlist.
+- Reviewed `89f212f` (T103 tap strip): **Steam-safety PASS** — CSFloat UI only; opens existing pending path; zero Guard/getlist.
+- Interrupt asked NOW=T103, but Worker already shipped **1.6.6**; advanced single NOW to **T077** → **1.6.7** / `160007` (optional T072 same batch).
+- Docs-only; no Kotlin / watchers.
 
 ## 2026-08-21 — Worker: T103 tap status strip (1.6.6)
 

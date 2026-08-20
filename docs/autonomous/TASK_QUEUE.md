@@ -1,4 +1,4 @@
-# TASK_QUEUE
+﻿# TASK_QUEUE
 
 Prioritized backlog. **Architect** invents / refines, **Boss** orders NOW, **Worker** implements.
 
@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.6** (T103 tap status strip). Queue idle — suggest **T077**.
+App HEAD: **1.6.6** (`89f212f` T103). Boss: T065 + T103 **APPROVED**. Single NOW = **T077**.
 
 ---
 
@@ -15,14 +15,20 @@ App HEAD: **1.6.6** (T103 tap status strip). Queue idle — suggest **T077**.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T077** or **T072**. |
+| P0 | T077 | doing | Worker | **POST_NOTIFICATIONS runtime prompt (1.6.7).** On CSFloat enable (API 33+), request permission; soft-fail Toast if denied (polling continues). Touch CSFloat enable path only. **Zero Steam Guard / getlist.** Optional same-batch **T072** balance line OK. Bump `1.6.7` / `160007`. DEV_LOG + push. |
 
-### Acceptance (T103) — done 2026-08-21 (v1.6.6)
+### Acceptance (T077)
+
+- [ ] API 33+: request `POST_NOTIFICATIONS` when enabling CSFloat; denied → Toast, CSFloat poll continues
+- [ ] No Steam Guard / getlist; never log API key
+- [ ] Version **1.6.7** / `160007`; DEV_LOG + push
+
+### Acceptance (T103) — **Boss APPROVED** (`89f212f`, v1.6.6)
 
 - [x] Strip clickable when key present; opens pending dialog; no auto network beyond existing pending load
-- [x] Version **1.6.6** / `160006`
+- [x] Zero Steam Guard/getlist; Version **1.6.6** / `160006`
 
-### Acceptance (T065) — done 2026-08-21 (v1.6.5)
+### Acceptance (T065) — **Boss APPROVED** (`db63077`, v1.6.5)
 
 - [x] Detect existing account by **steamId** (not filename alone) before write
 - [x] Dialog: **Replace** / **Keep both** / **Cancel**
@@ -66,11 +72,10 @@ App HEAD: **1.6.6** (T103 tap status strip). Queue idle — suggest **T077**.
 
 ---
 
-## NEXT (after T065 / 1.6.5)
+## NEXT (after T077)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T077 | todo | — | **POST_NOTIFICATIONS runtime prompt** on CSFloat enable (API 33+); soft-fail if denied. |
 | P1 | T072 | todo | — | **CSFloat balance line** from `/me` after Test connection. |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
@@ -363,8 +368,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T103 | done | Worker | Tap status strip → pending (**1.6.6**)
-| P0 | T065 | done | Worker | Import SteamID conflict Replace/Keep both/Cancel (**1.6.5**) |
+| P0 | T103 | done | Worker | Tap status strip → pending (**1.6.6**) |
 | P0 | T068 | done | Worker | CSFloat status strip (**1.6.4**) |
 | P1 | T088 | done | Worker | Pending Refresh syncs last_* (inside T068) |
 | P0 | T013 | done | Worker | CSFloat count-delta sale notifications (**1.6.3**) |
@@ -383,6 +387,6 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **T065 shipped 1.6.5.** Next recommend **T103** → **T077/T072** → **T129+** / **T141+** / **T116+**; **T090** before **T020**.
-- Architect docs-only; no Kotlin / `event_wake` watchers.
-- Cycles 9–12 seeded through **T152**.
+- **Post-1.6.6 order:** **T077** (1.6.7) → **T072** → **T129+** / **T141+** / **T116+**; **T090** before **T020**.
+- T065 (`db63077`) + T103 (`89f212f`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- Boss docs-only for queue; no Kotlin fights. Cycles 9–12 seeded through **T152**.
