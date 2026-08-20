@@ -899,20 +899,53 @@ class MainActivity : AppCompatActivity() {
         val btnRefresh = Button(this).apply {
             text = getString(R.string.csfloat_pending_refresh)
         }
+        // T097: empty-state Check now (same one-shot WM path as T079).
+        val btnCheckNow = Button(this).apply {
+            text = getString(R.string.csfloat_check_now)
+            visibility = View.GONE
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 24, 40, 0)
             addView(statusView)
             addView(btnRefresh)
+            addView(btnCheckNow)
             addView(scroll)
+        }
+
+        fun formatPendingEmptyStatus(): String {
+            val lastAt = CsFloatAccountSettings.getLastCheckAtMs(this@MainActivity, steamId)
+            if (lastAt <= 0L) {
+                return getString(R.string.csfloat_pending_empty_never)
+            }
+            val relative = DateUtils.getRelativeTimeSpanString(
+                lastAt,
+                System.currentTimeMillis(),
+                DateUtils.MINUTE_IN_MILLIS,
+                DateUtils.FORMAT_ABBREV_RELATIVE
+            ).toString()
+            return getString(R.string.csfloat_pending_empty_last, relative)
+        }
+
+        fun refreshEmptyCheckNowEnabled(running: Boolean = false) {
+            val ready = CsFloatAccountSettings.isEnabled(this@MainActivity, steamId) &&
+                CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
+            btnCheckNow.isEnabled = ready && !running
         }
 
         fun renderTrades(trades: List<com.msda.android.csfloat.CsFloatTradeSummary>) {
             listContainer.removeAllViews()
             if (trades.isEmpty()) {
-                statusView.text = getString(R.string.csfloat_pending_empty)
+                statusView.text = formatPendingEmptyStatus()
+                btnCheckNow.visibility = View.VISIBLE
+                refreshEmptyCheckNowEnabled(
+                    running = CsFloatScheduler.isCheckNowActive(
+                        CsFloatScheduler.checkNowWorkInfos(this@MainActivity).value
+                    )
+                )
                 return
             }
+            btnCheckNow.visibility = View.GONE
             statusView.text = getString(R.string.csfloat_pending_count, trades.size)
             trades.forEach { trade ->
                 val name = trade.marketHashName.ifBlank { getString(R.string.csfloat_pending_unknown_item) }
@@ -937,6 +970,7 @@ class MainActivity : AppCompatActivity() {
 
         fun loadTrades() {
             btnRefresh.isEnabled = false
+            btnCheckNow.isEnabled = false
             statusView.text = getString(R.string.csfloat_pending_loading)
             CoroutineScope(Dispatchers.IO).launch {
                 val result = CsFloatClient(apiKey).listQueuedTrades()
@@ -962,6 +996,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         is CsFloatResult.HttpError -> {
                             listContainer.removeAllViews()
+                            btnCheckNow.visibility = View.GONE
                             statusView.text = when (result.code) {
                                 401, 403 -> getString(R.string.csfloat_test_unauthorized)
                                 else -> getString(R.string.csfloat_test_http_error, result.code)
@@ -969,10 +1004,12 @@ class MainActivity : AppCompatActivity() {
                         }
                         is CsFloatResult.RateLimited -> {
                             listContainer.removeAllViews()
+                            btnCheckNow.visibility = View.GONE
                             statusView.text = getString(R.string.csfloat_test_rate_limited)
                         }
                         is CsFloatResult.NetworkError -> {
                             listContainer.removeAllViews()
+                            btnCheckNow.visibility = View.GONE
                             statusView.text = getString(R.string.csfloat_test_network)
                         }
                     }
@@ -982,11 +1019,57 @@ class MainActivity : AppCompatActivity() {
 
         btnRefresh.setOnClickListener { loadTrades() }
 
+        btnCheckNow.setOnClickListener {
+            if (!CsFloatAccountSettings.isEnabled(this, steamId) ||
+                !CsFloatSecureStore.hasApiKey(this, steamId)
+            ) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.csfloat_check_now_need_enable),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            CsFloatScheduler.refresh(this)
+            if (!CsFloatScheduler.enqueueCheckNow(this, steamId)) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.csfloat_check_now_need_enable),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            btnCheckNow.isEnabled = false
+            Toast.makeText(this, getString(R.string.csfloat_check_now_started), Toast.LENGTH_SHORT).show()
+        }
+
+        var checkNowWasRunning = false
+        val checkNowObserver = androidx.lifecycle.Observer<List<androidx.work.WorkInfo>> { infos ->
+            if (isFinishing) return@Observer
+            val running = CsFloatScheduler.isCheckNowActive(infos)
+            if (btnCheckNow.visibility == View.VISIBLE) {
+                refreshEmptyCheckNowEnabled(running = running)
+            }
+            if (checkNowWasRunning && !running && btnCheckNow.visibility == View.VISIBLE) {
+                // One-shot finished — reload list + last-checked.
+                loadTrades()
+            }
+            checkNowWasRunning = running
+        }
+        val checkNowLiveData = CsFloatScheduler.checkNowWorkInfos(this)
+        checkNowLiveData.observe(this, checkNowObserver)
+
         android.app.AlertDialog.Builder(this)
             .setTitle(R.string.csfloat_pending_title)
             .setView(root)
             .setNegativeButton(android.R.string.ok, null)
-            .show()
+            .create()
+            .also { dialog ->
+                dialog.setOnDismissListener {
+                    checkNowLiveData.removeObserver(checkNowObserver)
+                }
+                dialog.show()
+            }
 
         loadTrades()
     }

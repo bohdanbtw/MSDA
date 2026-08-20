@@ -240,6 +240,9 @@
     <string name="csfloat_pending_refresh">Refresh</string>
     <string name="csfloat_pending_loading">Loading queued/pending trades…</string>
     <string name="csfloat_pending_empty">No queued or pending sales</string>
+    <string name="csfloat_pending_empty_cta">No sales — Check now</string>
+    <string name="csfloat_pending_empty_last">No sales · Last checked %1$s</string>
+    <string name="csfloat_pending_empty_never">No sales · Never checked</string>
     <string name="csfloat_pending_count">%1$d queued/pending sale(s) — read-only</string>
     <string name="csfloat_pending_unknown_item">Unknown item</string>
     <string name="csfloat_pending_row">%1$s\n%2$s · %3$s · buyer …%4$s</string>

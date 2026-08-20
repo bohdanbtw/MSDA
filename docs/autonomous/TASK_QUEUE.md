@@ -255,7 +255,7 @@ Real-user features once status strip + safe import land. Prefer these over early
 | P1 | T094 | todo | — | **Import folder batch summary** after multi-mafile pick: N added / N replaced / N skipped + failures. |
 | P1 | T095 | todo | — | **Export all accounts ZIP** from Hub (secrets warning → T051); one share Intent. |
 | P1 | T096 | todo | — | **Confirmation row relative time** (“2m ago”) + type icon (market/trade/other). |
-| P1 | T097 | doing | Worker | **CSFloat pending empty CTA** → **1.6.15** (NOW). |
+| P1 | T097 | done | Worker | **CSFloat pending empty CTA** → **1.6.15**. |
 | P2 | T098 | todo | — | **Optional biometric gate** on cold start (default OFF); PIN still works if set. |
 | P2 | T099 | todo | — | **Widget multi-account flip**: next/prev account buttons on widget (bound list). |
 | P2 | T100 | todo | — | **Account archive** (hide from Hub without delete); restore from Settings. |
@@ -504,6 +504,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P1 | T097 | done | Worker | Pending empty Check-now CTA (**1.6.15**) |
 | P1 | T091 | done | Worker | Hub long-press copy SteamID (**1.6.14**) |
 | P1 | T084 | done | Worker | Per-account CSFloat notify mute (**1.6.13**) |
 | P1 | T085 | done | Worker | Notify on new CSFloat trade ids (**1.6.12**) |
@@ -534,7 +535,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **NOW = T097** (1.6.15) — do not steal. Then **T076** → **T092/T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
+- **Post-1.6.15:** **T076** next; then **T092/T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
 - T085–T091 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
