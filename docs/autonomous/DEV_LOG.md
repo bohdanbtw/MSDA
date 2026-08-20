@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 5: post-1.6.0 backlog
+
+- T012 + T060 landed (**1.6.0** / **1.5.6**). Refined NEXT: promote **T030** (widget copy + steamId countdown) and **T013/T068/T072** (notify, last-checked, balance); add **T073** pending-list polish.
+- Recommend Boss NOW = **T030** (universal daily-driver) or **T013** (CSFloat path continuity). Gate T020 until notify exists.
+- Updated CSFLOAT_NOTES phased status. Docs-only; no Kotlin.
+
 ## 2026-08-21 — Boss: T060 approved; T012 remains NOW
 
 - Reviewed `2fb1410`: opt-in session renewal — **Steam-safety PASS** (default OFF, no getlist/confirm). Version **1.5.6**.
