@@ -1,5 +1,18 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 2: T010 safety review + next NOW
+
+- Confirmed T010 on `origin` as `b3bb468` (csfloat package tracked). Reviewed design: `CsFloatSaleWorker` / scheduler are **CSFloat-HTTP only** (no Steam getlist/confirm).
+- Promoted queue NOW → **T011** (Test connection + error UX; enable/key/interval already shipped).
+- Added **T021 design sketch** to `CSFLOAT_NOTES.md` (whitelist queue, floors, one-shot Guard worker).
+- Optional parallel: **T040** Hub delete-by-substring.
+- No Kotlin edits from Architect.
+
+## 2026-08-21 — Architect Cycle 1: backlog + CSFloat design deepen
+
+- Seeded strong backlog: CSFloat phases T011–T022, UI T030–T035, bugs T040–T046, small features T050–T052 with acceptance criteria.
+- Expanded CSFLOAT_NOTES (API, battery budget, settings shape, confirm checklist). Docs synced via later commits on `development`.
+
 ## 2026-08-21 — Worker: T010 CSFloat scaffold + 1.5.1
 
 - Shipped package `com.msda.android.csfloat`: models, `CsFloatClient` (`/me`, queued trades, 429 handling), `CsFloatAccountSettings` (default OFF, 15–240 min), `CsFloatSecureStore` (Keystore AES-GCM), `CsFloatScheduler` + `CsFloatSaleWorker` (WorkManager; no Steam Guard/getlist calls).

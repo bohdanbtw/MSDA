@@ -79,6 +79,16 @@ Worker must never start unless `enabled && hasApiKey`. Clearing account removes 
 5. User-visible audit: last sale id, offer id, confirm result.
 6. Per-account kill switch clears whitelist + cancels WorkManager for that steamId.
 
+## T021 design sketch (Architect Cycle 2)
+
+**Persist** per-steamId `GuardConfirmQueue` jobs: `{ offerId, assetIds, readyAtMs, createdAtMs, attempts, meta }`.  
+Constants (from botCsFloat): getlist floor **35s**, GetTradeOffers floor **20s**, backoff 25/45/90/180s, max **5** attempts, drop age **>1h**, Steam 429 cooloff multi-minute.
+
+**Sequence (event-driven):** T020 enqueue → one-shot WorkManager → GetTradeOffers (≥20s) → if any job state **9** and cooloff clear → getlist once (≥35s) → match `creator_id` → `ConfirmationService.respondItemWithRenew` for that item only → audit → reschedule only if jobs remain. Empty queue = no Steam Guard traffic.
+
+**New modules (suggested):** `GuardConfirmQueue.kt`, `CsFloatGuardWorker.kt`, `SteamTradeOffersApi.kt`.  
+**Do not** reuse MainActivity “auto-accept all type=2” loop. `CsFloatSaleWorker` stays CSFloat-HTTP only.
+
 ## What MSDA should ship (phased)
 
 | Phase | Scope | Status target |
