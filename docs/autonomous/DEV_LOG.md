@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T012 approved; NOW = T030
+
+- Reviewed `8b25eb6`: CSFloat pending sales — **Steam-safety PASS** (Refresh-only). Version **1.6.0**.
+- Assigned single NOW **T030** (widget tap-to-copy + countdown → **1.6.1**). Docs-only.
+
 ## 2026-08-21 — Architect Cycle 5: post-1.6.0 backlog
 
 - T012 + T060 landed (**1.6.0** / **1.5.6**). Refined NEXT: promote **T030** (widget copy + steamId countdown) and **T013/T068/T072** (notify, last-checked, balance); add **T073** pending-list polish.
