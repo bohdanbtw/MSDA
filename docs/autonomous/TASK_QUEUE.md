@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.9** (T090 dual-bot warning). Queue idle — suggest **T085** / **T129** / **T141**.
+App HEAD: **1.6.9** (`5eb853a` T090). Boss: T090 **APPROVED**. Single NOW = **T141**.
 
 ---
 
@@ -15,9 +15,16 @@ App HEAD: **1.6.9** (T090 dual-bot warning). Queue idle — suggest **T085** / *
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T085** / **T129** / **T141**. |
+| P0 | T141 | doing | Worker | **Status strip accent when pending N&gt;0 (1.6.10).** Visual only (bold/accent when last-queued &gt; 0); keep T103 tap → pending. No extra HTTP / Steam Guard / getlist. Bump `1.6.10` / `160010`. DEV_LOG + push. **Sole-Gradle:** only one `assembleDebug`/Gradle daemon build at a time (no parallel isolated packaging builds). |
 
-### Acceptance (T090) — done 2026-08-21 (v1.6.9)
+### Acceptance (T141)
+
+- [ ] Status strip uses accent/bold when pending count N&gt;0; still tappable (T103)
+- [ ] Visual only; no extra HTTP / Steam Guard / getlist
+- [ ] Version **1.6.10** / `160010`; DEV_LOG + push
+- [ ] Sole-Gradle respected (no concurrent packaging builds)
+
+### Acceptance (T090) — **Boss APPROVED** (`5eb853a`, v1.6.9)
 
 - [x] On first enable (never-seen), show dual-bot warning dialog/copy
 - [x] User can dismiss and still enable; per-steamId pref records seen
@@ -87,18 +94,17 @@ App HEAD: **1.6.9** (T090 dual-bot warning). Queue idle — suggest **T085** / *
 
 ---
 
-## NEXT (after T090)
+## NEXT (after T141)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T129 | todo | — | **Hub secondary line = SteamID** so Keep-both clones are distinguishable. |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
 | P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
 | P1 | T042 | todo | — | **Wire or remove** dead market/gift auto-confirm APIs. |
-| P0 | T129 | todo | — | **Hub secondary line = SteamID** so Keep-both clones are distinguishable. |
-| P0 | T141 | todo | — | **T103+**: status strip accent when N&gt;0 (still tappable). |
 | P1 | T020 | todo | — | **Opt-in CSFloat accept + Steam offer send** (second toggle default OFF); **no** auto Guard. |
 | P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit. |
 | P2 | T022 | todo | — | Dual-bot conflict banner + sales audit UI. |
@@ -406,6 +412,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.8 order:** **T090** (1.6.9, gate before T020) → **T085/T084** or **T129/T141** → **T020** only after T090.
-- T079+T089 (`6e71420`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- **Post-1.6.9 order:** **T141** (1.6.10) → **T129** → **T085/T084**; **T020** only after T090 (**done**).
+- **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
+- T090 (`5eb853a`) Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.

@@ -1,5 +1,13 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T090 approved; NOW = T141
+
+- Reviewed `5eb853a`: dual-bot enable warning — **Steam-safety PASS** (CSFloat enable UI/prefs only; does not block enable; zero Guard/getlist).
+- Version **1.6.9** / `160009`. Gate for T020 satisfied on warning side.
+- Assigned single NOW **T141** (strip accent → **1.6.10** / `160010`); next **T129**. Ratifies Worker T141 WIP.
+- **Sole-Gradle:** only one packaging Gradle/`assembleDebug` at a time (no parallel isolated builds).
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T090 dual-bot enable warning (1.6.9)
 
 - First CSFloat enable shows one-time dual-bot dialog (VPS/desktop vs phone); OK/dismiss still enable; per-steamId `dual_bot_warned_*` pref.
