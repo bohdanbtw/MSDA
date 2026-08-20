@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 9: post-T068 wave T103–T115
+
+- T068+T088 shipped (**1.6.4** `969e36b`). Marked done; queue idle for Boss.
+- Seeded **T103–T115** (tap strip, Hub badge, error chip, copy trade id, cancelable Load, unmetered WM, shortcuts, pending filter, reset baseline, Hub sort, time-offset, decline-all, zip import).
+- Recommend next: **T065** or quick **T103** / **T077**. Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T068 CSFloat status strip + T088 (1.6.4)
 
 - CSFloat settings dialog status strip: “Last checked &lt;relative&gt; · N pending” or Never (`getLastCheckAtMs` / `getLastQueuedCount`).

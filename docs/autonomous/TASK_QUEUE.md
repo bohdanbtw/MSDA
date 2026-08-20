@@ -15,7 +15,7 @@ App HEAD: **1.6.4** (T068 status strip + T088). Queue idle — awaiting Boss.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T077** (POST_NOTIFICATIONS) or **T072** (balance) or **T065** (import conflict). |
+| — | — | idle | — | **Awaiting Boss.** Recommend **T065** (import SteamID conflict) → **1.6.5**, or quick CSFloat polish **T103** (tap strip→pending) / **T077** (notif permission). |
 
 ### Acceptance (T068) — done 2026-08-21 (v1.6.4)
 
@@ -55,13 +55,14 @@ App HEAD: **1.6.4** (T068 status strip + T088). Queue idle — awaiting Boss.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T065 | todo | — | **Import conflict by SteamID** — Replace / Keep both / Cancel. |
+| P0 | T103 | todo | — | **Tap status strip → Pending sales** (zero extra HTTP). Quick win on T068 UI. |
 | P0 | T077 | todo | — | **POST_NOTIFICATIONS runtime prompt** when enabling CSFloat on API 33+. Soft-fail if denied. |
 | P1 | T072 | todo | — | **CSFloat dialog balance line** from `/me` after Test connection. |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
 | P1 | T079 | todo | — | **Check now** one-shot WorkManager from CSFloat dialog. |
-| P1 | T065 | todo | — | **Import conflict by SteamID** — Replace / Keep both / Cancel. |
 | P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
 | P1 | T042 | todo | — | **Wire or remove** dead market/gift auto-confirm APIs. |
@@ -104,9 +105,9 @@ Real-user features once status strip + safe import land. Prefer these over early
 | P2 | T101 | todo | — | **CSFloat 429 cooloff UX**: dialog/status “Rate limited — retry in Xs” using `Retry-After`. |
 | P2 | T102 | todo | — | **Last successful Steam renew timestamp** on Hub row (pairs T075). |
 
-## Post-wave (after T091–T102) — Architect Cycle 9
+## Post-wave polish — Architect Cycle 9 (**T068 landed**)
 
-Invented from T068 WIP gaps + daily-driver pain. Do **not** start until T068 lands unless Boss prioritizes.
+Build on status strip + notify. Prefer over early **T020**.
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
@@ -124,9 +125,9 @@ Invented from T068 WIP gaps + daily-driver pain. Do **not** start until T068 lan
 | P2 | T114 | todo | — | **Decline-all** with same type counts + trade friction as T063 accept-all. |
 | P2 | T115 | todo | — | **Import .zip of mafiles** (unzip to temp → existing import path + T065 conflicts). |
 
-### Note on T088
+### T088 — **done** inside T068 (`969e36b`)
 
-Worker T068 WIP already wires Pending Refresh → status strip refresh / `clearCheckStatus`. If shipped with **1.6.4**, mark **T088 done** inside that commit (Architect will reconcile after push).
+Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes.
 
 ### Acceptance (T065) — concrete
 
@@ -137,11 +138,10 @@ Worker T068 WIP already wires Pending Refresh → status strip refresh / `clearC
 - [ ] Same filename + different steamId: warn before overwrite
 - [ ] No silent clobber of a different account’s secrets
 
-### Acceptance (T077) / (T072) / (T088) / (T079)
+### Acceptance (T077) / (T072) / (T079)
 
 - T077: request permission on enable (API 33+); denied = silent poll OK
 - T072: show balance + pending after successful `/me` Test; clear with key
-- T088: foreground Refresh updates last_* without posting notification
 - T079: Check-now one-shot unique work; disable button while running
 
 ### Acceptance (T076) / (T084) / (T085) / (T089) / (T090)
@@ -267,7 +267,5 @@ Worker T068 WIP already wires Pending Refresh → status strip refresh / `clearC
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.3 order:** **T068** (+ **T088**) → **T065** (import safety) → **T077/T072** → **T091–T097** daily-driver UX → **T090** before **T020**. Boss chose **T068** over **T065** for CSFloat continuity.
-- T081 folded into T013 (`cancelForSteamId` on clearAccount).
-- Architect docs-only; never touch Kotlin / `event_wake` watchers while Worker owns app code.
-- Boss docs-only for queue; no Kotlin fights.
+- **Post-1.6.4 order:** **T065** (import safety) or **T103/T077** (CSFloat UX) → **T072/T079** → **T091–T097** → **T104–T115** → **T090** before **T020**.
+- T068+T088 done (`969e36b`). Architect docs-only; never touch Kotlin / `event_wake` watchers.
