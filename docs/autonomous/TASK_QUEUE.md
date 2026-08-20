@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.17** (T092 Confirm Load offline/session hints). Queue idle — suggest **T096** / **T104**.
+App HEAD: **1.6.17** (`73c14fb` T092). Boss: T092 **APPROVED**. Single NOW = **T096**.
 
 ---
 
@@ -15,9 +15,15 @@ App HEAD: **1.6.17** (T092 Confirm Load offline/session hints). Queue idle — s
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T096** / **T104**. |
+| P1 | T096 | doing | Worker | **Confirmation row relative time + type icon (1.6.18).** Show “2m ago” (+ market/trade/other icon). Load path unchanged otherwise. No confirmation timer polling. Sole-Gradle. Bump `1.6.18` / `160018`. DEV_LOG + push. |
 
-### Acceptance (T092) — done 2026-08-21 (v1.6.17)
+### Acceptance (T096)
+
+- [ ] Each confirmation row shows relative time + type icon (market/trade/other)
+- [ ] Load path unchanged otherwise; no confirmation timer polling / getlist spam
+- [ ] Version **1.6.18** / `160018`; sole-Gradle; DEV_LOG + push
+
+### Acceptance (T092) — **Boss APPROVED** (`73c14fb`, v1.6.17)
 
 - [x] Load empty/error distinguishes offline vs needs-login; Renew visible when session bad
 - [x] No confirmation timer polling / getlist spam
@@ -138,13 +144,13 @@ App HEAD: **1.6.17** (T092 Confirm Load offline/session hints). Queue idle — s
 
 ---
 
-## NEXT (after T092)
+## NEXT (after T096)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
 | P0 | T076 | done | Worker | **Cheap `/me` actionable probe** → **1.6.16**. |
 | P0 | T092 | done | Worker | **Offline / session hint on Confirm Load** → **1.6.17**. |
-| P1 | T096 | todo | — | **Confirmation row relative time** + type icon. |
+| P1 | T096 | doing | Worker | **Confirmation row relative time** + type icon → **1.6.18** (NOW). |
 | P1 | T104 | todo | — | **Hub pending-sales badge** from `last_queued_count`. |
 | P1 | T106 | todo | — | **Long-press pending row → copy trade id**. |
 | P1 | T142 | todo | — | **Swipe-to-refresh** pending sales (no notify). |
@@ -264,7 +270,7 @@ Real-user features once status strip + safe import land. Prefer these over early
 | P1 | T093 | todo | — | **Share 2FA via system share sheet** (Main + Hub) as alt to clipboard-only. |
 | P1 | T094 | todo | — | **Import folder batch summary** after multi-mafile pick: N added / N replaced / N skipped + failures. |
 | P1 | T095 | todo | — | **Export all accounts ZIP** from Hub (secrets warning → T051); one share Intent. |
-| P1 | T096 | todo | — | **Confirmation row relative time** (“2m ago”) + type icon (market/trade/other). |
+| P1 | T096 | doing | Worker | **Confirmation row relative time** (“2m ago”) + type icon (market/trade/other) → **1.6.18** (NOW). |
 | P1 | T097 | done | Worker | **CSFloat pending empty CTA** → **1.6.15**. |
 | P2 | T098 | todo | — | **Optional biometric gate** on cold start (default OFF); PIN still works if set. |
 | P2 | T099 | todo | — | **Widget multi-account flip**: next/prev account buttons on widget (bound list). |
@@ -505,7 +511,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 | P2 | T074 | todo | — | Sensitive clipboard flag. |
 | P2 | T091 | done | Worker | Hub long-press copy SteamID. |
 | P2 | T093 | todo | — | Share 2FA via share sheet. |
-| P2 | T096 | todo | — | Confirmation relative time + type icon. |
+| P2 | T096 | doing | Worker | Confirmation relative time + type icon → **1.6.18** (NOW). |
 | P3 | T052 | todo | — | PIN attempt lockout / backoff. |
 
 ---
@@ -546,8 +552,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.17:** **T096** → **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
+- **NOW = T096** (1.6.18) — do not steal. Then **T104/T106/T142** → **T153+** / **T166+**; **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
-- T076–T097 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- T076–T092 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.

@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T092 approved; NOW = T096
+
+- Approved `73c14fb` T092 Confirm Load offline/session hints — **Steam-safety PASS** (user-gesture Load; skip getlist when offline; SessionInvalid → Renew; no confirmation timer polling).
+- Assigned single NOW **T096** → **1.6.18** / `160018` (confirmation row relative time + type icon). Sole-Gradle.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T092 Confirm Load offline/session hints (1.6.17)
 
 - Before getlist: ConnectivityManager online check → offline status (no call). `SessionInvalidException` → status + Renew dialog → `promptSteamLogin()`. DNS/connect failures map to offline hint. User-gesture Load only; no confirmation timer polling.
