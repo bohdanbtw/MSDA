@@ -45,7 +45,8 @@ class CsFloatClient(
                         val retry = resp.header("Retry-After")?.toLongOrNull()
                         CsFloatResult.RateLimited(retry)
                     }
-                    resp.code >= 400 -> CsFloatResult.HttpError(resp.code, body.take(500))
+                    // Do not retain or log response bodies that could echo credentials.
+                    resp.code >= 400 -> CsFloatResult.HttpError(resp.code, "")
                     else -> CsFloatResult.Ok(body)
                 }
             }

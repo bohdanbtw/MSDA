@@ -1,5 +1,12 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T011 CSFloat Test connection (1.5.5)
+
+- Main CSFloat dialog: **Test connection** → `CsFloatClient.me()` with ok/401/429/network UX; never logs API key.
+- **Clear saved key** + `CsFloatScheduler.refresh` when ready set empty. HttpError bodies stripped.
+- Bumped **1.5.5 / 150005** (after T041 1.5.4). No Steam confirmation changes beyond existing paced paths.
+- Next: Boss promote **T012** or **T060**.
+
 ## 2026-08-21 — Worker: T041 pace accept-all / trade auto-confirm (1.5.4)
 
 - `MainActivity`: **400ms** gap between Steam confirm ops in accept-all and trade auto-confirm-on-load.

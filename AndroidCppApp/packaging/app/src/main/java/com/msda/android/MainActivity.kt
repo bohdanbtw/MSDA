@@ -11,6 +11,7 @@ import android.os.Looper
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -31,6 +32,8 @@ import com.msda.android.steam.AuthContextMerger
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.MafileRepository
 import com.msda.android.csfloat.CsFloatAccountSettings
+import com.msda.android.csfloat.CsFloatClient
+import com.msda.android.csfloat.CsFloatResult
 import com.msda.android.csfloat.CsFloatScheduler
 import com.msda.android.csfloat.CsFloatSecureStore
 import kotlinx.coroutines.CoroutineScope
@@ -470,6 +473,17 @@ class MainActivity : AppCompatActivity() {
                 CsFloatAccountSettings.getPollIntervalMinutes(this@MainActivity, steamId).toString()
             )
         }
+        val testResult = TextView(this).apply {
+            text = ""
+            setPadding(0, 12, 0, 4)
+        }
+        val btnTest = Button(this).apply {
+            text = getString(R.string.csfloat_test_connection)
+        }
+        val btnClearKey = Button(this).apply {
+            text = getString(R.string.csfloat_clear_key)
+            isEnabled = CsFloatSecureStore.hasApiKey(this@MainActivity, steamId)
+        }
         val hint = TextView(this).apply {
             text = getString(R.string.csfloat_settings_hint)
             setPadding(0, 8, 0, 8)
@@ -481,6 +495,60 @@ class MainActivity : AppCompatActivity() {
             addView(enableSwitch)
             addView(apiKeyInput)
             addView(intervalInput)
+            addView(btnTest)
+            addView(btnClearKey)
+            addView(testResult)
+        }
+
+        btnTest.setOnClickListener {
+            val typed = apiKeyInput.text?.toString().orEmpty().trim()
+            val keyToUse = typed.ifEmpty {
+                CsFloatSecureStore.getApiKey(this@MainActivity, steamId).orEmpty()
+            }
+            if (keyToUse.isBlank()) {
+                testResult.text = getString(R.string.csfloat_test_no_key)
+                Toast.makeText(this, getString(R.string.csfloat_test_no_key), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            btnTest.isEnabled = false
+            testResult.text = getString(R.string.csfloat_test_testing)
+            CoroutineScope(Dispatchers.IO).launch {
+                val result = CsFloatClient(keyToUse).me()
+                withContext(Dispatchers.Main) {
+                    if (isFinishing) return@withContext
+                    btnTest.isEnabled = true
+                    // Never surface API key or raw response body in UI/logs here.
+                    val message = when (result) {
+                        is CsFloatResult.Ok -> {
+                            val name = result.value.username.trim()
+                            if (name.isNotEmpty()) {
+                                getString(R.string.csfloat_test_ok, name)
+                            } else {
+                                getString(R.string.csfloat_test_ok_anon)
+                            }
+                        }
+                        is CsFloatResult.HttpError -> when (result.code) {
+                            401, 403 -> getString(R.string.csfloat_test_unauthorized)
+                            else -> getString(R.string.csfloat_test_http_error, result.code)
+                        }
+                        is CsFloatResult.RateLimited -> getString(R.string.csfloat_test_rate_limited)
+                        is CsFloatResult.NetworkError -> getString(R.string.csfloat_test_network)
+                    }
+                    testResult.text = message
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        btnClearKey.setOnClickListener {
+            CsFloatSecureStore.clearApiKey(this, steamId)
+            apiKeyInput.setText("")
+            apiKeyInput.hint = getString(R.string.csfloat_api_key_hint)
+            btnClearKey.isEnabled = false
+            // Clearing the key drops this account from readySteamIds → scheduler cancels if empty.
+            CsFloatScheduler.refresh(this)
+            testResult.text = getString(R.string.csfloat_key_cleared)
+            Toast.makeText(this, getString(R.string.csfloat_key_cleared), Toast.LENGTH_SHORT).show()
         }
 
         android.app.AlertDialog.Builder(this)
@@ -506,6 +574,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 CsFloatAccountSettings.setEnabled(this, steamId, enable)
+                // Disable or empty ready set cancels periodic CSFloat work.
                 CsFloatScheduler.refresh(this)
                 txtStatus.text = if (enable) {
                     getString(R.string.csfloat_saved)

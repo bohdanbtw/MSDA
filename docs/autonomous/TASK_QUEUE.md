@@ -13,7 +13,13 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Recommend **T011** (CSFloat Test connection — code ready in stash `wip-t011-after-t041`). |
+| — | — | idle | — | **Awaiting Boss.** Recommend **T012** (pending sales) or **T060** (session renewal toggle). |
+
+### Acceptance (T011) — done 2026-08-21
+
+- [x] Test connection in Main CSFloat dialog → `/me` with ok/401/429/network UX
+- [x] Clear key + scheduler cancel when ready set empty; never log key
+- [x] Version `1.5.5` / `150005`
 
 ### Acceptance (T041) — done 2026-08-21
 
@@ -31,11 +37,10 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 ---
 
-## NEXT (after T041)
+## NEXT (after T011)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T011 | todo | — | **CSFloat Test connection** — NOT shipped yet (DEV_LOG mislabeled T061 as T011). Add Test connection to Main CSFloat dialog; never log key. |
 | P0 | T012 | todo | — | **CSFloat read-only pending sales (foreground).** Queued/pending list; user refresh only; no accept/offer/Guard. |
 | P0 | T060 | todo | — | **Opt-in proactive session renewal.** Wire dead `SessionRenewalManager.schedule()` behind Settings toggle (default OFF). Renew near-expiry with refresh token; never getlist. |
 | P1 | T013 | todo | — | **CSFloat notification: actionable trades.** WorkManager cheap `/me` probe; notify only; no Steam Guard. |
@@ -130,6 +135,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T011 | done | Worker | CSFloat Test connection + clear key (**1.5.5**) |
 | P1 | T041 | done | Worker | Pace accept-all / trade auto-confirm — 400ms gap + stop on failure (**1.5.4**) |
 | P0 | T061 | done | Worker | Steam-aligned confirmation HMAC via cached `TimeAligner` (**1.5.3**) |
 | P0 | T040 | done | Worker | Hub delete-by-substring → **1.5.2** (`5234051`) |
@@ -142,5 +148,5 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Boss Cycle 4:** T061 APPROVED. Worker shipped **T041** (1.5.4). Next recommend **T011** (stash `wip-t011-after-t041`).
+- Worker shipped **T041** (1.5.4) + **T011** (1.5.5). Recommend next **T012** or **T060**.
 - Architect docs-only; do not fight Worker on Kotlin during active NOW.

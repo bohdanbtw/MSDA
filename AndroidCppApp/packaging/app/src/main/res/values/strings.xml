@@ -198,4 +198,15 @@
     <string name="csfloat_saved">CSFloat settings saved</string>
     <string name="csfloat_need_key">Enable requires an API key</string>
     <string name="csfloat_disabled">CSFloat disabled for this account</string>
+    <string name="csfloat_test_connection">Test connection</string>
+    <string name="csfloat_test_testing">Testing CSFloat connection…</string>
+    <string name="csfloat_test_ok">Connected as %1$s</string>
+    <string name="csfloat_test_ok_anon">Connection OK</string>
+    <string name="csfloat_test_unauthorized">Invalid API key (401)</string>
+    <string name="csfloat_test_rate_limited">Rate limited (429) — try again later</string>
+    <string name="csfloat_test_http_error">CSFloat error (HTTP %1$d)</string>
+    <string name="csfloat_test_network">Network error — check connectivity</string>
+    <string name="csfloat_test_no_key">Enter or save an API key first</string>
+    <string name="csfloat_clear_key">Clear saved key</string>
+    <string name="csfloat_key_cleared">CSFloat API key cleared</string>
 </resources>
