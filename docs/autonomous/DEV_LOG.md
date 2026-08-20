@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect Cycle 11: post-T065 import follow-ups
+
+- T065 still **doing** (local WIP: `ConflictChoice`, same-SteamID / filename-clash dialogs). No Kotlin from Architect.
+- Seeded **T129–T140**: Hub steamId line, batch Apply-to-all, import outcome snackbar, reject bad Guard mafiles, rename file, import preview, Replace pref migration, account inventory export, AccountName prefer, post-Keep-both label prompt, multi-select progress, orphan SessionStore cleanup.
+- After **1.6.5**: Boss next **T103**; import wave can interleave with CSFloat polish. Docs-only push.
+
 ## 2026-08-21 — Architect Cycle 10: T116–T128 + queue coherence
 
 - Honored Boss NOW **T065** (1.6.5). Noted local Kotlin WIP resembling **T077+T072** — Architect did not edit/stash; Worker should follow NOW.

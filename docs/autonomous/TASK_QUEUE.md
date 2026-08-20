@@ -152,6 +152,43 @@ Build on status strip + notify. Prefer over early **T020**.
 | P2 | T127 | todo | — | Widget shows **account label** preference (name / label / both). |
 | P2 | T128 | todo | — | Persist CSFloat Test result timestamp next to balance (“tested 3m ago”). |
 
+## Cycle 11 — after T065 import safety
+
+Invented from T065 WIP (`ConflictChoice`, same-SteamID / filename-clash paths). Ship after **1.6.5**.
+
+| Priority | ID | Status | Owner | Task |
+|----------|----|--------|-------|------|
+| P0 | T129 | todo | — | **Hub secondary line = SteamID** (truncated or full on long-press already T091) so Keep-both clones are distinguishable. |
+| P1 | T130 | todo | — | **Batch import “Apply to all”** for same conflict type in one multi-file pick (Replace all / Keep all / Ask each). |
+| P1 | T131 | todo | — | **Import outcome snackbar**: Added / Replaced / Kept both / Skipped / Failed counts (pairs T094). |
+| P1 | T132 | todo | — | **Reject mafile missing `shared_secret`** (or unusable Guard) with clear dialog before write. |
+| P1 | T133 | todo | — | **Rename account file** from Hub (unique name + reload); no steamId change. |
+| P1 | T134 | todo | — | **Import preview sheet**: list incoming steamIds + conflict status before any write. |
+| P1 | T135 | todo | — | On **Replace**: migrate Hub label / widget bindings / CSFloat prefs to surviving file (same steamId — verify no orphan prefs). |
+| P1 | T136 | todo | — | **Account inventory export** (CSV/text): filename, steamId, hasSession, CSFloat on — no secrets. |
+| P2 | T137 | todo | — | Prefer `SessionData.AccountName` / `account_name` for Hub title on fresh import. |
+| P2 | T138 | todo | — | After Keep-both: offer **set label** dialog (“alt”, “backup”) immediately. |
+| P2 | T139 | todo | — | SAF **multi-select** import with progress (“3 of 10”) using T065 per file. |
+| P2 | T140 | todo | — | Detect **orphan SessionStore** entries after Replace/delete; cleanup helper. |
+
+### Acceptance (T129–T135)
+
+- T129: Hub shows steamId secondary text; Keep-both duplicates no longer look identical
+- T130: only for multi-file; single-file UX unchanged; Cancel still aborts remaining
+- T131: one summary after batch; failures include reason short text
+- T132: no partial write; user can cancel; message names missing field
+- T133: invalid chars rejected; collision → prompt; native reload
+- T134: Preview Confirm → then existing conflict flow; Cancel = no disk changes
+- T135: labels/widgets/CSFloat keys remain valid for steamId after Replace
+
+### Acceptance (T136–T140)
+
+- T136: shareable text/csv; zero secrets/shared_secret/identity_secret
+- T137: falls back to filename stem if blank
+- T138: skipable; writes AppSettings label only
+- T139: progress cancelable; already-imported counts in T131
+- T140: safe delete of orphan session files only; never deletes mafiles
+
 ### T088 — **done** inside T068 (`969e36b`)
 
 Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes.
@@ -304,6 +341,6 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **NOW = T065** (Boss). After: **T103** then **T077/T072** (or Worker may finish T077 WIP if Boss allows) → **T116+** / **T091+** → **T090** before **T020**.
-- Race note: local uncommitted Kotlin looked like **T077+T072** while NOW is **T065** — Worker should follow Boss NOW (stash CSFloat WIP). Architect does not touch Kotlin / watchers.
-- Cycle 10 seeded **T116–T128**.
+- **NOW = T065** → **1.6.5**. After ship: **T103** (Boss) then **T077/T072**; import follow-ups **T129–T140**; still **T090** before **T020**.
+- Worker on T065 (`MafileImportHelper` conflict UX) — Architect docs-only; no Kotlin / watchers.
+- Cycles 9–11 seeded through **T140**.
