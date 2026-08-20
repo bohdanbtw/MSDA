@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.1** (T030 widget copy).
+App HEAD: **1.6.1** (`161dae2` T030). Worker WIP observed: **T063** → **1.6.2** (Architect will not touch Kotlin).
 
 ---
 
@@ -15,17 +15,23 @@ App HEAD: **1.6.1** (T030 widget copy).
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Recommend **T013** (CSFloat notify) or **T063** (confirm-all friction). |
+| P0 | T063 | doing | Worker | **Confirm All type breakdown + trade friction.** Counts by type; trades checkbox default OFF; keep T041 pacing. Bump **1.6.2 / 160002**. |
 
-### Acceptance (T030) — done 2026-08-21
+### Acceptance (T063)
 
-- [x] Tap widget code copies 2FA + Toast (works backgrounded via BroadcastReceiver)
+- [ ] Accept-all dialog lists market / trade / other counts
+- [ ] Including trades requires checkbox (**default unchecked**)
+- [ ] Filtered multi-accept keeps ≥400ms pacing; stop on hard failure
+- [ ] Single-item accept/decline unchanged; no getlist timer
+- [ ] Version **1.6.2** / `160002`; DEV_LOG + push
+
+### Acceptance (T030) — done 2026-08-21 (`161dae2`, v1.6.1)
+
+- [x] Tap widget code copies 2FA + Toast (background BroadcastReceiver)
 - [x] Account title still opens configure
 - [x] Countdown 1–30 for steamId-bound widgets without mutating native active account
 - [x] No getlist / CSFloat changes
 - [x] Version `1.6.1` / `160001`
-
-### Acceptance (T012) — **Boss APPROVED** (`8b25eb6`, v1.6.0)- [ ] Version `1.6.1` / `160001`; DEV_LOG + push
 
 ### Acceptance (T012) — **Boss APPROVED** (`8b25eb6`, v1.6.0)
 
@@ -36,68 +42,75 @@ App HEAD: **1.6.1** (T030 widget copy).
 
 ### Acceptance (T060) — **Boss APPROVED** (`2fb1410`, v1.5.6)
 
-- [x] Settings Switch default **OFF**; explains no confirmation polling
-- [x] ON → schedule; OFF → cancel; worker early-exits if pref OFF
-- [x] `BackgroundSyncScheduler.disable` does **not** cancel renewal
-- [x] By-steamId renewal only; zero getlist/confirm from worker
+- [x] Settings Switch default **OFF**; no getlist; by-steamId renew
 - [x] Version **1.5.6** / `150006`
 
 ---
 
-## NEXT (after T030)
+## NEXT (after T063)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P0 | T013 | todo | — | **CSFloat notification on actionable trades.** Count-delta notify; tap → Pending sales. No Steam Guard. |
-| P1 | T068 | todo | — | **CSFloat status strip:** last-checked + queued count on settings dialog (write from T012 refresh + SaleWorker). |
-| P1 | T072 | todo | — | **CSFloat dialog balance line** from `/me` (balance + pending) after Test/Refresh. |
-| P1 | T063 | todo | — | **Confirm All type breakdown + trade friction.** Counts by type; trades need extra checkbox (default off). |
+| P0 | T013 | todo | — | **CSFloat notification on new queued/pending sales.** Count-delta in `CsFloatSaleWorker`; tap → Pending sales. No Steam Guard. Bump **1.6.3**. |
+| P0 | T076 | todo | — | **Cheap `/me` actionable probe** — parse `actionable_trades` on `CsFloatMeSummary`; skip full trades list when unchanged. Pairs with T013. |
+| P1 | T068 | todo | — | **CSFloat status strip:** last-checked + queued count on settings dialog (worker + Pending Refresh). |
+| P1 | T077 | todo | — | **POST_NOTIFICATIONS runtime prompt** when enabling CSFloat on API 33+ (manifest already declares). Soft-fail if denied; still poll silently. |
+| P1 | T072 | todo | — | **CSFloat dialog balance line** from `/me` after Test/Refresh. |
+| P1 | T079 | todo | — | **Check now** one-shot WorkManager from CSFloat dialog (same path as periodic; no Steam). |
+| P1 | T063 | doing | Worker | **Confirm All type breakdown + trade friction** (NOW / 1.6.2) |
 | P1 | T065 | todo | — | **Import conflict by SteamID** — Replace / Keep both / Cancel. |
 | P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
 | P1 | T042 | todo | — | **Wire or remove** dead market/gift auto-confirm APIs. |
-| P1 | T020 | todo | — | **Opt-in CSFloat accept + Steam offer send** (second toggle default OFF); enqueue offer id; **no** auto Guard. |
-| P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit (CSFLOAT_NOTES T021). |
+| P1 | T020 | todo | — | **Opt-in CSFloat accept + Steam offer send** (second toggle default OFF); **no** auto Guard. |
+| P1 | T021 | todo | — | **Safe CSFloat Guard confirm** — whitelist only; floors; audit. |
 | P2 | T022 | todo | — | Dual-bot conflict banner + sales audit UI. |
 | P2 | T069 | todo | — | **CSFloat Away toggle** (`PATCH /me` `{away}`). |
 | P2 | T070 | todo | — | Hub row badge when CSFloat enabled. |
-| P2 | T073 | todo | — | Pending-sales list polish: sort by state then price; show offer-state chip when present. |
+| P2 | T073 | todo | — | Pending-sales sort + offer-state chip. |
+| P2 | T074 | todo | — | Sensitive clipboard flag on Main/Hub/widget copy. |
+| P2 | T075 | todo | — | Hub “session expiring soon” → renew. |
+| P2 | T078 | todo | — | Widget a11y: `contentDescription` “Copy code” on code view; optional short haptic on copy. |
+| P2 | T080 | todo | — | SaleWorker: drop PII from debug logs (username/balance) in release; keep steamId truncated if needed. |
+| P2 | T050 | todo | — | Clipboard auto-clear 2FA after 30–60s (pairs with T074). |
 | P2 | T062 | todo | — | Encrypt mafile secrets at rest (Keystore). |
 | P2 | T066 | todo | — | Period-aligned 2FA UI tick (Main + widget). |
-| P2 | T067 | todo | — | Hub multi-select: renew selected + panic disable auto-confirm. |
-| P2 | T061b | todo | — | Tighten `looksLikeClockSkew` (broad `"invalid"`). |
-| P2 | T074 | todo | — | **Sensitive clipboard** on 2FA copy (Main/Hub): `ClipDescription.EXTRA_IS_SENSITIVE` / hide from keyboard suggestions where API allows. |
-| P2 | T075 | todo | — | Hub: show “session expiring soon” affordance that jumps to renew (pairs with T032). |
+| P2 | T067 | todo | — | Hub multi-select renew + panic disable auto-confirm. |
+| P2 | T061b | todo | — | Tighten `looksLikeClockSkew`. |
 
-### Acceptance (T013)
+### Acceptance (T013) — concrete
 
-- [ ] `CsFloatSaleWorker` compares queued/actionable count vs last-seen; notify only on **increase**
-- [ ] Tap opens Pending sales (or Main with CSFloat for that steamId)
-- [ ] Low-importance channel; OS mute ≠ clear API key
-- [ ] Zero Steam Guard; honor 429; interval floor ≥15m
-- [ ] Writes same last-checked prefs as T068 when possible
+- [ ] After successful `listQueuedTrades` (or T076 cheap probe), compare `count` vs `last_queued_count_<steamId>`
+- [ ] Notify **only** when `count > last` (first run: store baseline, **no** notify spam)
+- [ ] Notification title/body: account label/name + “N pending CSFloat sale(s)” — never API key / secrets
+- [ ] Tap → open Main for that account **or** Pending sales dialog (extra Intent extras OK)
+- [ ] Channel `csfloat_sales`, importance DEFAULT or LOW; create once
+- [ ] `clearAccount` / disable / clear key cancels notifications for that steamId + clears last_* prefs
+- [ ] **Zero** Steam getlist/confirm/offer; honor 429 (no notify storm on retries)
+- [ ] Version **1.6.3** / `160003`; DEV_LOG + push
+- [ ] Prefer shipping **T076** in same batch if small; else follow immediately
 
-### Acceptance (T068)
+### Acceptance (T076)
 
-- [ ] Persist `last_checked_ms_<steamId>` + `last_queued_count_<steamId>` from Pending Refresh + SaleWorker
-- [ ] CSFloat settings dialog shows “Last checked … · N pending” (or Never)
-- [ ] Clear key / disable clears prefs
+- [ ] `CsFloatMeSummary` exposes actionable/queued hint from `/me` when present
+- [ ] Worker uses hint to skip trades list when unchanged vs last count
+- [ ] If `/me` lacks field, fall back to current trades list behavior
 
-### Acceptance (T072)
+### Acceptance (T068) / (T077) / (T072) / (T079)
 
-- [ ] After successful `/me` (Test connection), show balance + pending in CSFloat dialog
-- [ ] No extra polling; clear with key
+- T068: show “Last checked … · N pending”; write from worker + Pending Refresh; clear with key
+- T077: request POST_NOTIFICATIONS when user enables CSFloat on API 33+; denied = silent poll OK
+- T072: balance + pending after successful `/me`; no extra polling
+- T079: “Check now” enqueues unique one-time work; button disabled while running; same notify rules as T013
 
-### Acceptance (T063) / (T065) / (T069) / (T073)
+### Acceptance (T065) / (T073)
 
-- T063: type counts + trades checkbox default off; keep T041 pacing
 - T065: same steamId → Replace / Keep both / Cancel; filename clash warned
-- T069: Away PATCH; 401/429/network; no Steam
-- T073: deterministic sort; offer-state visible when `steamOfferState` non-blank; still read-only
+- T073: sort state then price; offer-state when non-blank; read-only
 
 ### Acceptance (T020–T021)
 
-- See CSFLOAT_NOTES Phase 4–5 / T021 sketch. Second toggle default OFF; whitelist Guard only. **Gate:** T013 notify live + dual-bot warning copy present (T022 can ship with T021).
+- CSFLOAT_NOTES Phase 4–5 / T021 sketch. **Gate:** T013 live + dual-bot warning (T022 can ship with T021).
 
 ---
 
@@ -105,20 +118,21 @@ App HEAD: **1.6.1** (T030 widget copy).
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T030 | todo | — | Widget copy + steamId countdown. |
 | P1 | T031 | todo | — | Hub search/filter. |
 | P1 | T034 | todo | — | Code monospace + letter-spacing; accurate progress. |
-| P2 | T032 | todo | — | Session health chip (valid / expiring / needs login). |
-| P2 | T033 | todo | — | Material confirmation rows + Coil/Glide (cancel on detach). |
+| P2 | T032 | todo | — | Session health chip. |
+| P2 | T033 | todo | — | Material confirmation rows + Coil/Glide. |
 | P2 | T035 | todo | — | Settings Preference-style sections. |
-| P2 | T070 | todo | — | Hub CSFloat-enabled badge. |
+| P2 | T070 | todo | — | Hub CSFloat badge. |
 | P2 | T073 | todo | — | Pending-sales sort + offer chip. |
-| P3 | T071 | todo | — | Confirm Load empty-state hint + Renew shortcut. |
+| P2 | T078 | todo | — | Widget copy a11y + haptic. |
+| P3 | T071 | todo | — | Confirm Load empty-state + Renew shortcut. |
 
-### Acceptance (T031) / (T034)
+### Acceptance (T031) / (T034) / (T078)
 
-- T031: case-insensitive name+label filter; T040-safe delete while filtered
+- T031: case-insensitive name+label; T040-safe delete while filtered
 - T034: tabular/monospace digits; timer matches seconds-left within period
+- T078: TalkBack announces copy; optional `performHapticFeedback` on successful copy
 
 ---
 
@@ -131,6 +145,7 @@ App HEAD: **1.6.1** (T030 widget copy).
 | P2 | T043 | todo | — | PasswordManager case unify |
 | P2 | T044 | todo | — | Quarantine dead confirmation background leftovers |
 | P2 | T045 | todo | — | Proxy passwords → Keystore |
+| P2 | T080 | todo | — | SaleWorker release log hygiene (no username/balance) |
 | P3 | T046 | todo | — | Fix/delete orphaned `PasswordBackupHelper` |
 
 ---
@@ -139,13 +154,15 @@ App HEAD: **1.6.1** (T030 widget copy).
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P2 | T050 | todo | — | Clipboard auto-clear 2FA after copy (30–60s) — pairs with T074. |
-| P2 | T051 | todo | — | Export mafile secrets warning dialog. |
+| P2 | T050 | todo | — | Clipboard auto-clear 2FA (30–60s). |
+| P2 | T051 | todo | — | Export mafile secrets warning. |
+| P2 | T074 | todo | — | Sensitive clipboard flag. |
 | P3 | T052 | todo | — | PIN attempt lockout / backoff. |
 
-### Acceptance (T050)
+### Acceptance (T050) / (T074)
 
-- [ ] Clear only if clipboard still holds MSDA’s 2FA clip; API 28+ sensitive/clear where available
+- T050: clear only if clipboard still MSDA 2FA clip
+- T074: mark clips sensitive on API that supports it (Main + Hub + widget)
 
 ---
 
@@ -153,21 +170,19 @@ App HEAD: **1.6.1** (T030 widget copy).
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T030 | done | Worker | Widget tap-to-copy + steamId countdown (**1.6.1**) |
 | P0 | T012 | done | Worker | CSFloat read-only pending sales (**1.6.0**) |
 | P0 | T060 | done | Worker | Opt-in session keep-alive (**1.5.6**) |
 | P0 | T011 | done | Worker | CSFloat Test connection (**1.5.5**) |
 | P1 | T041 | done | Worker | Pace accept-all / trade auto-confirm (**1.5.4**) |
-| P0 | T061 | done | Worker | Steam-aligned confirmation HMAC (**1.5.3**); follow-up → T061b |
+| P0 | T061 | done | Worker | Steam-aligned confirmation HMAC (**1.5.3**) |
 | P0 | T040 | done | Worker | Hub delete-by-substring → **1.5.2** |
 | P0 | T010 | done | Worker | CSFloat Phase-1 scaffold + **1.5.1** |
-| P0 | T001 | done | Architect | Review PROTOCOL + CSFLOAT_NOTES |
-| P1 | T002 | done | Architect | Settings shape in CSFLOAT_NOTES |
-| P1 | T003 | deferred | — | Fold into T021 after T012 |
-| P2 | T004 | done | Architect | Battery/network budget in CSFLOAT_NOTES |
+| P0 | T001–T004 | done/deferred | Architect | Protocol / CSFloat notes bootstrap |
 
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.0 order:** **T030** (1.6.1) → **T013** (+ optional **T068**) → **T072** → **T063**/Hub polish → **T020** only after notify works.
-- Do **not** auto-accept CSFloat sales yet; dual-bot race remains real.
-- Architect docs-only; Worker owns Kotlin.
+- **Post-1.6.1 order:** **T013** (+ **T076** if cheap) → **T068/T077/T072** → **T063** / Hub → **T020** only after notify.
+- Manifest already has `POST_NOTIFICATIONS` (landed with T030) — T077 is runtime UX.
+- Architect docs-only; never touch Kotlin / `event_wake` watchers while Worker owns app code.

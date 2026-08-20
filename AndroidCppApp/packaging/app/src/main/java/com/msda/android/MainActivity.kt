@@ -1151,6 +1151,11 @@ class MainActivity : AppCompatActivity() {
         return item.type == 2 || item.typeName.contains("trade", ignoreCase = true)
     }
 
+    private fun isMarketConfirmation(item: ConfirmationItem): Boolean {
+        return item.typeName.contains("market", ignoreCase = true) ||
+            item.typeName.contains("listing", ignoreCase = true)
+    }
+
     private fun formatConfirmationLoadError(ex: Throwable): String {
         val message = ex.message.orEmpty().lowercase()
         return if (
@@ -1409,18 +1414,55 @@ class MainActivity : AppCompatActivity() {
 
     private fun confirmAcceptAllVisible() {
         val bundles = lastSuccessfulBundles
-        val count = bundles.sumOf { it.items.size }
-        if (count <= 0) {
+        val allItems = bundles.flatMap { it.items }
+        if (allItems.isEmpty()) {
             Toast.makeText(this, getString(R.string.confirm_all_empty), Toast.LENGTH_SHORT).show()
             return
         }
 
+        val tradeCount = allItems.count { isTradeConfirmation(it) }
+        val marketCount = allItems.count { isMarketConfirmation(it) && !isTradeConfirmation(it) }
+        val otherCount = allItems.size - tradeCount - marketCount
+
+        val includeTrades = Switch(this).apply {
+            text = getString(R.string.confirm_all_include_trades)
+            isChecked = false
+            visibility = if (tradeCount > 0) View.VISIBLE else View.GONE
+        }
+        val summary = TextView(this).apply {
+            text = getString(
+                R.string.confirm_all_breakdown,
+                marketCount,
+                tradeCount,
+                otherCount
+            )
+            setPadding(0, 0, 0, 16)
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 24, 40, 0)
+            addView(summary)
+            if (tradeCount > 0) addView(includeTrades)
+        }
+
         android.app.AlertDialog.Builder(this)
             .setTitle(R.string.confirm_all_title)
-            .setMessage(getString(R.string.confirm_all_message, count))
+            .setView(container)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.confirm_all_visible) { _, _ ->
-                acceptAllVisibleConfirmations(bundles)
+                val filtered = if (includeTrades.isChecked || tradeCount == 0) {
+                    bundles
+                } else {
+                    bundles.mapNotNull { bundle ->
+                        val kept = bundle.items.filter { !isTradeConfirmation(it) }
+                        if (kept.isEmpty()) null else bundle.copy(items = kept)
+                    }
+                }
+                if (filtered.isEmpty() || filtered.sumOf { it.items.size } == 0) {
+                    Toast.makeText(this, getString(R.string.confirm_all_empty), Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                acceptAllVisibleConfirmations(filtered)
             }
             .show()
     }

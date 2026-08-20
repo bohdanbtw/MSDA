@@ -150,6 +150,8 @@
     <string name="confirm_all_visible">Accept all</string>
     <string name="confirm_all_title">Accept all confirmations?</string>
     <string name="confirm_all_message">Accept %1$d visible confirmation(s)?</string>
+    <string name="confirm_all_breakdown">Market: %1$d · Trades: %2$d · Other: %3$d\n\nTrades are excluded unless you opt in below.</string>
+    <string name="confirm_all_include_trades">Also accept trades</string>
     <string name="confirm_all_empty">No confirmations to accept</string>
     <string name="confirm_all_in_progress">Accepting all confirmations…</string>
     <string name="confirm_all_done">Accepted %1$d of %2$d confirmation(s)</string>

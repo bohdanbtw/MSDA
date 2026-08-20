@@ -1,5 +1,10 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Worker: T063 confirm-all trade friction (1.6.2)
+
+- Accept-all dialog shows market/trade/other counts; **Also accept trades** checkbox default OFF.
+- Filtered accept still uses 400ms pacing from T041. Bumped **1.6.2 / 160002**.
+
 ## 2026-08-21 — Worker: T030 widget tap-to-copy (1.6.1)
 
 - Tap widget **code** copies 2FA + Toast; account title still opens configure.
