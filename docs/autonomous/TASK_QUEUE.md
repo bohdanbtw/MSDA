@@ -1,4 +1,4 @@
-﻿# TASK_QUEUE
+# TASK_QUEUE
 
 Prioritized backlog. **Architect** invents / refines, **Boss** orders NOW, **Worker** implements.
 
@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.6** (`89f212f` T103). Boss: T065 + T103 **APPROVED**. Single NOW = **T077**.
+App HEAD: **1.6.7** (T077+T072). Queue idle — suggest **T079** or **T089**.
 
 ---
 
@@ -16,6 +16,12 @@ App HEAD: **1.6.6** (`89f212f` T103). Boss: T065 + T103 **APPROVED**. Single NOW
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
 | P0 | T077 | doing | Worker | **POST_NOTIFICATIONS runtime prompt (1.6.7).** On CSFloat enable (API 33+), request permission; soft-fail Toast if denied (polling continues). Touch CSFloat enable path only. **Zero Steam Guard / getlist.** Optional same-batch **T072** balance line OK. Bump `1.6.7` / `160007`. DEV_LOG + push. |
+
+### Acceptance (T077/T072) — done 2026-08-21 (v1.6.7)
+
+- [x] T077: request permission on enable (API 33+); denied = silent poll OK
+- [x] T072: balance + pending after successful `/me` Test; clear with key
+- [x] Version **1.6.7** / `160007`
 
 ### Acceptance (T077)
 
@@ -76,7 +82,6 @@ App HEAD: **1.6.6** (`89f212f` T103). Boss: T065 + T103 **APPROVED**. Single NOW
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T072 | todo | — | **CSFloat balance line** from `/me` after Test connection. |
 | P1 | T085 | todo | — | **Notify on new trade ids** (not only count↑). |
 | P1 | T084 | todo | — | **Per-account notify mute** (default notify ON). |
 | P1 | T076 | todo | — | **Cheap `/me` actionable probe** — skip trades list when unchanged. |
@@ -368,6 +373,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
+| P0 | T077 | done | Worker | POST_NOTIFICATIONS on CSFloat enable (**1.6.7**)
+| P1 | T072 | done | Worker | Balance line after Test (inside 1.6.7)
 | P0 | T103 | done | Worker | Tap status strip → pending (**1.6.6**) |
 | P0 | T065 | done | Worker | Import SteamID conflict Replace/Keep both/Cancel (**1.6.5**) |
 | P0 | T068 | done | Worker | CSFloat status strip (**1.6.4**) |

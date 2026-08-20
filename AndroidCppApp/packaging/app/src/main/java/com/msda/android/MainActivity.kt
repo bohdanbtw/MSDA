@@ -1,10 +1,13 @@
 package com.msda.android
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -25,6 +28,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -34,6 +38,7 @@ import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.MafileRepository
 import com.msda.android.csfloat.CsFloatAccountSettings
 import com.msda.android.csfloat.CsFloatClient
+import com.msda.android.csfloat.CsFloatMeSummary
 import com.msda.android.csfloat.CsFloatNotifier
 import com.msda.android.csfloat.CsFloatResult
 import com.msda.android.csfloat.CsFloatScheduler
@@ -102,6 +107,54 @@ class MainActivity : AppCompatActivity() {
         }
 
         importSelectedMafile(uri)
+    }
+
+    private var pendingAfterNotifPermission: (() -> Unit)? = null
+    private val csFloatNotifPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val cont = pendingAfterNotifPermission
+            pendingAfterNotifPermission = null
+            if (!granted) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.csfloat_notif_permission_denied),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            // Soft-fail: continue enable/save either way (T077).
+            cont?.invoke()
+        }
+
+    /** API 33+: prompt for POST_NOTIFICATIONS before CSFloat enable; always continues (soft-fail). */
+    private fun withCsFloatNotificationPermission(onContinue: () -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            onContinue()
+            return
+        }
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            onContinue()
+            return
+        }
+        pendingAfterNotifPermission = onContinue
+        csFloatNotifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun formatCsFloatUsdCents(cents: Int): String {
+        val dollars = cents / 100
+        val rem = kotlin.math.abs(cents % 100)
+        return "$%d.%02d".format(dollars, rem)
+    }
+
+    private fun formatCsFloatBalanceLine(me: CsFloatMeSummary): String {
+        return getString(
+            R.string.csfloat_balance_line,
+            formatCsFloatUsdCents(me.balanceCents),
+            formatCsFloatUsdCents(me.pendingBalanceCents)
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -538,6 +591,11 @@ class MainActivity : AppCompatActivity() {
             }
             showCsFloatPendingSalesDialog(steamId, keyToUse, onStatusSynced = { refreshStatusStrip() })
         }
+        val balanceLine = TextView(this).apply {
+            text = ""
+            setPadding(0, 4, 0, 4)
+            visibility = View.GONE
+        }
         val testResult = TextView(this).apply {
             text = ""
             setPadding(0, 12, 0, 4)
@@ -569,6 +627,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(40, 24, 40, 0)
             addView(hint)
             addView(statusStrip)
+            addView(balanceLine)
             addView(enableSwitch)
             addView(apiKeyInput)
             addView(intervalInput)
@@ -598,6 +657,8 @@ class MainActivity : AppCompatActivity() {
                     // Never surface API key or raw response body in UI/logs here.
                     val message = when (result) {
                         is CsFloatResult.Ok -> {
+                            balanceLine.text = formatCsFloatBalanceLine(result.value)
+                            balanceLine.visibility = View.VISIBLE
                             val name = result.value.username.trim()
                             if (name.isNotEmpty()) {
                                 getString(R.string.csfloat_test_ok, name)
@@ -605,12 +666,24 @@ class MainActivity : AppCompatActivity() {
                                 getString(R.string.csfloat_test_ok_anon)
                             }
                         }
-                        is CsFloatResult.HttpError -> when (result.code) {
-                            401, 403 -> getString(R.string.csfloat_test_unauthorized)
-                            else -> getString(R.string.csfloat_test_http_error, result.code)
+                        is CsFloatResult.HttpError -> {
+                            balanceLine.visibility = View.GONE
+                            balanceLine.text = ""
+                            when (result.code) {
+                                401, 403 -> getString(R.string.csfloat_test_unauthorized)
+                                else -> getString(R.string.csfloat_test_http_error, result.code)
+                            }
                         }
-                        is CsFloatResult.RateLimited -> getString(R.string.csfloat_test_rate_limited)
-                        is CsFloatResult.NetworkError -> getString(R.string.csfloat_test_network)
+                        is CsFloatResult.RateLimited -> {
+                            balanceLine.visibility = View.GONE
+                            balanceLine.text = ""
+                            getString(R.string.csfloat_test_rate_limited)
+                        }
+                        is CsFloatResult.NetworkError -> {
+                            balanceLine.visibility = View.GONE
+                            balanceLine.text = ""
+                            getString(R.string.csfloat_test_network)
+                        }
                     }
                     testResult.text = message
                     Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
@@ -623,6 +696,8 @@ class MainActivity : AppCompatActivity() {
             CsFloatNotifier.cancelForSteamId(this, steamId)
             CsFloatAccountSettings.clearCheckStatus(this, steamId)
             refreshStatusStrip()
+            balanceLine.text = ""
+            balanceLine.visibility = View.GONE
             apiKeyInput.setText("")
             apiKeyInput.hint = getString(R.string.csfloat_api_key_hint)
             btnClearKey.isEnabled = false
@@ -638,41 +713,49 @@ class MainActivity : AppCompatActivity() {
 
         btnPending.setOnClickListener { openPendingSales() }
 
+        fun saveCsFloatSettings() {
+            val newKey = apiKeyInput.text?.toString().orEmpty().trim()
+            if (newKey.isNotEmpty()) {
+                CsFloatSecureStore.saveApiKey(this, steamId, newKey)
+            }
+            val interval = intervalInput.text?.toString()?.toLongOrNull()
+                ?: CsFloatAccountSettings.DEFAULT_INTERVAL_MINUTES
+            CsFloatAccountSettings.setPollIntervalMinutes(this, steamId, interval)
+
+            val enable = enableSwitch.isChecked
+            if (enable && !CsFloatSecureStore.hasApiKey(this, steamId)) {
+                CsFloatAccountSettings.setEnabled(this, steamId, false)
+                CsFloatAccountSettings.clearCheckStatus(this, steamId)
+                CsFloatScheduler.refresh(this)
+                txtStatus.text = getString(R.string.csfloat_need_key)
+                Toast.makeText(this, getString(R.string.csfloat_need_key), Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            CsFloatAccountSettings.setEnabled(this, steamId, enable)
+            if (!enable) {
+                CsFloatAccountSettings.clearCheckStatus(this, steamId)
+            }
+            // Disable or empty ready set cancels periodic CSFloat work.
+            CsFloatScheduler.refresh(this)
+            txtStatus.text = if (enable) {
+                getString(R.string.csfloat_saved)
+            } else {
+                getString(R.string.csfloat_disabled)
+            }
+            Toast.makeText(this, getString(R.string.csfloat_saved), Toast.LENGTH_SHORT).show()
+        }
+
         android.app.AlertDialog.Builder(this)
             .setTitle(getString(R.string.csfloat_dialog_title))
             .setView(container)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val newKey = apiKeyInput.text?.toString().orEmpty().trim()
-                if (newKey.isNotEmpty()) {
-                    CsFloatSecureStore.saveApiKey(this, steamId, newKey)
-                }
-                val interval = intervalInput.text?.toString()?.toLongOrNull()
-                    ?: CsFloatAccountSettings.DEFAULT_INTERVAL_MINUTES
-                CsFloatAccountSettings.setPollIntervalMinutes(this, steamId, interval)
-
-                val enable = enableSwitch.isChecked
-                if (enable && !CsFloatSecureStore.hasApiKey(this, steamId)) {
-                    CsFloatAccountSettings.setEnabled(this, steamId, false)
-                    CsFloatAccountSettings.clearCheckStatus(this, steamId)
-                    CsFloatScheduler.refresh(this)
-                    txtStatus.text = getString(R.string.csfloat_need_key)
-                    Toast.makeText(this, getString(R.string.csfloat_need_key), Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-
-                CsFloatAccountSettings.setEnabled(this, steamId, enable)
-                if (!enable) {
-                    CsFloatAccountSettings.clearCheckStatus(this, steamId)
-                }
-                // Disable or empty ready set cancels periodic CSFloat work.
-                CsFloatScheduler.refresh(this)
-                txtStatus.text = if (enable) {
-                    getString(R.string.csfloat_saved)
+                if (enableSwitch.isChecked) {
+                    withCsFloatNotificationPermission { saveCsFloatSettings() }
                 } else {
-                    getString(R.string.csfloat_disabled)
+                    saveCsFloatSettings()
                 }
-                Toast.makeText(this, getString(R.string.csfloat_saved), Toast.LENGTH_SHORT).show()
             }
             .show()
     }

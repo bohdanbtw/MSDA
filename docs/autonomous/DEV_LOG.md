@@ -1,4 +1,10 @@
-﻿# DEV_LOG
+# DEV_LOG
+
+## 2026-08-21 — Worker: T077+T072 notif permission + balance (1.6.7)
+
+- API 33+: request `POST_NOTIFICATIONS` on CSFloat enable / save; denied soft-fails (poll still OK).
+- Test connection shows balance + pending from `/me`; cleared with key.
+- Version **1.6.7** / `160007`; `assembleDebug` OK.
 
 ## 2026-08-21 — Boss: T065+T103 approved; NOW = T077
 

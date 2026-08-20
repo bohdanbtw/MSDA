@@ -220,6 +220,8 @@
     <string name="csfloat_status_strip">Last checked %1$s · %2$d pending</string>
     <string name="csfloat_status_strip_never">Last checked: Never</string>
     <string name="csfloat_status_strip_tap_hint">Tap to open pending sales</string>
+    <string name="csfloat_balance_line">Balance %1$s · Pending %2$s</string>
+    <string name="csfloat_notif_permission_denied">Notifications off — sale checks still run silently</string>
     <string name="session_renewal_title">Session keep-alive</string>
     <string name="session_renewal_hint">Optional. Quietly renews Steam login tokens in the background when they are near expiry. Does not check or confirm Guard trades. Default off.</string>
     <string name="session_renewal_enable">Keep Steam sessions alive</string>
