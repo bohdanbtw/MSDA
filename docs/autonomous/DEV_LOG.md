@@ -33,6 +33,7 @@
 - Settings status stub + per-account opt-in dialog from Main menu (enable / API key / interval). Hub clears CSFloat prefs on account delete.
 - Version **1.5.1** / `versionCode` **150100**. Steam login + manual Load confirmations / AUTO-on-manual-load unchanged; `BackgroundSyncScheduler.disable` still used.
 - Code commit: `b3bb468`. `event_wake` / FileSystemWatcher processes left untouched (coord rule).
+- `assembleDebug` **SUCCESS** → `AndroidCppApp/packaging/app/build/outputs/apk/debug/MSDA-1.5.1.apk` (clean rebuild after stale zip conflict).
 - Next: Boss Steam-safety review; promote T011 (Test connection) or T040.
 
 ## 2026-08-21 — Coordinator wake (stood down)
