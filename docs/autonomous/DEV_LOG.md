@@ -1,5 +1,11 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Boss: T106 approved; NOW = T142
+
+- Approved `5625b74` T106 long-press pending copy trade id — **Steam-safety PASS** (clipboard UI only; zero Guard/getlist).
+- Assigned single NOW **T142** → **1.6.21** / `160021` (swipe-to-refresh pending sales, no notify). Sole-Gradle.
+- Docs-only; no Kotlin / watchers.
+
 ## 2026-08-21 — Worker: T106 long-press pending row copy trade id (1.6.20)
 
 - Pending-sales dialog: long-press row copies CSFloat trade id + Toast; blank id shows missing toast; short tap unchanged (read-only). Zero Steam Guard/getlist.

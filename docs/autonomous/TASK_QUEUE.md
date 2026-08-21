@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.20** (T106 long-press pending row copy trade id). Queue idle — suggest **T142**.
+App HEAD: **1.6.20** (`5625b74` T106). Boss: T106 **APPROVED**. Single NOW = **T142**.
 
 ---
 
@@ -15,9 +15,15 @@ App HEAD: **1.6.20** (T106 long-press pending row copy trade id). Queue idle —
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| — | — | idle | — | **Awaiting Boss.** Suggest **T142**. |
+| P1 | T142 | doing | Worker | **Swipe-to-refresh pending sales (1.6.21).** Same load path as Refresh button; no notify (T088). No Steam Guard/getlist. Sole-Gradle. Bump `1.6.21` / `160021`. DEV_LOG + push. |
 
-### Acceptance (T106) — done 2026-08-21 (v1.6.20)
+### Acceptance (T142)
+
+- [ ] Pull-to-refresh triggers same load path as Refresh button
+- [ ] No notification side effects; zero Steam Guard / getlist
+- [ ] Version **1.6.21** / `160021`; sole-Gradle; DEV_LOG + push
+
+### Acceptance (T106) — **Boss APPROVED** (`5625b74`, v1.6.20)
 
 - [x] Long-press pending row copies trade id (+ Toast); short tap unchanged
 - [x] Zero Steam Guard / getlist; Version **1.6.20** / `160020`; sole-Gradle; DEV_LOG + push
@@ -155,7 +161,7 @@ App HEAD: **1.6.20** (T106 long-press pending row copy trade id). Queue idle —
 
 ---
 
-## NEXT (after T106)
+## NEXT (after T142)
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
@@ -164,7 +170,7 @@ App HEAD: **1.6.20** (T106 long-press pending row copy trade id). Queue idle —
 | P1 | T096 | done | Worker | **Confirmation row relative time** + type icon → **1.6.18**. |
 | P1 | T104 | done | Worker | **Hub pending-sales badge** from `last_queued_count` → **1.6.19**. |
 | P1 | T106 | done | Worker | **Long-press pending row → copy trade id** → **1.6.20**. |
-| P1 | T142 | todo | — | **Swipe-to-refresh** pending sales (no notify). |
+| P1 | T142 | doing | Worker | **Swipe-to-refresh** pending sales (no notify) → **1.6.21** (NOW). |
 | P1 | T101 | todo | — | **CSFloat 429 cooloff UX** (`Retry-After`). |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
 | P1 | T064 | todo | — | **Dual SDA export:** Secrets-only vs Full SessionData. |
@@ -352,7 +358,7 @@ Do **not** steal NOW. After **T065** lands, Boss next is **T103**; these fill ga
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
 | P0 | T141 | done | Worker | **T103+**: status strip accent when N&gt;0 (**1.6.10**). |
-| P1 | T142 | todo | — | **Swipe-to-refresh** on Pending sales list (same as Refresh button; T088 rules — no notify). |
+| P1 | T142 | doing | Worker | **Swipe-to-refresh** on Pending sales list (same as Refresh button; T088 rules — no notify) → **1.6.21** (NOW). |
 | P1 | T143 | todo | — | **Confirm Load shows account name** in progress/empty so multi-account users know which Guard list. |
 | P1 | T144 | todo | — | **Copy Steam Guard code from confirmation row?** No — instead **show matching 2FA** sticky while confirm list open (auto-updates). |
 | P1 | T145 | todo | — | **Session expired banner** on Main with one-tap Renew (distinct from T092 Load hint). |
@@ -563,8 +569,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Post-1.6.20:** **T142** → **T153+** / **T166+**; **T020** gated.
+- **NOW = T142** (1.6.21) — do not steal. Then **T101** / **T153+** / **T166+**; **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
-- T076–T104 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- T076–T106 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.
