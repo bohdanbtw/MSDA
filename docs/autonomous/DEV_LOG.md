@@ -1,5 +1,15 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Autonomous cycle stopped by user after T106+T142
+
+- User requested finish T106 + T142 then STOP. No further features started.
+- Final app HEAD: **1.6.21** (T142). Queue idle.
+
+## 2026-08-21 — Worker: T142 swipe-to-refresh pending sales (1.6.21)
+
+- Pending-sales dialog: SwipeRefreshLayout wraps list; pull uses same `loadTrades()` as Refresh (T088 — sync count/seen, no notify). Zero Steam Guard/getlist.
+- Version **1.6.21** / `160021`; sole `assembleDebug` OK.
+
 ## 2026-08-21 — Boss: T106 approved; NOW = T142
 
 - Approved `5625b74` T106 long-press pending copy trade id — **Steam-safety PASS** (clipboard UI only; zero Guard/getlist).

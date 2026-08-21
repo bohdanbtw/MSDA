@@ -906,11 +906,20 @@ class MainActivity : AppCompatActivity() {
         val listContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
+        val listHeight = (resources.displayMetrics.density * 320).toInt()
         val scroll = android.widget.ScrollView(this).apply {
             addView(listContainer)
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        // T142: swipe-to-refresh uses the same load path as Refresh (T088 — no notify).
+        val swipeRefresh = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this).apply {
+            addView(scroll)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                (resources.displayMetrics.density * 320).toInt()
+                listHeight
             )
         }
         val btnRefresh = Button(this).apply {
@@ -927,7 +936,7 @@ class MainActivity : AppCompatActivity() {
             addView(statusView)
             addView(btnRefresh)
             addView(btnCheckNow)
-            addView(scroll)
+            addView(swipeRefresh)
         }
 
         fun formatPendingEmptyStatus(): String {
@@ -994,12 +1003,14 @@ class MainActivity : AppCompatActivity() {
         fun loadTrades() {
             btnRefresh.isEnabled = false
             btnCheckNow.isEnabled = false
+            swipeRefresh.isRefreshing = true
             statusView.text = getString(R.string.csfloat_pending_loading)
             CoroutineScope(Dispatchers.IO).launch {
                 val result = CsFloatClient(apiKey).listQueuedTrades()
                 withContext(Dispatchers.Main) {
                     if (isFinishing) return@withContext
                     btnRefresh.isEnabled = true
+                    swipeRefresh.isRefreshing = false
                     when (result) {
                         is CsFloatResult.Ok -> {
                             // Sync UI/worker baseline + seen trade ids; do not notify from foreground refresh.
@@ -1041,6 +1052,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnRefresh.setOnClickListener { loadTrades() }
+        swipeRefresh.setOnRefreshListener { loadTrades() }
 
         btnCheckNow.setOnClickListener {
             if (!CsFloatAccountSettings.isEnabled(this, steamId) ||
