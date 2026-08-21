@@ -1,8 +1,9 @@
 ﻿# DEV_LOG
 
-## 2026-08-21 — Architect stood down
+## 2026-08-21 — Worker: T106 long-press pending row copy trade id (1.6.20)
 
-- User stopped the autonomous cycle after T106+T142. No further backlog seeding from Architect.
+- Pending-sales dialog: long-press row copies CSFloat trade id + Toast; blank id shows missing toast; short tap unchanged (read-only). Zero Steam Guard/getlist.
+- Version **1.6.20** / `160020`; sole `assembleDebug` OK.
 
 ## 2026-08-21 — Boss: T104 approved; NOW = T106
 

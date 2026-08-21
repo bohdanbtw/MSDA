@@ -346,6 +346,18 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, getString(R.string.code_copied), Toast.LENGTH_LONG).show()
     }
 
+    /** T106: long-press on pending-sales row copies CSFloat trade id. */
+    private fun copyCsFloatPendingTradeId(tradeId: String) {
+        val id = tradeId.trim()
+        if (id.isBlank()) {
+            Toast.makeText(this, getString(R.string.csfloat_pending_trade_id_missing), Toast.LENGTH_SHORT).show()
+            return
+        }
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("MSDA CSFloat trade id", id))
+        Toast.makeText(this, getString(R.string.csfloat_pending_trade_id_copied), Toast.LENGTH_SHORT).show()
+    }
+
     private fun startQrScanner() {
         val auth = activeAuthContext
         if (auth == null) {
@@ -968,6 +980,12 @@ class MainActivity : AppCompatActivity() {
                         buyer
                     )
                     setPadding(0, 10, 0, 10)
+                    // T106: long-press copies trade id; short tap unchanged (read-only).
+                    isLongClickable = true
+                    setOnLongClickListener {
+                        copyCsFloatPendingTradeId(trade.id)
+                        true
+                    }
                 }
                 listContainer.addView(line)
             }

@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.19** (`a2a3e4a` T104). Boss: T104 **APPROVED**. Single NOW = **T106**.
+App HEAD: **1.6.20** (T106 long-press pending row copy trade id). Queue idle — suggest **T142**.
 
 ---
 
@@ -15,12 +15,12 @@ App HEAD: **1.6.19** (`a2a3e4a` T104). Boss: T104 **APPROVED**. Single NOW = **T
 
 | Priority | ID | Status | Owner | Task |
 |----------|----|--------|-------|------|
-| P1 | T106 | doing | Worker | **Long-press pending row → copy trade id (1.6.20).** Short tap unchanged (read-only). No Steam Guard/getlist. Sole-Gradle. Bump `1.6.20` / `160020`. DEV_LOG + push. |
+| — | — | idle | — | **Awaiting Boss.** Suggest **T142**. |
 
-### Acceptance (T106)
+### Acceptance (T106) — done 2026-08-21 (v1.6.20)
 
-- [ ] Long-press pending row copies trade id (+ Toast); short tap unchanged
-- [ ] Zero Steam Guard / getlist; Version **1.6.20** / `160020`; sole-Gradle; DEV_LOG + push
+- [x] Long-press pending row copies trade id (+ Toast); short tap unchanged
+- [x] Zero Steam Guard / getlist; Version **1.6.20** / `160020`; sole-Gradle; DEV_LOG + push
 
 ### Acceptance (T104) — **Boss APPROVED** (`a2a3e4a`, v1.6.19)
 
@@ -163,7 +163,7 @@ App HEAD: **1.6.19** (`a2a3e4a` T104). Boss: T104 **APPROVED**. Single NOW = **T
 | P0 | T092 | done | Worker | **Offline / session hint on Confirm Load** → **1.6.17**. |
 | P1 | T096 | done | Worker | **Confirmation row relative time** + type icon → **1.6.18**. |
 | P1 | T104 | done | Worker | **Hub pending-sales badge** from `last_queued_count` → **1.6.19**. |
-| P1 | T106 | doing | Worker | **Long-press pending row → copy trade id** → **1.6.20** (NOW). |
+| P1 | T106 | done | Worker | **Long-press pending row → copy trade id** → **1.6.20**. |
 | P1 | T142 | todo | — | **Swipe-to-refresh** pending sales (no notify). |
 | P1 | T101 | todo | — | **CSFloat 429 cooloff UX** (`Retry-After`). |
 | P1 | T031 | todo | — | **Hub search/filter** by name + label. |
@@ -297,7 +297,7 @@ Build on status strip + notify. Prefer over early **T020**.
 |----------|----|--------|-------|------|
 | P1 | T104 | doing | Worker | **Hub pending-sales badge** from `last_queued_count` (dot/count); tap opens account Main + pending → **1.6.19** (NOW). |
 | P1 | T105 | todo | — | **Last CSFloat error chip** on dialog (401 / 429 / network) from worker/Test; cleared on success. |
-| P1 | T106 | doing | Worker | **Long-press pending row → copy trade id** (+ optional buyer SteamID) → **1.6.20** (NOW). |
+| P1 | T106 | done | Worker | **Long-press pending row → copy trade id** (+ optional buyer SteamID) → **1.6.20**. |
 | P1 | T107 | todo | — | **Confirm Load cancelable** (dismiss progress / ignore late result); no duplicate Load spam. |
 | P1 | T108 | todo | — | **CSFloat unmetered-only** opt-in constraint on WorkManager (default OFF = any network). |
 | P1 | T109 | todo | — | **Launcher shortcut** “Open last account” / dynamic shortcut after Hub open. |
@@ -563,7 +563,7 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **NOW = T106** (1.6.20) — do not steal. Then **T142** → **T153+** / **T166+**; **T020** gated.
+- **Post-1.6.20:** **T142** → **T153+** / **T166+**; **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
 - T076–T104 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
