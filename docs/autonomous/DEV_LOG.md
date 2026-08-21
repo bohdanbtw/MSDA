@@ -1,5 +1,9 @@
 ﻿# DEV_LOG
 
+## 2026-08-21 — Architect stood down
+
+- User stopped the autonomous cycle after T106+T142. No further backlog seeding from Architect.
+
 ## 2026-08-21 — Boss: T104 approved; NOW = T106
 
 - Approved `a2a3e4a` T104 Hub pending-sales badge — **Steam-safety PASS** (Hub UI from `last_queued_count` only; zero Guard/getlist).
