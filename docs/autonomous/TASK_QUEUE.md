@@ -7,7 +7,7 @@ Status legend: `todo` | `doing` | `done` | `blocked` | `deferred`
 **Boss rule:** at most **1–3** tasks in `doing` / NOW. Worker takes only the NOW block.  
 **Architect rule:** docs-only edits; do not fight Worker on Kotlin files.
 
-App HEAD: **1.6.21** (T142 swipe-to-refresh pending sales). Queue idle — autonomous cycle stopped by user after T106+T142.
+App HEAD: **1.6.21** (`baf1464` T142). Boss: T106+T142 **APPROVED**. Queue **idle** — cycle stopped by user.
 
 ---
 
@@ -17,7 +17,7 @@ App HEAD: **1.6.21** (T142 swipe-to-refresh pending sales). Queue idle — auton
 |----------|----|--------|-------|------|
 | — | — | idle | — | **Stopped.** Autonomous cycle ended by user after T106+T142. Do not start further features. |
 
-### Acceptance (T142) — done 2026-08-21 (v1.6.21)
+### Acceptance (T142) — **Boss APPROVED** (`baf1464`, v1.6.21)
 
 - [x] Pull-to-refresh triggers same load path as Refresh button
 - [x] No notification side effects; zero Steam Guard / getlist
@@ -569,8 +569,8 @@ Pending Refresh syncs `setLastQueuedCount` without notification; strip refreshes
 ## Boss / Architect notes
 
 - Steam-safety gate: confirmation **timer** polling → reject.
-- **Stopped after T142 (1.6.21).** Queue idle — do not assign further NOW without user request. **T020** gated.
+- **Stopped after T142 (1.6.21).** Queue **idle** — do not assign further NOW without user request. **T020** gated.
 - Cycles 13–14 seeded through **T178**. Architect docs-only; no Kotlin / watchers.
 - **Sole-Gradle rule:** at most one packaging `gradle assemble*` / isolated build at a time (file locks / daemon races).
-- T076–T106 Boss-approved. Architect docs-only; no Kotlin / `event_wake` watchers.
+- T076–T142 Boss-approved (final: T106 `5625b74`, T142 `baf1464`). Architect docs-only; no Kotlin / `event_wake` watchers.
 - Boss docs-only for queue; no Kotlin fights.
