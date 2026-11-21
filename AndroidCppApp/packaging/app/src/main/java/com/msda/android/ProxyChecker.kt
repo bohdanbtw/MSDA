@@ -72,6 +72,8 @@ object ProxyChecker {
         }
         val proxy = Proxy(proxyType, InetSocketAddress(config.host, config.port))
         val connection = URL(url).openConnection(proxy) as HttpURLConnection
+        // HTTP Basic only. Java's SOCKS proxy has no auth wired up here; the
+        // settings UI hides/drops credentials for SOCKS so they aren't misleading.
         if (proxyType == Proxy.Type.HTTP && config.username.isNotBlank()) {
             val token = Base64.getEncoder()
                 .encodeToString("${config.username}:${config.password}".toByteArray())

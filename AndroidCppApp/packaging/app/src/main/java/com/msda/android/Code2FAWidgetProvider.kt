@@ -7,25 +7,27 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.SystemClock
+import android.view.View
 import android.widget.RemoteViews
-import java.io.File
 
 class Code2FAWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        ensureMafilesLoaded(context)
+        MafileImportManager.ensureImported(context) { requestUpdateAll(context) }
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId)
         }
-        scheduleNextTick(context)
+        scheduleBoundaryUpdate(context)
     }
 
     override fun onEnabled(context: Context) {
-        scheduleNextTick(context)
+        MafileImportManager.ensureImported(context) { requestUpdateAll(context) }
+        scheduleBoundaryUpdate(context)
     }
 
     override fun onDisabled(context: Context) {
-        cancelTick(context)
+        cancelBoundaryUpdate(context)
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
@@ -36,26 +38,32 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_TICK || intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, Code2FAWidgetProvider::class.java))
-            if (ids.isNotEmpty()) {
-                onUpdate(context, manager, ids)
-            } else {
-                cancelTick(context)
-            }
+        if (intent.action != ACTION_REFRESH && intent.action != ACTION_BOUNDARY_UPDATE) {
+            return
+        }
+        val manager = AppWidgetManager.getInstance(context)
+        val ids = manager.getAppWidgetIds(ComponentName(context, Code2FAWidgetProvider::class.java))
+        if (ids.isNotEmpty()) {
+            onUpdate(context, manager, ids)
+        } else {
+            cancelBoundaryUpdate(context)
         }
     }
 
     companion object {
-        const val ACTION_TICK = "com.msda.android.action.WIDGET_CODE_TICK"
-        private const val TICK_INTERVAL_MS = 1000L
+        private const val ACTION_REFRESH = "com.msda.android.action.WIDGET_CODE_REFRESH"
+        private const val ACTION_BOUNDARY_UPDATE = "com.msda.android.action.WIDGET_CODE_BOUNDARY"
+        private const val CODE_PERIOD_MS = 30_000L
+        private const val BOUNDARY_DELAY_MS = 250L
 
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_code_2fa)
             val steamId = AppSettings.getWidgetSteamId(context, appWidgetId)
             val accountName = AppSettings.getWidgetAccountName(context, appWidgetId)
             val accountIndex = AppSettings.getWidgetAccountIndex(context, appWidgetId)
+            // Resolve an index-only config to a Steam ID once. All reads below are
+            // account-scoped so this receiver never mutates the global active account.
+            val resolvedSteamId = steamId.ifBlank { NativeBridge.steamIdForAccountIndex(accountIndex) }
 
             val configureIntent = Intent(context, Code2FAWidgetConfigureActivity::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
@@ -69,15 +77,26 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widgetRoot, configurePending)
 
+            val refreshIntent = Intent(context, Code2FAWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH
+            }
+            val refreshPending = PendingIntent.getBroadcast(
+                context,
+                appWidgetId + 1,
+                refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widgetRefresh, refreshPending)
+
             if (steamId.isBlank() && accountIndex < 0) {
                 views.setTextViewText(R.id.widgetAccountName, context.getString(R.string.widget_no_account))
                 views.setTextViewText(R.id.widgetCode, context.getString(R.string.widget_code_placeholder))
-                views.setTextViewText(R.id.widgetTimer, context.getString(R.string.widget_timer_placeholder))
+                showTimerPlaceholder(context, views)
                 appWidgetManager.updateAppWidget(appWidgetId, views)
                 return
             }
 
-            val label = if (steamId.isNotBlank()) AppSettings.getAccountLabel(context, steamId) else ""
+            val label = if (resolvedSteamId.isNotBlank()) AppSettings.getAccountLabel(context, resolvedSteamId) else ""
             val title = when {
                 accountName.isNotBlank() && label.isNotBlank() ->
                     context.getString(R.string.hub_account_title_with_label, accountName, label)
@@ -87,22 +106,18 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widgetAccountName, title)
 
             val code = try {
-                when {
-                    steamId.isNotBlank() -> NativeBridge.getCodeForSteamId(steamId).trim()
-                    accountIndex >= 0 -> {
-                        NativeBridge.setActiveAccount(accountIndex)
-                        NativeBridge.getActiveCode().trim()
-                    }
-                    else -> ""
-                }
+                if (resolvedSteamId.isNotBlank()) NativeBridge.getCodeForSteamId(resolvedSteamId).trim()
+                else ""
             } catch (_: Throwable) {
                 ""
             }
 
             val seconds = try {
-                if (accountIndex >= 0) {
-                    NativeBridge.setActiveAccount(accountIndex)
-                    NativeBridge.getSecondsToNextCode()
+                // Kotlin-computed, account-scoped countdown: works with the committed
+                // prebuilt libmsda_android.so (no new JNI symbol) and never mutates the
+                // process-global active account on a background widget tick.
+                if (resolvedSteamId.isNotBlank()) {
+                    NativeBridge.getSecondsToNextCodeForSteamId(resolvedSteamId)
                 } else {
                     -1
                 }
@@ -112,14 +127,23 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
 
             if (code.isBlank()) {
                 views.setTextViewText(R.id.widgetCode, context.getString(R.string.widget_account_missing))
-                views.setTextViewText(R.id.widgetTimer, context.getString(R.string.widget_timer_placeholder))
+                showTimerPlaceholder(context, views)
             } else {
                 views.setTextViewText(R.id.widgetCode, code)
-                views.setTextViewText(
-                    R.id.widgetTimer,
-                    if (seconds >= 0) context.getString(R.string.code_timer_value, seconds)
-                    else context.getString(R.string.widget_timer_placeholder)
-                )
+                if (seconds >= 0) {
+                    // The Chronometer counts down locally in the widget host; no per-second
+                    // broadcast or wakeup is needed to animate the remaining seconds.
+                    views.setChronometer(
+                        R.id.widgetCountdown,
+                        SystemClock.elapsedRealtime() + seconds * 1000L,
+                        context.getString(R.string.widget_timer_format),
+                        true
+                    )
+                    views.setViewVisibility(R.id.widgetCountdown, View.VISIBLE)
+                    views.setViewVisibility(R.id.widgetTimer, View.GONE)
+                } else {
+                    showTimerPlaceholder(context, views)
+                }
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -132,52 +156,52 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
             context.sendBroadcast(intent)
         }
 
-        private fun ensureMafilesLoaded(context: Context) {
-            val importDir = File(context.filesDir, "mafiles")
-            if (!importDir.exists() || !importDir.isDirectory) return
-            val hasMafiles = importDir.listFiles()?.any {
-                it.isFile && it.name.endsWith(".mafile", ignoreCase = true)
-            } == true
-            if (!hasMafiles) return
-            try {
-                NativeBridge.importMafilesFromFolder(importDir.absolutePath)
-            } catch (_: Throwable) {
-            }
+        private fun showTimerPlaceholder(context: Context, views: RemoteViews) {
+            views.setViewVisibility(R.id.widgetCountdown, View.GONE)
+            views.setTextViewText(R.id.widgetTimer, context.getString(R.string.widget_timer_placeholder))
+            views.setViewVisibility(R.id.widgetTimer, View.VISIBLE)
         }
 
-        private fun scheduleNextTick(context: Context) {
+        /**
+         * Re-arms a single, non-waking alarm just after the next TOTP rollover. The Chronometer
+         * animates the countdown, so this only refreshes the code itself (~30s), never every
+         * second. updatePeriodMillis remains a passive safety net.
+         */
+        private fun scheduleBoundaryUpdate(context: Context) {
             val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
-            val pending = tickPendingIntent(context)
-            val triggerAt = SystemClock.elapsedRealtime() + TICK_INTERVAL_MS
+            val pending = boundaryPendingIntent(context)
+            val triggerAt = nextBoundaryElapsedRealtime()
             try {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    triggerAt,
-                    pending
-                )
+                // An exact alarm is only a best-effort alignment to the rollover and never
+                // wakes the device. Android 12+ requires SCHEDULE_EXACT_ALARM, so fall back
+                // to an inexact non-waking alarm when it is not available.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    !alarmManager.canScheduleExactAlarms()
+                ) {
+                    alarmManager.setInexactRealtime(AlarmManager.ELAPSED_REALTIME, triggerAt, pending)
+                } else {
+                    alarmManager.setExact(AlarmManager.ELAPSED_REALTIME, triggerAt, pending)
+                }
             } catch (_: SecurityException) {
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    triggerAt,
-                    pending
-                )
+                alarmManager.setInexactRealtime(AlarmManager.ELAPSED_REALTIME, triggerAt, pending)
             } catch (_: Throwable) {
-                alarmManager.set(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    triggerAt,
-                    pending
-                )
             }
         }
 
-        private fun cancelTick(context: Context) {
+        private fun cancelBoundaryUpdate(context: Context) {
             val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
-            alarmManager.cancel(tickPendingIntent(context))
+            alarmManager.cancel(boundaryPendingIntent(context))
         }
 
-        private fun tickPendingIntent(context: Context): PendingIntent {
+        private fun nextBoundaryElapsedRealtime(): Long {
+            val wallNow = System.currentTimeMillis()
+            val nextBoundary = ((wallNow / CODE_PERIOD_MS) + 1) * CODE_PERIOD_MS + BOUNDARY_DELAY_MS
+            return SystemClock.elapsedRealtime() + (nextBoundary - wallNow)
+        }
+
+        private fun boundaryPendingIntent(context: Context): PendingIntent {
             val intent = Intent(context, Code2FAWidgetProvider::class.java).apply {
-                action = ACTION_TICK
+                action = ACTION_BOUNDARY_UPDATE
             }
             return PendingIntent.getBroadcast(
                 context,

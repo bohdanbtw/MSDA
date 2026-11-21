@@ -6,17 +6,19 @@ import android.net.Uri
 import android.os.Bundle
 import android.text.InputFilter
 import android.text.InputType
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.RadioGroup
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.cancel
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDateTime
@@ -24,13 +26,11 @@ import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity : BaseLockActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        applyThemePreference()
+        AppSettings.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
-
-        BackgroundSyncScheduler.disable(this)
 
         val group = findViewById<RadioGroup>(R.id.radioThemeGroup)
         val txtPinLockStatus = findViewById<TextView>(R.id.txtPinLockStatus)
@@ -64,12 +64,9 @@ class SettingsActivity : AppCompatActivity() {
             }
 
             AppSettings.setThemeMode(this, newMode)
-            when (newMode) {
-                "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-                "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-                else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-            }
-            restartToHub()
+            AppSettings.applyTheme(this)
+            // Recreate in place; clearing the task would tear down the whole app.
+            recreate()
         }
 
         btnSetPin.setOnClickListener {
@@ -118,16 +115,22 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        // Cancel the update-hint request if the screen is leaving.
+        lifecycleScope.cancel()
+        super.onDestroy()
+    }
+
     private fun refreshUpdateHint(
         txtUpdateAvailable: TextView,
         onLatestUrl: (String) -> Unit
     ) {
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+        lifecycleScope.launch {
             try {
                 val latest = UpdateChecker.fetchLatestRelease() ?: return@launch
-                if (isFinishing) return@launch
+                if (isFinishing || isDestroyed) return@launch
                 onLatestUrl(latest.htmlUrl.ifBlank { "https://github.com/bohdanbtw/MSDA/releases/latest" })
-                val local = UpdateChecker.currentVersionName(this@SettingsActivity)
+                val local = UpdateChecker.currentVersionName(applicationContext)
                 if (UpdateChecker.isNewer(latest.versionName, local)) {
                     txtUpdateAvailable.visibility = android.view.View.VISIBLE
                 }
@@ -192,6 +195,15 @@ class SettingsActivity : AppCompatActivity() {
         btnRemovePin: Button,
         switchBiometric: Switch
     ) {
+        requireReauth { showPinSetupForm(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric) }
+    }
+
+    private fun showPinSetupForm(
+        txtPinLockStatus: TextView,
+        btnSetPin: Button,
+        btnRemovePin: Button,
+        switchBiometric: Switch
+    ) {
         val pinInput = EditText(this).apply {
             hint = getString(R.string.pin_setup_hint)
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
@@ -217,7 +229,9 @@ class SettingsActivity : AppCompatActivity() {
             .setPositiveButton(R.string.pin_save, null)
             .create()
             .also { dialog ->
+                dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 dialog.setOnShowListener {
+                    dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                         val pin = pinInput.text?.toString().orEmpty()
                         val confirm = confirmInput.text?.toString().orEmpty()
@@ -246,7 +260,15 @@ class SettingsActivity : AppCompatActivity() {
         if (!AppSettings.hasPinLock(this)) {
             return
         }
+        requireReauth { showPinRemovalConfirmation(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric) }
+    }
 
+    private fun showPinRemovalConfirmation(
+        txtPinLockStatus: TextView,
+        btnSetPin: Button,
+        btnRemovePin: Button,
+        switchBiometric: Switch
+    ) {
         AlertDialog.Builder(this)
             .setTitle(R.string.pin_remove_confirm_title)
             .setMessage(R.string.pin_remove_confirm_message)
@@ -256,7 +278,106 @@ class SettingsActivity : AppCompatActivity() {
                 Toast.makeText(this, getString(R.string.pin_removed), Toast.LENGTH_SHORT).show()
                 refreshSecurityViews(txtPinLockStatus, btnSetPin, btnRemovePin, switchBiometric)
             }
-            .show()
+            .create()
+            .also { dialog ->
+                dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                dialog.setOnShowListener {
+                    dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+                dialog.show()
+            }
+    }
+
+    // Re-authentication is required before a PIN can be changed or removed. Prefer
+    // the strongest device biometric available, falling back to the current PIN.
+    private fun requireReauth(onSuccess: () -> Unit) {
+        if (!AppSettings.hasPinLock(this)) {
+            onSuccess()
+            return
+        }
+
+        val authenticator = strongestBiometric()
+        if (authenticator != null) {
+            showBiometricReauth(authenticator, onSuccess)
+        } else {
+            showCurrentPinDialog(onSuccess)
+        }
+    }
+
+    private fun strongestBiometric(): Int? {
+        val manager = BiometricManager.from(this)
+        return when {
+            manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                BiometricManager.BIOMETRIC_SUCCESS -> BiometricManager.Authenticators.BIOMETRIC_STRONG
+            manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
+                BiometricManager.BIOMETRIC_SUCCESS -> BiometricManager.Authenticators.BIOMETRIC_WEAK
+            else -> null
+        }
+    }
+
+    private fun showBiometricReauth(authenticator: Int, onSuccess: () -> Unit) {
+        val executor = ContextCompat.getMainExecutor(this)
+        val prompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                super.onAuthenticationSucceeded(result)
+                onSuccess()
+            }
+
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                super.onAuthenticationError(errorCode, errString)
+                if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                    errorCode == BiometricPrompt.ERROR_USER_CANCELED
+                ) {
+                    showCurrentPinDialog(onSuccess)
+                }
+            }
+
+            override fun onAuthenticationFailed() {
+                super.onAuthenticationFailed()
+                Toast.makeText(this@SettingsActivity, getString(R.string.pin_reauth_failed), Toast.LENGTH_SHORT).show()
+            }
+        })
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(getString(R.string.pin_reauth_title))
+            .setSubtitle(getString(R.string.pin_reauth_subtitle))
+            .setNegativeButtonText(getString(R.string.pin_reauth_use_pin))
+            .setAllowedAuthenticators(authenticator)
+            .build()
+
+        prompt.authenticate(promptInfo)
+    }
+
+    private fun showCurrentPinDialog(onSuccess: () -> Unit) {
+        val pinInput = EditText(this).apply {
+            hint = getString(R.string.pin_current_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(4))
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pin_reauth_title)
+            .setMessage(R.string.pin_reauth_message)
+            .setView(pinInput)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok, null)
+            .create()
+            .also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val currentPin = pinInput.text?.toString().orEmpty()
+                        if (AppSettings.verifyPinLock(this, currentPin)) {
+                            dialog.dismiss()
+                            onSuccess()
+                        } else {
+                            pinInput.error = getString(R.string.pin_reauth_failed)
+                            pinInput.text?.clear()
+                        }
+                    }
+                }
+                dialog.show()
+            }
     }
 
     private fun isBiometricAvailable(): Boolean {
@@ -275,7 +396,7 @@ class SettingsActivity : AppCompatActivity() {
         try {
             val tempExportDir = File(cacheDir, "export_temp_${System.currentTimeMillis()}")
             if (!tempExportDir.mkdirs()) {
-                Toast.makeText(this, "Failed to create export directory", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.export_dir_failed), Toast.LENGTH_SHORT).show()
                 return
             }
 
@@ -309,7 +430,7 @@ class SettingsActivity : AppCompatActivity() {
                 tempExportDir.deleteRecursively()
             }
         } catch (ex: Exception) {
-            Toast.makeText(this, "Export error: ${ex.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.export_error, ex.message), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -335,23 +456,6 @@ class SettingsActivity : AppCompatActivity() {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startActivity(Intent.createChooser(intent, "Share backup"))
+        startActivity(Intent.createChooser(intent, getString(R.string.share_backup)))
     }
-
-    private fun restartToHub() {
-        val intent = Intent(this, HubActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        }
-        startActivity(intent)
-        finish()
-    }
-
-    private fun applyThemePreference() {
-        when (AppSettings.getThemeMode(this)) {
-            "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        }
-    }
-
 }

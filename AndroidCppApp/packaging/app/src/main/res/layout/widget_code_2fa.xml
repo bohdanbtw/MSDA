@@ -26,11 +26,36 @@
         android:textSize="26sp"
         android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/widgetTimer"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:text="@string/widget_timer_placeholder"
-        android:textSize="12sp" />
+        android:orientation="horizontal">
+
+        <Chronometer
+            android:id="@+id/widgetCountdown"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:countDown="true"
+            android:format="@string/widget_timer_format"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widgetTimer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/widget_timer_placeholder"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/widgetRefresh"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="8dp"
+            android:text="@string/widget_refresh"
+            android:textSize="11sp" />
+    </LinearLayout>
 </LinearLayout>

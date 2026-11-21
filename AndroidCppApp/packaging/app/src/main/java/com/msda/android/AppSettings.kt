@@ -1,8 +1,13 @@
 package com.msda.android
 
 import android.content.Context
+import android.content.SharedPreferences
+import androidx.appcompat.app.AppCompatDelegate
 import java.security.MessageDigest
+import java.security.SecureRandom
 import java.util.UUID
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.PBEKeySpec
 
 data class AccountProxyConfig(
     val enabled: Boolean,
@@ -16,10 +21,12 @@ data class AccountProxyConfig(
 object AppSettings {
     private const val PREFS = "msda_ui"
     private const val KEY_THEME_MODE = "theme_mode"
-    private const val KEY_BACKGROUND_SYNC_ENABLED = "background_sync_enabled"
-    private const val KEY_PUSH_CONFIRMATIONS_ENABLED = "push_confirmations_enabled"
     private const val KEY_APP_PIN_HASH = "app_pin_hash"
     private const val KEY_APP_PIN_SALT = "app_pin_salt"
+    private const val KEY_APP_PIN_VERSION = "app_pin_version"
+    private const val KEY_APP_PIN_ITERATIONS = "app_pin_iterations"
+    private const val KEY_PIN_FAILED_ATTEMPTS = "pin_failed_attempts"
+    private const val KEY_PIN_LOCKOUT_UNTIL = "pin_lockout_until"
     private const val KEY_BIOMETRIC_UNLOCK_ENABLED = "biometric_unlock_enabled"
     private const val KEY_MARKET_AUTO_CONFIRM_PREFIX = "market_auto_confirm_"
     private const val KEY_TRADE_AUTO_CONFIRM_PREFIX = "trade_auto_confirm_"
@@ -42,6 +49,17 @@ object AppSettings {
     private const val KEY_WIDGET_ACCOUNT_NAME_PREFIX = "widget_account_name_"
     private const val KEY_PERMANENT_DEVICE_ID = "permanent_device_id"
     private const val KEY_USE_NEBULA_SESSION_STACK = "use_nebula_session_stack"
+    // Prefix distinguishes Keystore ciphertext from legacy plaintext proxy passwords.
+    private const val ENCRYPTED_VALUE_PREFIX = "enc:"
+
+    // PIN protection: legacy hashes (version 1) are one-shot SHA-256 digests and are
+    // transparently upgraded to PBKDF2 on the next successful unlock.
+    private const val PIN_KDF_VERSION = 2
+    private const val PIN_ITERATIONS = 120_000
+    private const val PIN_SALT_BYTES = 16
+    private const val PIN_KEY_BITS = 256
+    private const val BASE_PIN_BACKOFF_MS = 1_000L
+    private const val MAX_PIN_BACKOFF_MS = 300_000L
 
     fun getThemeMode(context: Context): String {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -53,38 +71,13 @@ object AppSettings {
             .edit().putString(KEY_THEME_MODE, mode).commit()
     }
 
-    fun isBackgroundSyncEnabled(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_BACKGROUND_SYNC_ENABLED, false)
-            || prefs.getBoolean(KEY_PUSH_CONFIRMATIONS_ENABLED, false)
-    }
-
-    fun isBackgroundConfirmationsEnabled(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_BACKGROUND_SYNC_ENABLED, false)
-    }
-
-    fun setBackgroundConfirmationsEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_BACKGROUND_SYNC_ENABLED, enabled)
-            .apply()
-    }
-
-    fun setBackgroundSyncEnabled(context: Context, enabled: Boolean) {
-        setBackgroundConfirmationsEnabled(context, enabled)
-    }
-
-    fun isPushConfirmationsEnabled(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_PUSH_CONFIRMATIONS_ENABLED, false)
-    }
-
-    fun setPushConfirmationsEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_PUSH_CONFIRMATIONS_ENABLED, enabled)
-            .apply()
+    /** Single source of truth for applying the stored theme to any activity. */
+    fun applyTheme(context: Context) {
+        when (getThemeMode(context)) {
+            "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
     }
 
     fun isMarketAutoConfirmEnabled(context: Context, steamId: String): Boolean {
@@ -148,13 +141,8 @@ object AppSettings {
     fun setPinLock(context: Context, pin: String) {
         require(isValidPin(pin))
 
-        val salt = UUID.randomUUID().toString()
-        val hash = hashPin(pin, salt)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_APP_PIN_SALT, salt)
-            .putString(KEY_APP_PIN_HASH, hash)
-            .apply()
+        storePinHash(context, generateSalt(), pin)
+        clearPinFailures(context)
     }
 
     fun clearPinLock(context: Context) {
@@ -162,8 +150,11 @@ object AppSettings {
             .edit()
             .remove(KEY_APP_PIN_HASH)
             .remove(KEY_APP_PIN_SALT)
+            .remove(KEY_APP_PIN_VERSION)
+            .remove(KEY_APP_PIN_ITERATIONS)
             .putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false)
             .apply()
+        clearPinFailures(context)
     }
 
     fun verifyPinLock(context: Context, pin: String): Boolean {
@@ -172,13 +163,29 @@ object AppSettings {
         }
 
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val salt = prefs.getString(KEY_APP_PIN_SALT, null).orEmpty()
+        val saltValue = prefs.getString(KEY_APP_PIN_SALT, null).orEmpty()
         val storedHash = prefs.getString(KEY_APP_PIN_HASH, null).orEmpty()
-        if (salt.isBlank() || storedHash.isBlank()) {
+        if (saltValue.isBlank() || storedHash.isBlank()) {
             return false
         }
 
-        return hashPin(pin, salt) == storedHash
+        if (prefs.getInt(KEY_APP_PIN_VERSION, 1) < PIN_KDF_VERSION) {
+            // Legacy installs stored a UUID string salt and a single SHA-256 digest.
+            // Verify with the old scheme, then upgrade the stored material so the
+            // plaintext-fast hash is gone after the first successful unlock.
+            if (!hashPinLegacy(pin, saltValue).equals(storedHash, ignoreCase = true)) {
+                return false
+            }
+            storePinHash(context, generateSalt(), pin)
+            return true
+        }
+
+        val salt = fromHex(saltValue) ?: return false
+        val iterations = prefs.getInt(KEY_APP_PIN_ITERATIONS, PIN_ITERATIONS)
+        if (iterations <= 0) {
+            return false
+        }
+        return derivePinHash(pin, salt, iterations).equals(storedHash, ignoreCase = true)
     }
 
     fun isBiometricUnlockEnabled(context: Context): Boolean {
@@ -197,10 +204,113 @@ object AppSettings {
         return pin.length == 4 && pin.all { it.isDigit() }
     }
 
-    private fun hashPin(pin: String, salt: String): String {
-        return MessageDigest.getInstance("SHA-256")
-            .digest("$salt:$pin".toByteArray())
-            .joinToString(separator = "") { byte -> "%02x".format(byte) }
+    private fun derivePinHash(pin: String, salt: ByteArray, iterations: Int): String {
+        val spec = PBEKeySpec(pin.toCharArray(), salt, iterations, PIN_KEY_BITS)
+        return try {
+            val hash = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+                .generateSecret(spec)
+                .encoded
+            toHex(hash)
+        } finally {
+            spec.clearPassword()
+        }
+    }
+
+    // Kept only to verify and migrate PINs saved by older app versions.
+    private fun hashPinLegacy(pin: String, salt: String): String {
+        return toHex(MessageDigest.getInstance("SHA-256").digest("$salt:$pin".toByteArray()))
+    }
+
+    private fun generateSalt(): ByteArray {
+        return ByteArray(PIN_SALT_BYTES).also { SecureRandom().nextBytes(it) }
+    }
+
+    private fun storePinHash(context: Context, salt: ByteArray, pin: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_APP_PIN_SALT, toHex(salt))
+            .putString(KEY_APP_PIN_HASH, derivePinHash(pin, salt, PIN_ITERATIONS))
+            .putInt(KEY_APP_PIN_VERSION, PIN_KDF_VERSION)
+            .putInt(KEY_APP_PIN_ITERATIONS, PIN_ITERATIONS)
+            .apply()
+    }
+
+    private fun toHex(bytes: ByteArray): String {
+        return bytes.joinToString(separator = "") { byte -> "%02x".format(byte) }
+    }
+
+    private fun fromHex(value: String): ByteArray? {
+        if (value.length % 2 != 0) return null
+        val bytes = ByteArray(value.length / 2)
+        for (i in bytes.indices) {
+            val high = Character.digit(value[i * 2], 16)
+            val low = Character.digit(value[i * 2 + 1], 16)
+            if (high < 0 || low < 0) return null
+            bytes[i] = ((high shl 4) or low).toByte()
+        }
+        return bytes
+    }
+
+    // ---------- Failed-attempt backoff (shared with LockActivity) ----------
+    fun getPinFailedAttempts(context: Context): Int {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt(KEY_PIN_FAILED_ATTEMPTS, 0)
+    }
+
+    fun getPinLockoutRemainingMillis(context: Context): Long {
+        val until = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getLong(KEY_PIN_LOCKOUT_UNTIL, 0L)
+        return maxOf(0L, until - System.currentTimeMillis())
+    }
+
+    fun recordPinFailure(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val attempts = prefs.getInt(KEY_PIN_FAILED_ATTEMPTS, 0) + 1
+        // 1s, 2s, 4s, 8s ... capped at 5 minutes. The exponent is capped so a very
+        // large counter can never overflow the shift.
+        val exponent = minOf(attempts - 1, 20)
+        val backoffMs = minOf(BASE_PIN_BACKOFF_MS shl exponent, MAX_PIN_BACKOFF_MS)
+        prefs.edit()
+            .putInt(KEY_PIN_FAILED_ATTEMPTS, attempts)
+            .putLong(KEY_PIN_LOCKOUT_UNTIL, System.currentTimeMillis() + backoffMs)
+            .apply()
+    }
+
+    fun clearPinFailures(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_PIN_FAILED_ATTEMPTS)
+            .remove(KEY_PIN_LOCKOUT_UNTIL)
+            .apply()
+    }
+
+    /**
+     * Encrypts a proxy password with the same Keystore-backed AES-GCM helper used
+     * for account passwords. Fails closed: if encryption is unavailable, no
+     * plaintext is written to disk.
+     */
+    private fun encodeProxyPassword(password: String): String {
+        if (password.isEmpty()) return ""
+        val encrypted = PasswordManager.encrypt(password) ?: return ""
+        return "$ENCRYPTED_VALUE_PREFIX$encrypted"
+    }
+
+    /**
+     * Decrypts a stored proxy password. Unencrypted values left by older builds
+     * are migrated on first read; values that claim to be encrypted but cannot
+     * be decrypted are dropped rather than treated as plaintext.
+     */
+    private fun decodeProxyPassword(prefs: SharedPreferences, key: String): String {
+        val stored = prefs.getString(key, null).orEmpty()
+        if (stored.isEmpty()) return ""
+        if (!stored.startsWith(ENCRYPTED_VALUE_PREFIX)) {
+            prefs.edit().putString(key, encodeProxyPassword(stored)).apply()
+            return stored
+        }
+        val decrypted = PasswordManager.decrypt(stored.removePrefix(ENCRYPTED_VALUE_PREFIX))
+        if (decrypted != null) return decrypted
+        prefs.edit().remove(key).apply()
+        return ""
     }
 
     fun getAccountProxyConfig(context: Context, steamId: String): AccountProxyConfig {
@@ -215,7 +325,7 @@ object AppSettings {
             host = prefs.getString("$KEY_PROXY_HOST_PREFIX$steamId", "").orEmpty(),
             port = prefs.getInt("$KEY_PROXY_PORT_PREFIX$steamId", 0),
             username = prefs.getString("$KEY_PROXY_USERNAME_PREFIX$steamId", "").orEmpty(),
-            password = prefs.getString("$KEY_PROXY_PASSWORD_PREFIX$steamId", "").orEmpty()
+            password = decodeProxyPassword(prefs, "$KEY_PROXY_PASSWORD_PREFIX$steamId")
         )
     }
 
@@ -231,7 +341,7 @@ object AppSettings {
             .putString("$KEY_PROXY_HOST_PREFIX$steamId", config.host.trim())
             .putInt("$KEY_PROXY_PORT_PREFIX$steamId", config.port)
             .putString("$KEY_PROXY_USERNAME_PREFIX$steamId", config.username.trim())
-            .putString("$KEY_PROXY_PASSWORD_PREFIX$steamId", config.password)
+            .putString("$KEY_PROXY_PASSWORD_PREFIX$steamId", encodeProxyPassword(config.password))
             .apply()
     }
 
@@ -257,7 +367,7 @@ object AppSettings {
             host = prefs.getString(KEY_DEFAULT_PROXY_HOST, "").orEmpty(),
             port = prefs.getInt(KEY_DEFAULT_PROXY_PORT, 0),
             username = prefs.getString(KEY_DEFAULT_PROXY_USERNAME, "").orEmpty(),
-            password = prefs.getString(KEY_DEFAULT_PROXY_PASSWORD, "").orEmpty()
+            password = decodeProxyPassword(prefs, KEY_DEFAULT_PROXY_PASSWORD)
         )
     }
 
@@ -270,7 +380,7 @@ object AppSettings {
             .putString(KEY_DEFAULT_PROXY_HOST, config.host.trim())
             .putInt(KEY_DEFAULT_PROXY_PORT, config.port)
             .putString(KEY_DEFAULT_PROXY_USERNAME, config.username.trim())
-            .putString(KEY_DEFAULT_PROXY_PASSWORD, config.password)
+            .putString(KEY_DEFAULT_PROXY_PASSWORD, encodeProxyPassword(config.password))
             .apply()
     }
 

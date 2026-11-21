@@ -20,8 +20,9 @@ import java.util.concurrent.TimeUnit
  * before it can expire, so a user who logged in once stays logged in indefinitely as long
  * as they (or this worker) touch the account within Steam's refresh-token lifetime.
  *
- * Renewal is race-free: it reads each account by steamId and never changes the native
- * active account, so it cannot disturb the account the user is viewing in the foreground.
+ * Renewal reads each account by steamId and never changes the native active account, so it
+ * cannot disturb the account the user is viewing in the foreground. Session writes are
+ * serialized with every other renewal path by the shared per-Steam-ID lock in SessionLocks.
  */
 object SessionRenewalManager {
     private const val TAG = "SessionRenewalManager"

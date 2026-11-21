@@ -59,15 +59,50 @@ object PasswordManager {
         return keyGenerator.generateKey()
     }
 
-    fun savePassword(context: Context, accountName: String, password: String) {
-        try {
+    /**
+     * Encrypts a secret with the Keystore-backed master key. The result is a
+     * Base64 string of the 12-byte IV followed by the AES-GCM ciphertext (tag
+     * included), so callers can persist a single opaque value.
+     */
+    fun encrypt(plain: String): String? {
+        return try {
             val secretKey = getOrCreateMasterKey()
             val iv = ByteArray(12) // 96-bit IV for GCM
             SecureRandom().nextBytes(iv)
             val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
-            val encrypted = cipher.doFinal(password.toByteArray(Charsets.UTF_8))
-            val combined = Base64.encodeToString(iv + encrypted, Base64.NO_WRAP)
+            val encrypted = cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
+            Base64.encodeToString(iv + encrypted, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to encrypt value", e)
+            null
+        }
+    }
+
+    /** Reverses [encrypt]; returns null on corrupt data or Keystore errors. */
+    fun decrypt(combinedBase64: String): String? {
+        return try {
+            val combined = Base64.decode(combinedBase64, Base64.NO_WRAP)
+            if (combined.size < 12) return null
+            val iv = combined.copyOfRange(0, 12)
+            val encrypted = combined.copyOfRange(12, combined.size)
+            val secretKey = getOrCreateMasterKey()
+            val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
+            String(cipher.doFinal(encrypted), Charsets.UTF_8)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decrypt value", e)
+            null
+        }
+    }
+
+    fun savePassword(context: Context, accountName: String, password: String) {
+        val combined = encrypt(password)
+        if (combined == null) {
+            Log.e(TAG, "Failed to save password for $accountName")
+            return
+        }
+        try {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(accountName, combined)
@@ -82,14 +117,7 @@ object PasswordManager {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val storedKey = prefs.all.keys.firstOrNull { it.equals(accountName, ignoreCase = true) } ?: accountName
             val combinedBase64 = prefs.getString(storedKey, null) ?: return null
-            val combined = Base64.decode(combinedBase64, Base64.NO_WRAP)
-            if (combined.size < 12) return null
-            val iv = combined.copyOfRange(0, 12)
-            val encrypted = combined.copyOfRange(12, combined.size)
-            val secretKey = getOrCreateMasterKey()
-            val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
-            String(cipher.doFinal(encrypted), Charsets.UTF_8)
+            decrypt(combinedBase64)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get password for $accountName", e)
             null

@@ -11,6 +11,7 @@ import android.os.Looper
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -21,7 +22,6 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.ScanContract
@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URL
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseLockActivity() {
     companion object {
         const val EXTRA_ACCOUNT_INDEX = "extra_account_index"
         const val EXTRA_ACCOUNT_NAME = "extra_account_name"
@@ -234,8 +234,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun copyCurrentCodeToClipboard() {
+        val steamId = currentScopedSteamId()
         val code = try {
-            NativeBridge.getActiveCode().trim()
+            if (steamId.isNotBlank()) NativeBridge.getCodeForSteamId(steamId).trim() else ""
         } catch (_: Throwable) {
             ""
         }
@@ -433,19 +434,45 @@ class MainActivity : AppCompatActivity() {
 
     private fun exportCurrentAccountMafile() {
         val mafilesDir = File(filesDir, "mafiles")
-        
+
+        if (currentAccountName.isBlank()) {
+            txtStatus.text = getString(R.string.export_mafiles_no_current_account)
+            return
+        }
+        val steamId = currentSteamId.trim().ifBlank {
+            resolveSteamIdForAccountIndex(currentAccountIndex)
+        }.trim()
+        if (steamId.isBlank()) {
+            txtStatus.text = getString(R.string.export_mafiles_no_current_account)
+            return
+        }
+
         if (!mafilesDir.exists() || mafilesDir.listFiles()?.isEmpty() == true) {
             txtStatus.text = getString(R.string.export_mafiles_empty)
             return
         }
 
         try {
-            val mafiles = mafilesDir.listFiles()?.filter { 
-                it.isFile && it.name.endsWith(".mafile", ignoreCase = true) 
+            val mafiles = mafilesDir.listFiles()?.filter {
+                it.isFile && it.name.endsWith(".mafile", ignoreCase = true)
             } ?: emptyList()
 
             if (mafiles.isEmpty()) {
                 txtStatus.text = getString(R.string.export_mafiles_empty)
+                return
+            }
+
+            // Match only by the parsed steam ID of the active account. A name/substring
+            // test can select an unrelated account's secrets.
+            val matches = mafiles.filter { mafile ->
+                MafileImportHelper.parseSteamId(mafile) == steamId
+            }
+            if (matches.isEmpty()) {
+                txtStatus.text = getString(R.string.export_mafiles_not_found)
+                return
+            }
+            if (matches.size > 1) {
+                txtStatus.text = getString(R.string.export_mafiles_ambiguous)
                 return
             }
 
@@ -456,25 +483,9 @@ class MainActivity : AppCompatActivity() {
             }
 
             try {
-                var exported = false
-                for (mafile in mafiles) {
-                    try {
-                        val content = mafile.readText()
-                        if (content.contains(currentAccountName, ignoreCase = true)) {
-                            val tempMafile = File(tempExportDir, mafile.name)
-                            tempMafile.writeText(content)
-                            exported = true
-                            break
-                        }
-                    } catch (_: Throwable) {
-                        continue
-                    }
-                }
-
-                if (!exported) {
-                    txtStatus.text = "Could not find mafile for current account"
-                    tempExportDir.deleteRecursively()
-                    return
+                val targetMafile = matches.single()
+                File(tempExportDir, targetMafile.name).let { tempMafile ->
+                    targetMafile.copyTo(tempMafile, overwrite = true)
                 }
 
                 val timestamp = java.time.LocalDateTime.now()
@@ -483,8 +494,11 @@ class MainActivity : AppCompatActivity() {
                 val outputZipFile = File(cacheDir, zipFileName)
 
                 createZipFile(tempExportDir, outputZipFile)
-                shareFile(outputZipFile)
-                
+                shareFile(
+                    outputZipFile,
+                    getString(R.string.export_mafiles_share_chooser, currentAccountName, steamId)
+                )
+
                 txtStatus.text = getString(R.string.export_mafiles_success)
             } finally {
                 tempExportDir.deleteRecursively()
@@ -509,7 +523,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun shareFile(file: File) {
+    private fun shareFile(file: File, chooserTitle: String) {
         val uri = androidx.core.content.FileProvider.getUriForFile(
             this,
             "${packageName}.fileprovider",
@@ -518,9 +532,10 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/zip"
             putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, chooserTitle)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startActivity(Intent.createChooser(intent, "Share mafile backup"))
+        startActivity(Intent.createChooser(intent, chooserTitle))
     }
 
     private fun updateActiveAuthContext() {
@@ -540,12 +555,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun resolveSteamIdForAccountIndex(index: Int): String {
-        val lines = runCatching { NativeBridge.getAccounts() }.getOrDefault("")
-            .lines()
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-        return lines.getOrNull(index)?.split('|')?.getOrNull(2)?.trim().orEmpty()
+    private fun resolveSteamIdForAccountIndex(index: Int): String =
+        NativeBridge.steamIdForAccountIndex(index)
+
+    /**
+     * Steam ID used for account-scoped code reads. Never mutates the native global:
+     * prefer the explicitly selected account, then its index, then the active account
+     * as a read-only fallback for a cold launch with no selection.
+     */
+    private fun currentScopedSteamId(): String {
+        if (currentSteamId.isNotBlank()) return currentSteamId
+        val fromIndex = resolveSteamIdForAccountIndex(currentAccountIndex)
+        if (fromIndex.isNotBlank()) return fromIndex
+        return NativeBridge.activeSteamId()
     }
 
     private fun promptSteamLogin() {
@@ -735,14 +757,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshCodeViews() {
+        val steamId = currentScopedSteamId()
         val code = try {
-            NativeBridge.getActiveCode()
+            if (steamId.isNotBlank()) NativeBridge.getCodeForSteamId(steamId).trim() else ""
         } catch (_: Throwable) {
             ""
         }
 
         val secondsRemaining = try {
-            NativeBridge.getSecondsToNextCode()
+            if (steamId.isNotBlank()) NativeBridge.getSecondsToNextCodeForSteamId(steamId) else 30
         } catch (_: Throwable) {
             30
         }
@@ -1256,6 +1279,8 @@ class MainActivity : AppCompatActivity() {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
 
+        val socksWarning = ProxySettingsUi.socksAuthWarning(this)
+
         val txtIp = TextView(this).apply {
             text = when {
                 ProxyChecker.isConfigured(current) -> getString(R.string.proxy_using_account)
@@ -1274,8 +1299,15 @@ class MainActivity : AppCompatActivity() {
             addView(portInput)
             addView(userInput)
             addView(passInput)
+            addView(socksWarning)
             addView(txtIp)
         }
+        ProxySettingsUi.applySocksCredentialHint(
+            typeGroup,
+            socksOption.id,
+            listOf(userInput, passInput),
+            socksWarning
+        )
 
         android.app.AlertDialog.Builder(this)
             .setTitle(getString(R.string.proxy_settings))
@@ -1304,8 +1336,9 @@ class MainActivity : AppCompatActivity() {
                     type = type,
                     host = host,
                     port = port,
-                    username = user,
-                    password = pass
+                    // SOCKS auth is unsupported here: never persist unusable credentials.
+                    username = if (type == "socks") "" else user,
+                    password = if (type == "socks") "" else pass
                 )
                 AppSettings.setAccountProxyConfig(this, steamId, config)
                 txtStatus.text = getString(R.string.proxy_saved)
@@ -1316,7 +1349,11 @@ class MainActivity : AppCompatActivity() {
                     refreshProxyIndicatorAsync()
                 }
             }
-            .show()
+            .create()
+            .also { dialog ->
+                dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                dialog.show()
+            }
     }
 
     private fun runProxyCheckAfterSave(config: AccountProxyConfig) {

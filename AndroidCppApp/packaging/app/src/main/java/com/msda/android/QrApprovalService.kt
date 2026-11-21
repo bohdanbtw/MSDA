@@ -64,8 +64,8 @@ object QrApprovalService {
     }
 
     /**
-     * Prefer a still-valid JWT; otherwise renew through [SessionManager] so refresh-token
-     * rotation shares the same single-flight lock as every other renewal path.
+     * Prefer a still-valid JWT; otherwise renew through [SessionHandler.ensureValid], which
+     * takes the shared per-Steam-ID lock so rotation is serialized with every other writer.
      */
     private suspend fun resolveAuthForQr(context: Context, auth: ConfirmationAuthContext): ConfirmationAuthContext? {
         if (hasValidAccessToken(auth)) {
@@ -96,7 +96,8 @@ object QrApprovalService {
         } else {
             auth.steamLoginSecure
         }
-        SessionPersistence.saveSession(
+        // Already inside SessionHandler.handle's shared lock — use the unlocked variant.
+        SessionPersistence.saveSessionUnlocked(
             context,
             auth.steamId,
             StoredSteamSession(

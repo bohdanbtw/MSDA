@@ -31,6 +31,8 @@ object SteamHttpClient {
         if (proxyConfig.enabled && proxyConfig.host.isNotBlank() && proxyConfig.port in 1..65535) {
             val proxyType = if (proxyConfig.type.equals("socks", ignoreCase = true)) Proxy.Type.SOCKS else Proxy.Type.HTTP
             builder.proxy(Proxy(proxyType, InetSocketAddress(proxyConfig.host, proxyConfig.port)))
+            // OkHttp's SOCKS proxy has no auth handshake configured here; the
+            // settings UI warns and avoids persisting credentials for SOCKS.
             if (proxyType == Proxy.Type.HTTP && proxyConfig.username.isNotBlank()) {
                 builder.proxyAuthenticator { _, response ->
                     val credential = Credentials.basic(proxyConfig.username, proxyConfig.password)

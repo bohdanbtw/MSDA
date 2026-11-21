@@ -5,12 +5,11 @@ import com.msda.android.SessionStore
 import com.msda.android.StoredSteamSession
 import org.json.JSONObject
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 class MafileRepository(private val context: Context) {
-    private val locks = ConcurrentHashMap<String, Mutex>()
 
     fun readSession(steamId: String): SteamSessionData? {
         if (steamId.isBlank()) return null
@@ -27,28 +26,31 @@ class MafileRepository(private val context: Context) {
         )
     }
 
-    fun writeSessionBlocking(session: SteamSessionData) {
-        kotlinx.coroutines.runBlocking { writeSession(session) }
+    suspend fun writeSession(session: SteamSessionData) {
+        SessionLocks.withLock(session.steamId) {
+            writeSessionUnlocked(session)
+        }
     }
 
-    suspend fun writeSession(session: SteamSessionData) {
-        val mutex = locks.getOrPut(session.steamId) { Mutex() }
-        mutex.withLock {
-            writeMafileSession(session)
-            SessionStore.saveSession(
-                context,
-                session.steamId,
-                StoredSteamSession(
-                    steamLoginSecure = session.steamLoginSecure,
-                    sessionId = session.sessionId,
-                    refreshToken = session.refreshToken,
-                    accessToken = session.accessToken,
-                    accountName = session.accountName,
-                    sessionExpiresAtMs = runCatching { SteamTokenHelper.parse(session.accessToken).expiresAtMs }
-                        .getOrDefault(0L)
-                )
+    /**
+     * Persist without taking the lock. Only call while [SessionLocks.withLock] is held for
+     * [SteamSessionData.steamId]; all other callers must use [writeSession].
+     */
+    internal fun writeSessionUnlocked(session: SteamSessionData) {
+        writeMafileSession(session)
+        SessionStore.saveSession(
+            context,
+            session.steamId,
+            StoredSteamSession(
+                steamLoginSecure = session.steamLoginSecure,
+                sessionId = session.sessionId,
+                refreshToken = session.refreshToken,
+                accessToken = session.accessToken,
+                accountName = session.accountName,
+                sessionExpiresAtMs = runCatching { SteamTokenHelper.parse(session.accessToken).expiresAtMs }
+                    .getOrDefault(0L)
             )
-        }
+        )
     }
 
     private fun writeMafileSession(session: SteamSessionData) {
@@ -73,7 +75,32 @@ class MafileRepository(private val context: Context) {
         if (session.accountName.isNotBlank()) {
             json.put("account_name", session.accountName)
         }
-        file.writeText(json.toString(2))
+        writeJsonAtomically(file, json.toString(2))
+    }
+
+    /** Replace the mafile via a temp file in the same directory so readers never see a partial write. */
+    private fun writeJsonAtomically(file: File, contents: String) {
+        val directory = file.parentFile ?: return
+        val temp = File.createTempFile(".${file.name}.", ".tmp", directory)
+        try {
+            temp.outputStream().use { output ->
+                output.write(contents.toByteArray(Charsets.UTF_8))
+                output.flush()
+                output.fd.sync()
+            }
+            try {
+                Files.move(
+                    temp.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            temp.delete()
+        }
     }
 
     private fun readMafileJson(steamId: String): JSONObject? {

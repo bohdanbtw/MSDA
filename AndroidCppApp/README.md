@@ -59,6 +59,40 @@ The scripts will:
 
 ---
 
+## Device / ABI support (64-bit only)
+
+The APK ships a single native library, `libmsda_android.so`, built for the
+**arm64-v8a** ABI only. `app/build.gradle` declares this explicitly via
+`ndk.abiFilters 'arm64-v8a'`, so the APK contains only `lib/arm64-v8a/`.
+
+Consequences:
+
+- **MSDA requires a 64-bit ARM (ARM64) Android device.** Although `minSdk` is
+  26 (Android 8.0), 32-bit-only ARM devices (`armeabi-v7a`) cannot install or
+  run the app.
+- There is no 32-bit `.so` in the repository, and building one requires the
+  Android NDK. Until a 32-bit native library is produced and added to
+  `app/src/main/jniLibs/`, `abiFilters` must stay limited to `arm64-v8a`.
+- x86 / x86_64 devices and emulators are not supported by the shipped APK
+  unless they provide ARM64 translation.
+
+---
+
+## Release build configuration
+
+- `compileSdk` / `targetSdk` are set to **35** (the newest platform available
+  in the offline build environment), meeting Google Play's 35+ target
+  requirement for new releases.
+- Release builds enable R8 minification (`minifyEnabled true`) and resource
+  shrinking (`shrinkResources true`). Keep rules in `app/proguard-rules.pro`
+  protect the name-based JNI bridge (`NativeBridge`) and the data/model DTOs;
+  do not remove them or release builds can fail with `UnsatisfiedLinkError`.
+- After changing SDK levels, re-test runtime permissions, alarms, and
+  notifications on a device, plus a release smoke test (import `.mafile`,
+  generate a 2FA code, load confirmations).
+
+---
+
 ## Key scripts
 
 - `tools/launch-from-vs.ps1`

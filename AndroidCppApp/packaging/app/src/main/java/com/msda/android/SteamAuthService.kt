@@ -2,6 +2,7 @@ package com.msda.android
 
 import android.app.AlertDialog
 import android.content.Context
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import com.msda.android.steam.AdmissionHelper
@@ -67,7 +68,11 @@ object SteamAuthService {
                 dialog.dismiss()
                 onResult(SteamAuthResult(false, errorMessage = "Login cancelled"))
             }
-            .show()
+            .create()
+            .also { dialog ->
+                dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                dialog.show()
+            }
     }
 
     suspend fun refreshSessionUsingToken(
@@ -144,7 +149,7 @@ object SteamAuthService {
                     refreshToken = login.refreshToken,
                     accessToken = login.accessToken
                 )
-                MafileRepository(context).writeSessionBlocking(session)
+                MafileRepository(context).writeSession(session)
                 AdmissionHelper.seedMobileSessionCookies(login.steamId, session)
                 PasswordManager.savePassword(context, accountName, password)
                 SteamAuthResult(

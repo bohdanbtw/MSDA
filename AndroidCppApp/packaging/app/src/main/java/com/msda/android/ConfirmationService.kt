@@ -325,7 +325,8 @@ object ConfirmationService {
 
     private fun url(value: String): String = URLEncoder.encode(value, "UTF-8")
 
-    private fun parseBundlesOrThrow(json: JSONObject): List<ConfirmationBundle> {
+    // internal so JVM unit tests can exercise the pure parsing logic directly.
+    internal fun parseBundlesOrThrow(json: JSONObject): List<ConfirmationBundle> {
         if (!json.optBoolean("success", false)) {
             val message = json.optString("message", "unknown")
             throw IllegalStateException("Confirmation load failed: $message")

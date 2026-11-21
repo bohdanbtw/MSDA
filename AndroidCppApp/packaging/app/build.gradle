@@ -3,6 +3,16 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Version is the single source of truth in gradle.properties; fail fast if missing.
+def appVersionName = project.findProperty('app.version.name')?.toString()
+if (!appVersionName) {
+    throw new GradleException('app.version.name is missing from gradle.properties')
+}
+def appVersionCode = project.findProperty('app.version.code')?.toString()?.toInteger()
+if (appVersionCode == null) {
+    throw new GradleException('app.version.code is missing from gradle.properties')
+}
+
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('keystore.properties')
 if (keystorePropertiesFile.exists()) {
@@ -11,17 +21,37 @@ if (keystorePropertiesFile.exists()) {
     logger.lifecycle("keystore.properties not found. Release builds require AndroidCppApp/tools/setup-release-signing.ps1")
 }
 
+// Optional extra pin for self-updates: SHA-256 of the release signing certificate.
+// Blank means "must be signed by the same key as the installed app" (platform APIs).
+def updateSigningFingerprint = (project.findProperty('app.update.signing.sha256') ?: '')
+        .toString().trim().replace('\\', '\\\\').replace('"', '\\"')
+
 android {
     namespace 'com.msda.android'
-    compileSdk 34
+    // 35 is the newest platform available offline in the build environment and
+    // satisfies Google Play's 35+ target requirement for new releases.
+    compileSdk 35
+
+    buildFeatures {
+        buildConfig true
+    }
 
     defaultConfig {
         applicationId "com.msda.android"
         minSdk 26
-        targetSdk 34
-        versionCode 150000
-        versionName "1.5.0"
+        targetSdk 35
+        versionCode appVersionCode
+        versionName appVersionName
         resValue "string", "settings_app_version", "Version ${versionName}"
+        buildConfigField "String", "UPDATE_SIGNING_SHA256", "\"${updateSigningFingerprint}\""
+
+        // Only the 64-bit ARM library is bundled (src/main/jniLibs/arm64-v8a/
+        // libmsda_android.so). Declaring it explicitly prevents an APK that
+        // silently claims to support ABIs it cannot run on. The app therefore
+        // requires a 64-bit ARM device (see AndroidCppApp/README.md).
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
     }
 
     signingConfigs {
@@ -36,7 +66,10 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            // R8 code shrinking/obfuscation for release builds. Keep rules in
+            // proguard-rules.pro protect the JNI bridge and data models.
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
         }
@@ -69,7 +102,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.biometric:biometric:1.1.0'
-    implementation 'androidx.work:work-runtime-ktx:2.9.1'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.protobuf:protobuf-javalite:3.25.5'

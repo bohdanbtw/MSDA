@@ -42,10 +42,6 @@
     <string name="theme_dark">Theme: Dark</string>
     <string name="theme_mode_title">Theme mode</string>
     <string name="github_repository">GitHub: bohdanbtw/MSDA</string>
-    <string name="background_title">Background behavior</string>
-    <string name="background_notifications_single_switch">Enable background confirmations and notifications</string>
-    <string name="background_sync">Allow background confirmations check</string>
-    <string name="background_push_confirmations">Enable push notifications for confirmations</string>
     <string name="security_title">Security</string>
     <string name="set_pin_lock">Set 4-digit PIN</string>
     <string name="change_pin_lock">Change 4-digit PIN</string>
@@ -64,11 +60,18 @@
     <string name="pin_mismatch">PIN entries do not match</string>
     <string name="pin_saved">PIN saved</string>
     <string name="pin_removed">PIN removed</string>
+    <string name="pin_reauth_title">Confirm it\'s you</string>
+    <string name="pin_reauth_subtitle">Authenticate before changing the PIN lock</string>
+    <string name="pin_reauth_message">Enter your current PIN to continue.</string>
+    <string name="pin_current_hint">Current PIN</string>
+    <string name="pin_reauth_use_pin">Use PIN instead</string>
+    <string name="pin_reauth_failed">Incorrect PIN — authentication failed</string>
     <string name="biometric_unavailable">Fingerprint unlock is not available on this device</string>
     <string name="biometric_requires_pin">Set a PIN before enabling fingerprint unlock</string>
     <string name="unlock_title">Unlock MSDA</string>
     <string name="unlock_subtitle">Enter your 4-digit PIN or use fingerprint</string>
     <string name="unlock_pin_error">Incorrect PIN</string>
+    <string name="unlock_too_many_attempts">Incorrect PIN — try again in %1$d s</string>
     <string name="unlock_biometric">Use fingerprint</string>
     <string name="unlock_pin_prompt">Enter PIN</string>
     <string name="unlock_biometric_title">Unlock MSDA</string>
@@ -76,9 +79,10 @@
     <string name="unlock_biometric_negative">Use PIN instead</string>
     <string name="unlock_delete_digit">Delete digit</string>
     <string name="unlock_close">Close</string>
-    <string name="notification_channel_confirmations">Confirmations</string>
-    <string name="notification_title_confirmations">MSDA confirmations</string>
-    <string name="notification_text_confirmations">You have %1$d pending confirmation(s)</string>
+    <string name="pin_progress">%1$d of %2$d PIN digits entered</string>
+    <string name="export_dir_failed">Failed to create export directory</string>
+    <string name="export_error">Export error: %1$s</string>
+    <string name="share_backup">Share backup</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark_soft">Dark (balanced)</string>
     <string name="back_to_hub">Back to hub</string>
@@ -113,6 +117,7 @@
     <string name="proxy_port_hint">Proxy port</string>
     <string name="proxy_username_hint">Username (optional)</string>
     <string name="proxy_password_hint">Password (optional)</string>
+    <string name="proxy_socks_no_auth">SOCKS proxy authentication is not supported in this app. Username and password are ignored and are not saved.</string>
     <string name="proxy_clear">Clear</string>
     <string name="proxy_saved">Proxy settings saved</string>
     <string name="proxy_invalid">Enter a valid proxy host and port</string>
@@ -125,6 +130,10 @@
     <string name="export_mafiles_success">Export successful</string>
     <string name="export_mafiles_failed">Export failed</string>
     <string name="export_mafiles_empty">No accounts to export</string>
+    <string name="export_mafiles_no_current_account">No current account selected; nothing was exported</string>
+    <string name="export_mafiles_not_found">No mafile matches the current account</string>
+    <string name="export_mafiles_ambiguous">Multiple mafiles match the current account; export cancelled</string>
+    <string name="export_mafiles_share_chooser">Share mafile backup for %1$s (%2$s)</string>
     <string name="confirmations_header">Active confirmations</string>
     <string name="confirm_accept">Accept confirmation</string>
     <string name="confirm_decline">Decline confirmation</string>
@@ -142,6 +151,8 @@
     <string name="update_open_github">Open on GitHub</string>
     <string name="update_downloading">Downloading update…</string>
     <string name="update_download_failed">Update download failed</string>
+    <string name="update_verify_unavailable">Could not verify update signatures on this device. Opening the releases page to install manually.</string>
+    <string name="update_signature_mismatch">Update rejected: its signing certificate does not match the installed app. Opening the releases page.</string>
     <string name="update_permission_title">Allow install</string>
     <string name="update_permission_message">Android needs permission for MSDA to install updates from this app.</string>
     <string name="update_permission_open">Open settings</string>
@@ -184,6 +195,20 @@
     <string name="widget_configure_empty">Import an account in MSDA first</string>
     <string name="widget_code_placeholder">------</string>
     <string name="widget_timer_placeholder">--s</string>
+    <string name="widget_timer_format">Next code in %s</string>
+    <string name="widget_refresh">Refresh</string>
     <string name="widget_no_account">Tap to configure</string>
     <string name="widget_account_missing">Account unavailable</string>
+
+    <string name="delete_confirm_title">Delete Account</string>
+    <string name="delete_confirm_message">Delete account \"%1$s\"?\n%2$s\n\nIf you didn\'t save your mafile, you won\'t be able to access this account again.</string>
+    <string name="delete_confirm_steam_ids">SteamID(s):\n%1$s</string>
+    <string name="delete_confirm_cancel">Cancel</string>
+    <string name="delete_confirm_action">Delete account</string>
+    <string name="status_delete_unresolved">Could not resolve SteamID for \"%1$s\"; nothing was deleted.</string>
+    <string name="status_delete_verify_failed">Could not verify %1$s; it was not deleted.</string>
+    <string name="status_delete_file_failed">Could not delete %1$s.</string>
+    <string name="status_delete_reimport_failed">Could not reload accounts after deletion.</string>
+    <string name="status_delete_success">Deleted account: %1$s (%2$d mafile(s) removed)</string>
+    <string name="status_delete_nothing">No mafile was deleted for \"%1$s\".</string>
 </resources>

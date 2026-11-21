@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.content.Context
 import android.text.InputType
 import android.view.View
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -13,6 +14,32 @@ import android.widget.TextView
 import android.widget.Toast
 
 object ProxySettingsUi {
+    /**
+     * This build has no SOCKS5 username/password handshake, so SOCKS cannot use
+     * the credential fields. Show an explicit notice instead of silently
+     * accepting credentials that would never be sent.
+     */
+    fun socksAuthWarning(context: Context): TextView = TextView(context).apply {
+        text = context.getString(R.string.proxy_socks_no_auth)
+        visibility = View.GONE
+        setPadding(0, 8, 0, 0)
+    }
+
+    fun applySocksCredentialHint(
+        typeGroup: RadioGroup,
+        socksOptionId: Int,
+        credentialViews: List<View>,
+        warningView: TextView
+    ) {
+        fun refresh() {
+            val isSocks = typeGroup.checkedRadioButtonId == socksOptionId
+            credentialViews.forEach { it.visibility = if (isSocks) View.GONE else View.VISIBLE }
+            warningView.visibility = if (isSocks) View.VISIBLE else View.GONE
+        }
+        typeGroup.setOnCheckedChangeListener { _, _ -> refresh() }
+        refresh()
+    }
+
     fun showEditor(
         context: Context,
         title: String,
@@ -65,6 +92,7 @@ object ProxySettingsUi {
             setText(current.password)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
+        val socksWarning = socksAuthWarning(context)
         val txtIp = TextView(context).apply {
             text = context.getString(R.string.proxy_public_ip_unknown)
             setPadding(0, 16, 0, 0)
@@ -79,8 +107,10 @@ object ProxySettingsUi {
             addView(portInput)
             addView(userInput)
             addView(passInput)
+            addView(socksWarning)
             addView(txtIp)
         }
+        applySocksCredentialHint(typeGroup, socksOption.id, listOf(userInput, passInput), socksWarning)
 
         val dialog = AlertDialog.Builder(context)
             .setTitle(title)
@@ -89,6 +119,7 @@ object ProxySettingsUi {
             .setNeutralButton(R.string.proxy_clear) { _, _ -> onClear() }
             .setPositiveButton(android.R.string.ok, null)
             .create()
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
 
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -109,8 +140,9 @@ object ProxySettingsUi {
                     type = type,
                     host = host,
                     port = port,
-                    username = user,
-                    password = pass
+                    // SOCKS auth is unsupported here: never persist unusable credentials.
+                    username = if (type == "socks") "" else user,
+                    password = if (type == "socks") "" else pass
                 )
                 onSaved(config)
                 dialog.dismiss()

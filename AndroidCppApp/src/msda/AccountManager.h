@@ -18,10 +18,15 @@ public:
     int secondsToNextCode() const;
     std::string activeConfirmationAuthPayload() const;
 
-    // By-steamId accessors that do NOT mutate the active index. Used by background
-    // workers so they never race with the foreground UI over the active account.
+    // By-steamId accessors that do NOT mutate the active index. These are the canonical
+    // code/seconds API for every caller (including background receivers/workers and the
+    // widget tick) so they never race with foreground UI selection over the active account.
+    // setActiveIndex() / active*() are reserved for explicit UI-thread user selection.
     std::string confirmationAuthPayloadForSteamId(const std::string& steamId) const;
     std::string codeForSteamId(const std::string& steamId) const;
+    // Returns the remaining seconds in the current 30s code window for an existing
+    // account, or -1 when the Steam ID is blank/unknown. Never touches the active index.
+    int secondsToNextCodeForSteamId(const std::string& steamId) const;
 
     void updateSessionTokens(const std::string& steamId,
                              const std::string& sessionId,

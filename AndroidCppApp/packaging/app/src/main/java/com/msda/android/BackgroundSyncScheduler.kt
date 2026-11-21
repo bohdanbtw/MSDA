@@ -23,8 +23,6 @@ object BackgroundSyncScheduler {
         WorkManager.getInstance(context).cancelUniqueWork(IMMEDIATE_WORK_NAME)
         SessionRenewalManager.cancel(context)
         cancelAlarm(context)
-        AppSettings.setBackgroundConfirmationsEnabled(context, false)
-        AppSettings.setPushConfirmationsEnabled(context, false)
     }
 
     fun enqueueNow(context: Context) {

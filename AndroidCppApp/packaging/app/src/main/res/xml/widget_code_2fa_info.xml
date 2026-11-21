@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- updatePeriodMillis stays as a passive safety refresh; code rollovers are driven by
+     a non-waking boundary alarm scheduled by Code2FAWidgetProvider. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description"
     android:initialLayout="@layout/widget_code_2fa"

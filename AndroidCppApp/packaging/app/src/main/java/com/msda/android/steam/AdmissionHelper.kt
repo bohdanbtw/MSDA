@@ -27,7 +27,7 @@ object AdmissionHelper {
             val current = store[key] ?: return emptyList()
             val now = System.currentTimeMillis()
             return synchronized(current) {
-                current.filter { (it.expiresAt >= now) && url.host.endsWith(it.domain.removePrefix(".")) }
+                current.filter { (it.expiresAt >= now) && cookieDomainMatches(url.host, it.domain) }
             }
         }
     }
@@ -65,4 +65,15 @@ object AdmissionHelper {
     }
 
     private fun key(steamId: String): String = steamId.ifBlank { "__anonymous__" }
+
+    /**
+     * True when [host] is exactly [domain] or a subdomain of it. The "." boundary is
+     * required so that lookalike hosts such as `evilsteamcommunity.com` are not treated
+     * as part of `steamcommunity.com`.
+     */
+    fun cookieDomainMatches(host: String, domain: String): Boolean {
+        val normalizedHost = host.lowercase()
+        val normalizedDomain = domain.removePrefix(".").lowercase()
+        return normalizedHost == normalizedDomain || normalizedHost.endsWith(".$normalizedDomain")
+    }
 }

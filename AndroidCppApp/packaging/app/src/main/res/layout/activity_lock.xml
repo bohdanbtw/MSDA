@@ -36,6 +36,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="8dp"
+            android:importantForAccessibility="no"
             android:text="○"
             android:textSize="28sp" />
 
@@ -44,6 +45,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="8dp"
+            android:importantForAccessibility="no"
             android:text="○"
             android:textSize="28sp" />
 
@@ -52,6 +54,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="8dp"
+            android:importantForAccessibility="no"
             android:text="○"
             android:textSize="28sp" />
 
@@ -60,15 +63,27 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="8dp"
+            android:importantForAccessibility="no"
             android:text="○"
             android:textSize="28sp" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtPinProgress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:accessibilityLiveRegion="polite"
+        android:gravity="center"
+        android:text="@string/unlock_pin_prompt"
+        android:textSize="12sp" />
 
     <TextView
         android:id="@+id/txtLockStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:accessibilityLiveRegion="polite"
         android:gravity="center"
         android:textSize="14sp" />
 
@@ -89,9 +104,9 @@
         <Button android:id="@+id/btnPin7" android:layout_width="84dp" android:layout_height="64dp" android:text="7" />
         <Button android:id="@+id/btnPin8" android:layout_width="84dp" android:layout_height="64dp" android:text="8" />
         <Button android:id="@+id/btnPin9" android:layout_width="84dp" android:layout_height="64dp" android:text="9" />
-        <Button android:id="@+id/btnBiometricUnlock" android:layout_width="84dp" android:layout_height="64dp" android:text="🔒" />
+        <Button android:id="@+id/btnBiometricUnlock" android:layout_width="84dp" android:layout_height="64dp" android:contentDescription="@string/unlock_biometric" android:text="🔒" />
         <Button android:id="@+id/btnPin0" android:layout_width="84dp" android:layout_height="64dp" android:text="0" />
-        <Button android:id="@+id/btnPinDelete" android:layout_width="84dp" android:layout_height="64dp" android:text="⌫" />
+        <Button android:id="@+id/btnPinDelete" android:layout_width="84dp" android:layout_height="64dp" android:contentDescription="@string/unlock_delete_digit" android:text="⌫" />
     </GridLayout>
 
     <Button

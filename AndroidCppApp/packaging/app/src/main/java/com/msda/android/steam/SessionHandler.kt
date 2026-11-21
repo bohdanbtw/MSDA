@@ -4,37 +4,41 @@ import android.content.Context
 import com.msda.android.ConfirmationAuthContext
 import com.msda.android.NeedPasswordException
 import com.msda.android.PasswordManager
-import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 object SessionHandler {
-    private val locks = ConcurrentHashMap<String, Mutex>()
 
     suspend fun <T> handle(
         context: Context,
         auth: ConfirmationAuthContext,
         block: suspend (ConfirmationAuthContext, okhttp3.OkHttpClient) -> T
     ): T {
-        val mutex = locks.getOrPut(auth.steamId) { Mutex() }
-        return mutex.withLock {
-            val valid = ensureValid(context, auth)
+        return SessionLocks.withLock(auth.steamId) {
+            val valid = ensureValidUnlocked(context, auth)
             try {
                 val client = SteamHttpClient.create(context, valid.steamId)
                 AdmissionHelper.seedMobileSessionCookies(valid.steamId, valid.toSessionData())
-                return@withLock block(valid, client)
+                block(valid, client)
             } catch (e: Throwable) {
                 if (!isSessionInvalid(e)) throw e
-                val refreshed = refreshOrRelogin(context, valid)
+                val refreshed = refreshOrReloginUnlocked(context, valid)
                 val client = SteamHttpClient.create(context, refreshed.steamId)
                 AdmissionHelper.seedMobileSessionCookies(refreshed.steamId, refreshed.toSessionData())
-                return@withLock block(refreshed, client)
+                block(refreshed, client)
             }
         }
     }
 
     suspend fun ensureValid(context: Context, auth: ConfirmationAuthContext): ConfirmationAuthContext {
-        val session = readSessionOrAuth(context, auth) ?: return refreshOrRelogin(context, auth)
+        return SessionLocks.withLock(auth.steamId) {
+            ensureValidUnlocked(context, auth)
+        }
+    }
+
+    private suspend fun ensureValidUnlocked(
+        context: Context,
+        auth: ConfirmationAuthContext
+    ): ConfirmationAuthContext {
+        val session = readSessionOrAuth(context, auth) ?: return refreshOrReloginUnlocked(context, auth)
         val token = runCatching { SteamTokenHelper.parse(session.accessToken) }.getOrNull()
         val expired = token?.expiresAtMs?.let { System.currentTimeMillis() >= (it - 5 * 60 * 1000L) } ?: false
         return if (!expired) {
@@ -45,7 +49,7 @@ object SessionHandler {
                 accessToken = session.accessToken
             )
         } else {
-            refreshOrRelogin(
+            refreshOrReloginUnlocked(
                 context,
                 auth.copy(
                     sessionId = session.sessionId,
@@ -62,6 +66,16 @@ object SessionHandler {
         auth: ConfirmationAuthContext,
         password: String
     ): ConfirmationAuthContext {
+        return SessionLocks.withLock(auth.steamId) {
+            loginAgainUnlocked(context, auth, password)
+        }
+    }
+
+    private suspend fun loginAgainUnlocked(
+        context: Context,
+        auth: ConfirmationAuthContext,
+        password: String
+    ): ConfirmationAuthContext {
         val result = LoginV2Executor(context, auth.steamId).login(auth.accountName, password, auth.sharedSecret)
         val sessionData = SteamSessionData(
             steamId = result.steamId,
@@ -71,7 +85,7 @@ object SessionHandler {
             refreshToken = result.refreshToken,
             accessToken = result.accessToken
         )
-        MafileRepository(context).writeSession(sessionData)
+        MafileRepository(context).writeSessionUnlocked(sessionData)
         AdmissionHelper.seedMobileSessionCookies(result.steamId, sessionData)
         return auth.copy(
             steamId = result.steamId,
@@ -82,22 +96,22 @@ object SessionHandler {
         )
     }
 
-    private suspend fun refreshOrRelogin(
+    private suspend fun refreshOrReloginUnlocked(
         context: Context,
         auth: ConfirmationAuthContext
     ): ConfirmationAuthContext {
         if (auth.refreshToken.isNotBlank()) {
-            val refreshed = runCatching { refreshWithJwt(context, auth) }.getOrNull()
+            val refreshed = runCatching { refreshWithJwtUnlocked(context, auth) }.getOrNull()
             if (refreshed != null) return refreshed
         }
         val password = if (auth.accountName.isBlank()) null else PasswordManager.getPassword(context, auth.accountName)
         if (!password.isNullOrBlank()) {
-            return loginAgain(context, auth, password)
+            return loginAgainUnlocked(context, auth, password)
         }
         throw NeedPasswordException(auth.accountName)
     }
 
-    private suspend fun refreshWithJwt(context: Context, auth: ConfirmationAuthContext): ConfirmationAuthContext {
+    private suspend fun refreshWithJwtUnlocked(context: Context, auth: ConfirmationAuthContext): ConfirmationAuthContext {
         val client = SteamHttpClient.create(context, auth.steamId)
         val protoClient = SteamProtoClient(client)
         val accessToken = SteamMobileApi.refreshJwt(protoClient, auth.refreshToken, auth.steamId)
@@ -106,7 +120,7 @@ object SessionHandler {
             steamLoginSecure = steamLoginSecure,
             accessToken = accessToken
         )
-        MafileRepository(context).writeSession(sessionData)
+        MafileRepository(context).writeSessionUnlocked(sessionData)
         AdmissionHelper.seedMobileSessionCookies(auth.steamId, sessionData)
         return auth.copy(
             steamLoginSecure = steamLoginSecure,

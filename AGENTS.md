@@ -50,7 +50,7 @@ app; to test it directly on Linux, link a small harness against `libmsda_core.a`
 ```bash
 cd AndroidCppApp/packaging
 gradle assembleDebug --no-daemon
-# -> app/build/outputs/apk/debug/MSDA-1.3.0.apk
+# -> app/build/outputs/apk/debug/MSDA-<app.version.name>.apk
 ```
 
 Rebuilding `libmsda_android.so` for arm64 (only needed when native C++ changes must ship in

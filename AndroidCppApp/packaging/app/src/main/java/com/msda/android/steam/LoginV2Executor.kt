@@ -10,6 +10,8 @@ import okhttp3.FormBody
 
 import org.json.JSONObject
 
+import java.net.URI
+
 import java.util.regex.Pattern
 
 
@@ -402,13 +404,17 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
 
         if (transferInfo != null) {
 
+            // These POSTs carry the refresh token; never follow a redirect that could
+            // send it to a host outside the allowlist.
+            val transferClient = client.newBuilder().followRedirects(false).build()
+
             for (i in 0 until transferInfo.length()) {
 
                 val transfer = transferInfo.optJSONObject(i) ?: continue
 
                 val url = transfer.optString("url")
 
-                if (url.isBlank()) continue
+                if (url.isBlank() || !isAllowedTransferUrl(url)) continue
 
                 val params = transfer.optJSONObject("params") ?: transfer.optJSONObject("transfer_info_params")
 
@@ -424,7 +430,7 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
 
                     .build()
 
-                val response = client.newCall(SteamHttpClient.newRequest(url).post(body).build()).execute()
+                val response = transferClient.newCall(SteamHttpClient.newRequest(url).post(body).build()).execute()
 
                 if (loginSecureCookie.isNullOrBlank()) {
 
@@ -534,6 +540,16 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
         private const val GUARD_DEVICE_CODE = 3
 
         private const val GUARD_DEVICE_CONFIRMATION = 4
+
+        private val ALLOWED_TRANSFER_HOSTS = listOf("steampowered.com", "steamcommunity.com")
+
+        /** Only HTTPS URLs on an allowed Steam host may receive the refresh-token nonce. */
+        fun isAllowedTransferUrl(url: String): Boolean {
+            val uri = runCatching { URI(url) }.getOrNull() ?: return false
+            if (!uri.scheme.equals("https", ignoreCase = true)) return false
+            val host = uri.host?.lowercase() ?: return false
+            return ALLOWED_TRANSFER_HOSTS.any { AdmissionHelper.cookieDomainMatches(host, it) }
+        }
 
     }
 

@@ -1,8 +1,10 @@
 package com.msda.android.steam
 
+import okhttp3.HttpUrl
 import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -154,5 +156,61 @@ class SteamHelpersTest {
         assertNull(extractEResult(null, proto))
         assertEquals(63, extractEResult(null, """{"eresult":63}""".toByteArray()))
         assertEquals(2, extractEResult(null, """{"result":2}""".toByteArray()))
+    }
+
+    @Test
+    fun cookieDomainMatches_acceptsExactHostAndSubdomain() {
+        assertTrue(AdmissionHelper.cookieDomainMatches("steamcommunity.com", "steamcommunity.com"))
+        assertTrue(AdmissionHelper.cookieDomainMatches("login.steamcommunity.com", "steamcommunity.com"))
+        assertTrue(AdmissionHelper.cookieDomainMatches("www.steampowered.com", "steampowered.com"))
+        assertTrue(AdmissionHelper.cookieDomainMatches("steamcommunity.com", ".steamcommunity.com"))
+    }
+
+    @Test
+    fun cookieDomainMatches_rejectsSuffixAttackHosts() {
+        assertFalse(AdmissionHelper.cookieDomainMatches("evilsteamcommunity.com", "steamcommunity.com"))
+        assertFalse(AdmissionHelper.cookieDomainMatches("notsteamcommunity.com", "steamcommunity.com"))
+        assertFalse(AdmissionHelper.cookieDomainMatches("steampowered.com.evil.example", "steampowered.com"))
+    }
+
+    @Test
+    fun perAccountCookieJar_doesNotAttachCookiesToSuffixAttackHost() {
+        val steamId = "76561198000000000"
+        AdmissionHelper.clear(steamId)
+        AdmissionHelper.seedMobileSessionCookies(
+            steamId,
+            SteamSessionData(
+                steamId = steamId,
+                accountName = "tester",
+                sessionId = "session-id",
+                steamLoginSecure = "login-secure",
+                refreshToken = "refresh-token",
+                accessToken = "access-token"
+            )
+        )
+        val jar = AdmissionHelper.PerAccountCookieJar(steamId)
+
+        val legit = HttpUrl.Builder().scheme("https").host("login.steamcommunity.com").build()
+        assertTrue(jar.loadForRequest(legit).any { it.name == "steamLoginSecure" })
+
+        val attacker = HttpUrl.Builder().scheme("https").host("evilsteamcommunity.com").build()
+        assertTrue(jar.loadForRequest(attacker).isEmpty())
+
+        AdmissionHelper.clear(steamId)
+    }
+
+    @Test
+    fun isAllowedTransferUrl_acceptsSteamHttpsHosts() {
+        assertTrue(LoginV2Executor.isAllowedTransferUrl("https://login.steampowered.com/jwt/setcookie"))
+        assertTrue(LoginV2Executor.isAllowedTransferUrl("https://steamcommunity.com/mobileconf"))
+    }
+
+    @Test
+    fun isAllowedTransferUrl_rejectsOffHostAndNonHttpsUrls() {
+        assertFalse(LoginV2Executor.isAllowedTransferUrl("http://login.steampowered.com/jwt/setcookie"))
+        assertFalse(LoginV2Executor.isAllowedTransferUrl("https://evilsteamcommunity.com/steal"))
+        assertFalse(LoginV2Executor.isAllowedTransferUrl("https://steampowered.com.evil.example/steal"))
+        assertFalse(LoginV2Executor.isAllowedTransferUrl("https://steampowered.com@evil.example/steal"))
+        assertFalse(LoginV2Executor.isAllowedTransferUrl("not a url"))
     }
 }

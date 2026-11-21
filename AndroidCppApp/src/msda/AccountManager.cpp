@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -141,7 +142,10 @@ std::vector<std::uint8_t> decodeBase64(const std::string& value) {
     }
 
     std::vector<std::uint8_t> out;
-    int buffer = 0;
+    // Accumulate in an unsigned type and mask off consumed high bits. A signed
+    // left shift that overflows is undefined behaviour; a ~28-char Steam secret
+    // used to shift ~168 bits into a 32-bit int.
+    std::uint32_t buffer = 0;
     int bits = 0;
 
     for (char ch : value) {
@@ -158,7 +162,7 @@ std::vector<std::uint8_t> decodeBase64(const std::string& value) {
             return {};
         }
 
-        buffer = (buffer << 6) | v;
+        buffer = ((buffer << 6) | static_cast<std::uint32_t>(v)) & 0xFFFFu;
         bits += 6;
 
         if (bits >= 8) {
@@ -178,7 +182,10 @@ std::string generateSteamGuardCode(const std::string& sharedSecret, std::uint64_
     static const std::string codeChars = "23456789BCDFGHJKMNPQRTVWXY";
 
     const auto key = decodeBase64(sharedSecret);
-    if (key.empty()) {
+    // Steam shared secrets decode to exactly 20 bytes. Reject truncated,
+    // corrupt, or otherwise malformed secrets instead of silently deriving a
+    // well-formed but incorrect code from a bad-length key.
+    if (key.size() != 20) {
         return {};
     }
 
@@ -216,61 +223,88 @@ namespace msda {
 bool AccountManager::importFromFolder(const std::string& folderPath) {
     namespace fs = std::filesystem;
 
-    // Remember which account was active so a background re-import does not
-    // silently switch the foreground UI to a different account.
-    std::string previousActiveSteamId;
-    if (_activeIndex < _accounts.size()) {
-        previousActiveSteamId = _accounts[_activeIndex].steamId;
-    }
+    try {
+        // Remember which account was active so a background re-import does not
+        // silently switch the foreground UI to a different account.
+        std::string previousActiveSteamId;
+        if (_activeIndex < _accounts.size()) {
+            previousActiveSteamId = _accounts[_activeIndex].steamId;
+        }
 
-    _accounts.clear();
-    _activeIndex = static_cast<std::size_t>(-1);
+        // Validate the input before touching any live state. A failed re-import
+        // (bad path, transient unmount, stale background-worker path) must never
+        // discard the accounts or refreshed session tokens already in memory.
+        std::error_code ec;
+        const auto status = fs::status(folderPath, ec);
+        if (ec || !fs::exists(status) || !fs::is_directory(status)) {
+            return false;
+        }
+        const auto readBits = fs::perms::owner_read | fs::perms::group_read | fs::perms::others_read;
+        if ((status.permissions() & readBits) == fs::perms::none) {
+            return false;
+        }
 
-    std::error_code ec;
-    if (!fs::exists(folderPath, ec) || !fs::is_directory(folderPath, ec)) {
-        return false;
-    }
+        // Parse into a local vector and commit only on success, so a failed or
+        // partially scanned folder never alters live state.
+        std::vector<MafileAccount> local;
+        std::set<std::string> unique;
 
-    std::set<std::string> unique;
-
-    for (const auto& entry : fs::recursive_directory_iterator(folderPath, ec)) {
+        // Use the non-throwing iterator API throughout. A range-based for would
+        // call the throwing operator++() on every step, so a subdirectory that
+        // disappears or cannot be read would throw std::filesystem_error here.
+        fs::recursive_directory_iterator it(folderPath, ec);
         if (ec) {
-            break;
+            return false;
+        }
+        const fs::recursive_directory_iterator end;
+        while (!ec && it != end) {
+            const auto& entry = *it;
+            // A per-entry status error only skips that entry. The outer `ec` is
+            // reserved for walk-level failures, which stop the walk below.
+            std::error_code fileEc;
+            if (entry.is_regular_file(fileEc)) {
+                const auto path = entry.path().string();
+                if (isMafilePath(path)) {
+                    auto parsed = MafileParser::parseFile(path);
+                    if (parsed.has_value()) {
+                        const auto key = parsed->accountName + "#" + parsed->steamId;
+                        if (unique.insert(key).second) {
+                            local.push_back(std::move(parsed.value()));
+                        }
+                    }
+                }
+            }
+            if (!ec) {
+                it.increment(ec);
+            }
         }
 
-        if (!entry.is_regular_file(ec)) {
-            continue;
-        }
+        // Atomic commit: only now replace live state. Pre-validation failed
+        // paths returned earlier, so existing accounts/session tokens are kept.
+        // A walk-level iteration error simply stops the scan (no exception
+        // escapes); the accounts successfully parsed so far are still committed.
+        _accounts.swap(local);
+        _activeIndex = static_cast<std::size_t>(-1);
 
-        const auto path = entry.path().string();
-        if (!isMafilePath(path)) {
-            continue;
-        }
-
-        auto parsed = MafileParser::parseFile(path);
-        if (!parsed.has_value()) {
-            continue;
-        }
-
-        const auto key = parsed->accountName + "#" + parsed->steamId;
-        if (unique.insert(key).second) {
-            _accounts.push_back(std::move(parsed.value()));
-        }
-    }
-
-    if (!_accounts.empty()) {
-        _activeIndex = 0;
-        if (!previousActiveSteamId.empty()) {
-            for (std::size_t i = 0; i < _accounts.size(); ++i) {
-                if (_accounts[i].steamId == previousActiveSteamId) {
-                    _activeIndex = i;
-                    break;
+        if (!_accounts.empty()) {
+            _activeIndex = 0;
+            if (!previousActiveSteamId.empty()) {
+                for (std::size_t i = 0; i < _accounts.size(); ++i) {
+                    if (_accounts[i].steamId == previousActiveSteamId) {
+                        _activeIndex = i;
+                        break;
+                    }
                 }
             }
         }
-    }
 
-    return true;
+        return true;
+    } catch (const std::exception&) {
+        // Defense in depth: never let an exception escape into the JNI bridge.
+        return false;
+    } catch (...) {
+        return false;
+    }
 }
 
 bool AccountManager::setActiveIndex(std::size_t index) {
@@ -325,10 +359,27 @@ std::string AccountManager::codeForSteamId(const std::string& steamId) const {
     return generateSteamGuardCode(account->sharedSecret, now);
 }
 
-int AccountManager::secondsToNextCode() const {
+namespace {
+
+int secondsRemainingInCodeWindow() {
     const auto now = static_cast<std::uint64_t>(std::time(nullptr));
     const int remaining = static_cast<int>(30ULL - (now % 30ULL));
     return remaining <= 0 ? 30 : remaining;
+}
+
+} // anonymous namespace (code-window timing)
+
+int AccountManager::secondsToNextCode() const {
+    return secondsRemainingInCodeWindow();
+}
+
+int AccountManager::secondsToNextCodeForSteamId(const std::string& steamId) const {
+    // Validate the account so a stale/unknown Steam ID never shows a live countdown,
+    // but derive the value solely from the wall clock — never from the active index.
+    if (accountForSteamId(steamId) == nullptr) {
+        return -1;
+    }
+    return secondsRemainingInCodeWindow();
 }
 
 bool AccountManager::isMafilePath(const std::string& path) {
@@ -595,9 +646,19 @@ bool msda::AccountManager::updateMafileSessionTokens(const std::string& steamId,
         std::ofstream out(tmpPath, std::ios::binary);
         if (!out.is_open()) return false;
         out << content;
-        out.close();
-
+        out.flush();
         std::error_code ec;
+        if (!out.good()) {
+            out.close();
+            std::filesystem::remove(tmpPath, ec);
+            return false;
+        }
+        out.close();
+        if (!out) {
+            std::filesystem::remove(tmpPath, ec);
+            return false;
+        }
+
         std::filesystem::rename(tmpPath, account.sourcePath, ec);
         if (ec) {
             std::filesystem::remove(tmpPath, ec);
