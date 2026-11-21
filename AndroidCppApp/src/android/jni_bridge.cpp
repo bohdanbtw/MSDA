@@ -261,9 +261,17 @@ Java_com_msda_android_NativeBridge_getSecondsToNextCodeForSteamId(
     jobject /*thiz*/,
     jstring steamId) {
 
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (steamId == nullptr) return static_cast<jint>(-1);
-    return static_cast<jint>(g_manager.secondsToNextCodeForSteamId(jstringToStd(env, steamId)));
+    try {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (steamId == nullptr) return static_cast<jint>(-1);
+        return static_cast<jint>(g_manager.secondsToNextCodeForSteamId(jstringToStd(env, steamId)));
+    } catch (const std::exception& e) {
+        logJniException("getSecondsToNextCodeForSteamId", e.what());
+        return static_cast<jint>(-1);
+    } catch (...) {
+        logJniException("getSecondsToNextCodeForSteamId", "unknown exception");
+        return static_cast<jint>(-1);
+    }
 }
 
 extern "C" JNIEXPORT jboolean JNICALL

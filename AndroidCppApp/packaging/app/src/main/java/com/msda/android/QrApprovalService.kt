@@ -36,26 +36,31 @@ object QrApprovalService {
 
         val effectiveAuth = resolveAuthForQr(context, auth)
             ?: return QrApprovalResult(false, ERROR_TOKEN_MISSING)
-        val accessToken = extractAccessToken(effectiveAuth)
-            ?: return QrApprovalResult(false, ERROR_TOKEN_MISSING)
+        // Validate up-front, but do NOT use this token for the API calls or the
+        // final write: SessionHandler.handle may rotate it while holding the lock.
+        if (extractAccessToken(effectiveAuth) == null) {
+            return QrApprovalResult(false, ERROR_TOKEN_MISSING)
+        }
 
         return try {
             SessionHandler.handle(context, effectiveAuth) { renewed, client ->
+                val renewedAccessToken = extractAccessToken(renewed)
+                    ?: return@handle QrApprovalResult(false, ERROR_TOKEN_MISSING)
                 val proto = SteamProtoClient(client)
                 val qrClientId = extractClientIdFromText(scannedText)
                 val sessionIds = if (qrClientId != null) {
                     listOf(qrClientId)
                 } else {
-                    getPendingAuthSessionIds(proto, accessToken)
+                    getPendingAuthSessionIds(proto, renewedAccessToken)
                 }
                 if (sessionIds.isEmpty()) return@handle QrApprovalResult(false, ERROR_NO_REQUESTS)
                 if (sessionIds.size > 1) return@handle QrApprovalResult(false, ERROR_MULTIPLE_REQUESTS)
                 if (renewed.sharedSecret.isBlank()) return@handle QrApprovalResult(false, ERROR_TOKEN_MISSING)
 
                 val clientId = sessionIds.single()
-                getAuthSessionInfo(proto, accessToken, clientId)
-                approveAuthSession(proto, renewed, accessToken, clientId)
-                syncSessionAfterQrApproval(context, renewed, accessToken)
+                getAuthSessionInfo(proto, renewedAccessToken, clientId)
+                approveAuthSession(proto, renewed, renewedAccessToken, clientId)
+                syncSessionAfterQrApproval(context, renewed, renewedAccessToken)
                 QrApprovalResult(true)
             }
         } catch (ex: Throwable) {

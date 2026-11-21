@@ -14,9 +14,42 @@ import java.util.Base64
 class SteamHelpersTest {
     @Test
     fun steamGuardCode_isDeterministicForKnownVector() {
-        val secret = "AQQBAgMEBQYHCAkKCwwNDg8QERITFBUW"
-        assertEquals("35J23", SteamGuardCodeGenerator.generateFromSharedSecret(secret, 1_700_000_000))
-        assertEquals("QN6GR", SteamGuardCodeGenerator.generateFromSharedSecret(secret, 1_700_000_030))
+        // 20-byte decoded secret, matching the native generator's KAT vectors.
+        val secret = "AQQBAgMEBQYHCAkKCwwNDg8QERI="
+        assertEquals("7F4NB", SteamGuardCodeGenerator.generateFromSharedSecret(secret, 1_700_000_000))
+        assertEquals("27R6B", SteamGuardCodeGenerator.generateFromSharedSecret(secret, 1_700_000_030))
+    }
+
+    @Test
+    fun steamGuardCode_rejectsSecretsThatAreNotTwentyBytes() {
+        assertEquals("", SteamGuardCodeGenerator.generateFromSharedSecret("AQQBAgMEBQYHCAkKCwwNDg8QERITFBUW", 1_700_000_000))
+        assertEquals("", SteamGuardCodeGenerator.generateFromSharedSecret("AQID", 1_700_000_000))
+        assertEquals("", SteamGuardCodeGenerator.generateFromSharedSecret("!!!not-base64!!!", 1_700_000_000))
+    }
+
+    @Test
+    fun errorSanitizer_redactsTokensJwtsAndCookies() {
+        val raw = "HTTP 401: {\"access_token\":\"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig\"," +
+            "\"refresh_token\":\"refresh_secret_value\",\"message\":\"denied\"} " +
+            "; steamLoginSecure=76561198%7C%7Cjwt; sessionid=abc123"
+        val safe = ErrorSanitizer.redact(raw)
+
+        assertFalse(safe.contains("eyJhbGciOiJIUzI1NiJ9"))
+        assertFalse(safe.contains("refresh_secret_value"))
+        assertFalse(safe.contains("jwt"))
+        assertFalse(safe.contains("abc123"))
+        assertTrue(safe.contains("denied"))
+    }
+
+    @Test
+    fun errorSanitizer_previewRedactsAndTruncatesRawBodies() {
+        val raw = "{\"access_token\":\"eyJhbGciOiJIUzI1NiJ9.payload.signature\",\"padding\":\"" +
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}"
+        val preview = ErrorSanitizer.preview(raw, 60)
+
+        assertFalse(preview.contains("eyJhbGciOiJIUzI1NiJ9"))
+        assertFalse(preview.contains("AAAAAAAA"))
+        assertTrue(preview.length <= 64)
     }
 
     @Test

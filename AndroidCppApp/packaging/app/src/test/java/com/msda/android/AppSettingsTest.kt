@@ -7,6 +7,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppSettingsTest {
+    /**
+     * Local JVM tests have no Android Keystore, so PasswordManager.encrypt() fails
+     * closed (returns null) and AppSettings never writes the proxy password. Assert
+     * that no SharedPreferences value contains the submitted secret in plaintext.
+     */
+    private fun assertNoPlaintextPersisted(context: TestContext, secret: String) {
+        if (secret.isEmpty()) return
+        context.prefs.all.values.filterIsInstance<String>().forEach { value ->
+            assertFalse("Plaintext password was persisted: $value", value == secret || value.contains(secret))
+        }
+    }
+
     @Test
     fun isValidPin_acceptsOnlyFourDigits() {
         assertTrue(AppSettings.isValidPin("1234"))
@@ -96,10 +108,16 @@ class AppSettingsTest {
             )
         )
 
-        assertEquals(
-            AccountProxyConfig(true, "socks", "proxy.example.com", 1080, "user", "secret"),
-            AppSettings.getAccountProxyConfig(context, steamId)
-        )
+        val stored = AppSettings.getAccountProxyConfig(context, steamId)
+        assertEquals(true, stored.enabled)
+        assertEquals("socks", stored.type)
+        assertEquals("proxy.example.com", stored.host)
+        assertEquals(1080, stored.port)
+        assertEquals("user", stored.username)
+        // No Keystore in local JVM tests -> encryption fails closed and the
+        // password is not persisted. It must never read back as plaintext.
+        assertEquals("", stored.password)
+        assertNoPlaintextPersisted(context, "secret")
 
         AppSettings.setAccountProxyConfig(
             context, steamId,
@@ -128,10 +146,15 @@ class AppSettingsTest {
             context,
             AccountProxyConfig(true, "socks", " default.example ", 9050, " user ", "pw")
         )
-        assertEquals(
-            AccountProxyConfig(true, "socks", "default.example", 9050, "user", "pw"),
-            AppSettings.getDefaultProxyConfig(context)
-        )
+        val stored = AppSettings.getDefaultProxyConfig(context)
+        assertEquals(true, stored.enabled)
+        assertEquals("socks", stored.type)
+        assertEquals("default.example", stored.host)
+        assertEquals(9050, stored.port)
+        assertEquals("user", stored.username)
+        // No Keystore in local JVM tests -> password is not persisted; never plaintext.
+        assertEquals("", stored.password)
+        assertNoPlaintextPersisted(context, "pw")
 
         AppSettings.clearDefaultProxyConfig(context)
         assertEquals(AccountProxyConfig(false, "http", "", 0, "", ""), AppSettings.getDefaultProxyConfig(context))
@@ -143,23 +166,26 @@ class AppSettingsTest {
         val steamId = "76561198000000000"
         val default = AccountProxyConfig(true, "http", "default.example", 8080, "d", "dp")
         AppSettings.setDefaultProxyConfig(context, default)
+        // No Keystore in local JVM tests -> passwords are not persisted, so any
+        // stored config reads back with an empty password.
+        val expectedDefault = default.copy(password = "")
 
         // No per-account config -> default.
-        assertEquals(default, AppSettings.resolveProxyConfig(context, steamId))
+        assertEquals(expectedDefault, AppSettings.resolveProxyConfig(context, steamId))
 
         // Valid per-account config wins.
         val account = AccountProxyConfig(true, "socks", "account.example", 1080, "a", "ap")
         AppSettings.setAccountProxyConfig(context, steamId, account)
-        assertEquals(account, AppSettings.resolveProxyConfig(context, steamId))
+        assertEquals(account.copy(password = ""), AppSettings.resolveProxyConfig(context, steamId))
 
         // Disabled per-account config falls back to default.
         AppSettings.setAccountProxyConfig(context, steamId, account.copy(enabled = false))
-        assertEquals(default, AppSettings.resolveProxyConfig(context, steamId))
+        assertEquals(expectedDefault, AppSettings.resolveProxyConfig(context, steamId))
 
         // Enabled but incomplete per-account config also falls back to default.
         AppSettings.setAccountProxyConfig(context, steamId, account.copy(host = "  "))
-        assertEquals(default, AppSettings.resolveProxyConfig(context, steamId))
+        assertEquals(expectedDefault, AppSettings.resolveProxyConfig(context, steamId))
         AppSettings.setAccountProxyConfig(context, steamId, account.copy(port = 0))
-        assertEquals(default, AppSettings.resolveProxyConfig(context, steamId))
+        assertEquals(expectedDefault, AppSettings.resolveProxyConfig(context, steamId))
     }
 }

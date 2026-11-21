@@ -150,8 +150,17 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
         }
 
         fun requestUpdateAll(context: Context) {
+            // super.onReceive() only dispatches onUpdate when APPWIDGET_UPDATE carries
+            // EXTRA_APPWIDGET_IDS. Without them the broadcast is a no-op, so include the
+            // currently attached widget IDs to make every refresh call site effective.
+            // No 1-second tick and no direct onUpdate() call: the receiver routes this
+            // single broadcast through onUpdate() exactly once.
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, Code2FAWidgetProvider::class.java))
+            if (ids.isEmpty()) return
             val intent = Intent(context, Code2FAWidgetProvider::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
             }
             context.sendBroadcast(intent)
         }
@@ -178,12 +187,14 @@ class Code2FAWidgetProvider : AppWidgetProvider() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                     !alarmManager.canScheduleExactAlarms()
                 ) {
-                    alarmManager.setInexactRealtime(AlarmManager.ELAPSED_REALTIME, triggerAt, pending)
+                    // set() with ELAPSED_REALTIME is inexact and non-waking: the intended
+                    // fallback whenever exact alarms are not permitted.
+                    alarmManager.set(AlarmManager.ELAPSED_REALTIME, triggerAt, pending)
                 } else {
                     alarmManager.setExact(AlarmManager.ELAPSED_REALTIME, triggerAt, pending)
                 }
             } catch (_: SecurityException) {
-                alarmManager.setInexactRealtime(AlarmManager.ELAPSED_REALTIME, triggerAt, pending)
+                alarmManager.set(AlarmManager.ELAPSED_REALTIME, triggerAt, pending)
             } catch (_: Throwable) {
             }
         }

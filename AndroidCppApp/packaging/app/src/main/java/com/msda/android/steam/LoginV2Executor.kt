@@ -249,7 +249,9 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
                 ""
             }
             val eResultSuffix = protoClient.lastEResult?.let { " (eResult=$it)" }.orEmpty()
-            val message = decoded.extendedErrorMessage.ifBlank { "BeginAuthSession failed" }
+            // extended_error_message is server-controlled and may echo credentials.
+            val message = ErrorSanitizer.redact(decoded.extendedErrorMessage)
+                .ifBlank { "BeginAuthSession failed" }
             throw IllegalStateException("$message$eResultSuffix.$rsaHint")
 
         }
@@ -372,7 +374,7 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
 
     ): SteamSessionData {
 
-        val finalizeBody = FormBody.Builder()
+        val finalizeFormBody = FormBody.Builder()
 
             .add("nonce", refreshToken)
 
@@ -382,13 +384,16 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
 
         val finalizeRequest = SteamHttpClient.newRequest("https://login.steampowered.com/jwt/finalizelogin")
 
-            .post(finalizeBody)
+            .post(finalizeFormBody)
 
             .build()
 
         val finalizeResponse = client.newCall(finalizeRequest).execute()
 
-        val finalizeJson = JSONObject(finalizeResponse.body?.string().orEmpty())
+        val finalizeBody = finalizeResponse.body?.string().orEmpty()
+        val finalizeJson = runCatching { JSONObject(finalizeBody) }.getOrElse {
+            throw IllegalStateException("Finalize login returned an invalid response: ${ErrorSanitizer.preview(finalizeBody)}")
+        }
 
         val transferInfo = finalizeJson.optJSONArray("transfer_info")
 

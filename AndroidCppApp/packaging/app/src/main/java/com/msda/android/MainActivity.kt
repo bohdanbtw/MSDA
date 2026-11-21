@@ -23,6 +23,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.lifecycle.lifecycleScope
 import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -30,8 +31,8 @@ import com.msda.android.steam.AdmissionHelper
 import com.msda.android.steam.AuthContextMerger
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.MafileRepository
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -139,7 +140,6 @@ class MainActivity : BaseLockActivity() {
         refreshCodeViews()
         updateActiveAuthContext()
         refreshProxyIndicatorAsync()
-        BackgroundSyncScheduler.disable(this)
         renderBundles(emptyList())
 
         txtCode.setOnClickListener {
@@ -246,7 +246,7 @@ class MainActivity : BaseLockActivity() {
         }
 
         val clipboard = getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("MSDA 2FA Code", code))
+        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), code))
         Toast.makeText(this, getString(R.string.code_copied), Toast.LENGTH_LONG).show()
     }
 
@@ -291,9 +291,10 @@ class MainActivity : BaseLockActivity() {
         setAuthenticatingUi(true)
         txtStatus.text = getString(R.string.status_qr_authorizing)
 
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val result = QrApprovalService.approveLoginRequest(this@MainActivity, auth, scannedText)
             withContext(Dispatchers.Main) {
+                if (isFinishing || isDestroyed) return@withContext
                 steamLoginInProgress = false
                 setAuthenticatingUi(false)
                 if (result.success) {
@@ -478,7 +479,7 @@ class MainActivity : BaseLockActivity() {
 
             val tempExportDir = File(cacheDir, "export_temp_${System.currentTimeMillis()}")
             if (!tempExportDir.mkdirs()) {
-                txtStatus.text = "Failed to create export directory"
+                txtStatus.text = getString(R.string.export_dir_failed)
                 return
             }
 
@@ -504,7 +505,7 @@ class MainActivity : BaseLockActivity() {
                 tempExportDir.deleteRecursively()
             }
         } catch (ex: Exception) {
-            txtStatus.text = "Export error: ${ex.message}"
+            txtStatus.text = getString(R.string.export_error, ex.message.orEmpty())
         }
     }
 
@@ -613,29 +614,34 @@ class MainActivity : BaseLockActivity() {
                     return@showPasswordDialog
                 }
 
-                SessionPersistence.saveSession(
-                    this,
-                    steamId,
-                    StoredSteamSession(
-                        steamLoginSecure = loginSecure,
-                        sessionId = sessionId,
-                        refreshToken = result.refreshToken.orEmpty(),
-                        accessToken = result.accessToken.orEmpty(),
-                        accountName = auth.accountName,
-                        sessionExpiresAtMs = result.sessionExpiresAtMs
+                lifecycleScope.launch(Dispatchers.IO) {
+                    SessionPersistence.saveSession(
+                        this@MainActivity,
+                        steamId,
+                        StoredSteamSession(
+                            steamLoginSecure = loginSecure,
+                            sessionId = sessionId,
+                            refreshToken = result.refreshToken.orEmpty(),
+                            accessToken = result.accessToken.orEmpty(),
+                            accountName = auth.accountName,
+                            sessionExpiresAtMs = result.sessionExpiresAtMs
+                        )
                     )
-                )
 
-                activeAuthContext = auth.copy(
-                    steamId = steamId,
-                    sessionId = sessionId,
-                    steamLoginSecure = loginSecure,
-                    refreshToken = result.refreshToken.orEmpty(),
-                    accessToken = result.accessToken.orEmpty()
-                )
-                currentSteamId = steamId
-                lastLoginSuccessAtMs = System.currentTimeMillis()
-                txtStatus.text = getString(R.string.status_login_saved)
+                    withContext(Dispatchers.Main) {
+                        if (isFinishing || isDestroyed) return@withContext
+                        activeAuthContext = auth.copy(
+                            steamId = steamId,
+                            sessionId = sessionId,
+                            steamLoginSecure = loginSecure,
+                            refreshToken = result.refreshToken.orEmpty(),
+                            accessToken = result.accessToken.orEmpty()
+                        )
+                        currentSteamId = steamId
+                        lastLoginSuccessAtMs = System.currentTimeMillis()
+                        txtStatus.text = getString(R.string.status_login_saved)
+                    }
+                }
             },
             onProgress = { progressText ->
                 txtAuthProgress.text = progressText
@@ -723,7 +729,7 @@ class MainActivity : BaseLockActivity() {
         updateActiveAuthContext()
         val auth = activeAuthContext
 
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             var effectiveAuth = auth
 
             if (auth != null && MafileImportHelper.canSilentRenew(this@MainActivity, auth)) {
@@ -731,6 +737,7 @@ class MainActivity : BaseLockActivity() {
                 if (renewed != null) {
                     effectiveAuth = renewed
                     withContext(Dispatchers.Main) {
+                        if (isFinishing || isDestroyed) return@withContext
                         activeAuthContext = renewed
                         lastLoginSuccessAtMs = System.currentTimeMillis()
                     }
@@ -738,6 +745,7 @@ class MainActivity : BaseLockActivity() {
             }
 
             withContext(Dispatchers.Main) {
+                if (isFinishing || isDestroyed) return@withContext
                 when {
                     effectiveAuth != null && MafileImportHelper.hasUsableSession(effectiveAuth) -> {
                         txtStatus.text = getString(R.string.status_login_saved)
@@ -794,9 +802,9 @@ class MainActivity : BaseLockActivity() {
             return
         }
 
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             if (initialDelayMs > 0L) {
-                kotlinx.coroutines.delay(initialDelayMs)
+                delay(initialDelayMs)
             }
             val latestAuth = activeAuthContext ?: auth
             var workingAuth = latestAuth
@@ -812,8 +820,8 @@ class MainActivity : BaseLockActivity() {
                     }
                 )
             } catch (ex: NeedPasswordException) {
-                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    promptSteamLogin()
+                withContext(Dispatchers.Main) {
+                    if (!isFinishing && !isDestroyed) promptSteamLogin()
                 }
                 return@launch
             } catch (ex: Throwable) {
@@ -865,6 +873,7 @@ class MainActivity : BaseLockActivity() {
             }
 
             runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 if (error != null) {
                     txtStatus.text = getString(R.string.status_confirmation_load_failed, error)
                     return@runOnUiThread
@@ -1027,7 +1036,11 @@ class MainActivity : BaseLockActivity() {
             Thread {
                 try {
                     val bmp = BitmapFactory.decodeStream(URL(item.iconUrl).openStream())
-                    runOnUiThread { icon.setImageBitmap(bmp) }
+                    runOnUiThread {
+                        if (!isFinishing && !isDestroyed && icon.isAttachedToWindow) {
+                            icon.setImageBitmap(bmp)
+                        }
+                    }
                 } catch (_: Throwable) {
                 }
             }.start()
@@ -1079,7 +1092,7 @@ class MainActivity : BaseLockActivity() {
     private fun respondToBundle(bundle: ConfirmationBundle, accept: Boolean) {
         val auth = activeAuthContext ?: return
 
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val ok = try {
                 ConfirmationService.respondBundleWithRenew(
                     context = this@MainActivity,
@@ -1093,6 +1106,7 @@ class MainActivity : BaseLockActivity() {
             }
 
             runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 txtStatus.text = if (ok) {
                     if (accept) getString(R.string.status_confirmation_accepted) else getString(R.string.status_confirmation_declined)
                 } else {
@@ -1107,7 +1121,7 @@ class MainActivity : BaseLockActivity() {
     private fun respondToItem(item: ConfirmationItem, accept: Boolean) {
         val auth = activeAuthContext ?: return
 
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val ok = try {
                 ConfirmationService.respondItemWithRenew(
                     context = this@MainActivity,
@@ -1121,6 +1135,7 @@ class MainActivity : BaseLockActivity() {
             }
 
             runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 txtStatus.text = if (ok) {
                     if (accept) getString(R.string.status_confirmation_accepted) else getString(R.string.status_confirmation_declined)
                 } else {
@@ -1155,7 +1170,7 @@ class MainActivity : BaseLockActivity() {
         txtStatus.text = getString(R.string.confirm_all_in_progress)
         btnConfirmAll.isEnabled = false
 
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             var accepted = 0
             var total = 0
             var workingAuth = auth
@@ -1181,6 +1196,7 @@ class MainActivity : BaseLockActivity() {
             }
 
             runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 btnConfirmAll.isEnabled = true
                 txtStatus.text = getString(R.string.confirm_all_done, accepted, total)
                 refreshConfirmationsAsync()
@@ -1362,6 +1378,7 @@ class MainActivity : BaseLockActivity() {
         Thread {
             val result = ProxyChecker.check(config)
             runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 if (result.ok) {
                     val msg = if (!result.publicIp.isNullOrBlank()) {
                         getString(R.string.proxy_check_ok_with_ip, result.publicIp)
@@ -1406,6 +1423,7 @@ class MainActivity : BaseLockActivity() {
         Thread {
             val result = ProxyChecker.check(config)
             runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 proxyCheckInProgress = false
                 if (result.ok) {
                     val desc = if (!result.publicIp.isNullOrBlank()) {

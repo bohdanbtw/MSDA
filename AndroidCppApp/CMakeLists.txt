@@ -21,13 +21,6 @@ add_executable(msda_cli
 
 target_link_libraries(msda_cli PRIVATE msda_core)
 
-enable_testing()
-add_executable(msda_tests
-    tests/ImportTraversalTest.cpp
-)
-target_link_libraries(msda_tests PRIVATE msda_core)
-add_test(NAME import_traversal COMMAND msda_tests)
-
 if(ANDROID AND MSDA_BUILD_ANDROID_BRIDGE)
     add_library(msda_android SHARED
         src/android/jni_bridge.cpp
@@ -38,6 +31,12 @@ endif()
 
 if(MSDA_BUILD_TESTS AND NOT ANDROID)
     enable_testing()
+
+    add_executable(msda_tests
+        tests/ImportTraversalTest.cpp
+    )
+    target_link_libraries(msda_tests PRIVATE msda_core)
+    add_test(NAME import_traversal COMMAND msda_tests)
 
     # Known-answer tests for the file-local SHA-1/HMAC/Base64/TOTP helpers and the
     # JSON parser. The source includes the implementation files directly, so do

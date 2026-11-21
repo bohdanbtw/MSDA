@@ -12,33 +12,56 @@ class AccountDeletionHelperTest {
     private val bobId = "76561198000000001"
     private val bobbyId = "76561198000000002"
 
+    /** Legacy `index|name|steamId` wire format, still accepted for backwards compatibility. */
     private fun accountsRaw(): String = "0|bob|$bobId\n1|bobby|$bobbyId"
+
+    /** Current JSON wire format emitted by NativeBridge.getAccounts(). */
+    private fun accountsJson(): String =
+        "[{\"index\":0,\"accountName\":\"bob\",\"steamId\":\"$bobId\"}," +
+            "{\"index\":1,\"accountName\":\"bobby\",\"steamId\":\"$bobbyId\"}]"
 
     @Test
     fun parseAccounts_readsIndexNameAndSteamId() {
-        val entries = AccountDeletionHelper.parseAccounts("0|bob|$bobId")
-        assertEquals(1, entries.size)
-        assertEquals(0, entries[0].index)
-        assertEquals("bob", entries[0].name)
-        assertEquals(bobId, entries[0].steamId)
+        val legacyEntries = AccountDeletionHelper.parseAccounts("0|bob|$bobId")
+        assertEquals(1, legacyEntries.size)
+        assertEquals(0, legacyEntries[0].index)
+        assertEquals("bob", legacyEntries[0].name)
+        assertEquals(bobId, legacyEntries[0].steamId)
+
+        val jsonEntries = AccountDeletionHelper.parseAccounts(accountsJson())
+        assertEquals(2, jsonEntries.size)
+        assertEquals(0, jsonEntries[0].index)
+        assertEquals("bob", jsonEntries[0].name)
+        assertEquals(bobId, jsonEntries[0].steamId)
+        assertEquals(1, jsonEntries[1].index)
+        assertEquals("bobby", jsonEntries[1].name)
+        assertEquals(bobbyId, jsonEntries[1].steamId)
     }
 
     @Test
     fun resolveTargetSteamIds_matchesWholeNameNotSubstring() {
         assertEquals(listOf(bobId), AccountDeletionHelper.resolveTargetSteamIds(accountsRaw(), "bob"))
         assertEquals(listOf(bobbyId), AccountDeletionHelper.resolveTargetSteamIds(accountsRaw(), "BOBBY"))
+
+        assertEquals(listOf(bobId), AccountDeletionHelper.resolveTargetSteamIds(accountsJson(), "bob"))
+        assertEquals(listOf(bobbyId), AccountDeletionHelper.resolveTargetSteamIds(accountsJson(), "BOBBY"))
     }
 
     @Test
     fun resolveTargetSteamIds_ignoresMalformedLines() {
         val raw = "garbage\n0|bob\neve|bob|$bobId|extra\n1|bobby|$bobbyId"
-        assertEquals(listOf(bobbyId), AccountDeletionHelper.resolveTargetSteamIds(raw, "bob"))
+        // Only the well-formed row is accepted. "garbage" has no fields, "0|bob" is truncated,
+        // and "eve|bob|..." has a non-numeric index. The valid row belongs to "bobby", which
+        // must not be confused with "bob".
+        assertEquals(listOf(bobbyId), AccountDeletionHelper.resolveTargetSteamIds(raw, "bobby"))
+        assertEquals(emptyList<String>(), AccountDeletionHelper.resolveTargetSteamIds(raw, "bob"))
     }
 
     @Test
     fun resolveTargetSteamIds_unparseableFormat_returnsEmpty() {
         assertEquals(emptyList<String>(), AccountDeletionHelper.resolveTargetSteamIds("bob,bobby", "bob"))
         assertEquals(emptyList<String>(), AccountDeletionHelper.resolveTargetSteamIds("", "bob"))
+        assertEquals(emptyList<String>(), AccountDeletionHelper.resolveTargetSteamIds("not json {", "bob"))
     }
 
     @Test

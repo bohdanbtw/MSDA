@@ -42,7 +42,7 @@ class SteamProtoClient(
         val bodyBytes = response.body?.bytes() ?: byteArrayOf()
         if (!response.isSuccessful) {
             throw IllegalStateException(
-                "HTTP ${response.code}: ${previewBody(bodyBytes)}"
+                "HTTP ${response.code}: ${ErrorSanitizer.preview(bodyBytes)}"
             )
         }
 
@@ -57,7 +57,7 @@ class SteamProtoClient(
         }
         if (eResult == null && protoBytes.isEmpty()) {
             throw IllegalStateException(
-                "Steam API returned empty body without x-eresult header. ${previewBody(bodyBytes)}"
+                "Steam API returned empty body without x-eresult header. ${ErrorSanitizer.preview(bodyBytes)}"
             )
         }
 
@@ -66,7 +66,7 @@ class SteamProtoClient(
 
     private fun buildSteamFailureMessage(eResult: Int, rawBody: ByteArray, protoBytes: ByteArray): String {
         val base = steamErrorMessage(eResult)
-        val preview = previewBody(rawBody)
+        val preview = ErrorSanitizer.preview(rawBody)
         return if (protoBytes.isEmpty()) {
             "$base (eResult=$eResult). $preview"
         } else {
@@ -90,12 +90,6 @@ class SteamProtoClient(
         }
     }
 
-    private fun previewBody(body: ByteArray, maxLen: Int = 160): String {
-        if (body.isEmpty()) return "body=<empty>"
-        val text = String(body, Charsets.UTF_8)
-        val snippet = if (text.length <= maxLen) text else text.substring(0, maxLen) + "..."
-        return "body=$snippet"
-    }
 }
 
 internal fun extractEResult(header: String?, body: ByteArray): Int? {

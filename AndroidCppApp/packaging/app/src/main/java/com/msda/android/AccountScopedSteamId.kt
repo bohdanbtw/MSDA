@@ -32,10 +32,16 @@ object AccountScopedSteamId {
     /**
      * Steam Guard codes rotate on a global 30-second Unix-time window, identical for every
      * account. Deriving the countdown from the clock keeps it account-scoped without any
-     * global native state (and matches AccountManager::secondsToNextCodeForSteamId).
+     * global native state.
+     *
+     * Exact definition (matching AccountManager::secondsToNextCode /
+     * secondsToNextCodeForSteamId in AccountManager.cpp): `30 - (now % 30)`, yielding a
+     * value in 1..30. A timestamp exactly on a window boundary (`now % 30 == 0`) yields 30;
+     * one second before the next boundary (`now % 30 == 29`) yields 1.
      */
     fun secondsRemaining(nowEpochSeconds: Long): Int {
-        val remaining = 30L - (nowEpochSeconds % 30L)
-        return remaining.coerceIn(1L, 30L).toInt()
+        // floorMod keeps the phase in 0..29 for any input, so the result is always 1..30.
+        val phase = Math.floorMod(nowEpochSeconds, 30L)
+        return (30L - phase).toInt()
     }
 }

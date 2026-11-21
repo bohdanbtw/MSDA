@@ -12,6 +12,9 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+/** Signals that an existing Keystore key could not be read. */
+class MasterKeyReadException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
 object PasswordManager {
     private const val PREFS_NAME = "msda_passwords"
     private const val TAG = "PasswordManager"
@@ -19,28 +22,28 @@ object PasswordManager {
     private const val KEYSTORE_ALIAS = "pw_master_key"
 
     /**
-     * Returns a per‑installation AES key stored in Android Keystore.
-     * The key is generated once and persists across app upgrades.
-     * If retrieval/generation fails, a fallback key is generated,
-     * which may render previously stored passwords unreadable.
+     * Returns the per-installation AES key from Android Keystore.
+     *
+     * A key is generated only on genuine first use (no alias present). Once an alias
+     * exists, a read failure is surfaced as [MasterKeyReadException] instead of being
+     * "fixed" by deleting and regenerating the key — doing so silently orphans every
+     * ciphertext that was encrypted with the original key.
      */
     private fun getOrCreateMasterKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore")
         keyStore.load(null)
 
-        return try {
-            if (keyStore.containsAlias(KEYSTORE_ALIAS)) {
-                val entry = keyStore.getEntry(KEYSTORE_ALIAS, null) as? KeyStore.SecretKeyEntry
-                entry?.secretKey ?: throw IllegalStateException("Missing key entry")
-            } else {
-                generateKey()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load master key, generating new one", e)
-            // Delete any existing alias before generating a new one
-            try { keyStore.deleteEntry(KEYSTORE_ALIAS) } catch (_: Exception) {}
-            generateKey()
+        if (!keyStore.containsAlias(KEYSTORE_ALIAS)) {
+            return generateKey()
         }
+
+        val entry = try {
+            keyStore.getEntry(KEYSTORE_ALIAS, null) as? KeyStore.SecretKeyEntry
+        } catch (e: Exception) {
+            throw MasterKeyReadException("Existing master key could not be read", e)
+        }
+        return entry?.secretKey
+            ?: throw MasterKeyReadException("Existing master key entry is missing or not a secret key")
     }
 
     private fun generateKey(): SecretKey {
@@ -73,6 +76,9 @@ object PasswordManager {
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
             val encrypted = cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
             Base64.encodeToString(iv + encrypted, Base64.NO_WRAP)
+        } catch (e: MasterKeyReadException) {
+            Log.e(TAG, "Cannot encrypt: existing master key is unreadable", e)
+            null
         } catch (e: Exception) {
             Log.e(TAG, "Failed to encrypt value", e)
             null
@@ -90,13 +96,21 @@ object PasswordManager {
             val cipher = Cipher.getInstance(CIPHER_ALGORITHM)
             cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
             String(cipher.doFinal(encrypted), Charsets.UTF_8)
+        } catch (e: MasterKeyReadException) {
+            // Surface keystore read failures distinctly: callers must not treat
+            // intact-but-unreadable ciphertext as a missing value and wipe it.
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decrypt value", e)
             null
         }
     }
 
+    /** All key operations use this single normalized form so casing never forks storage. */
+    private fun normalizeAccountKey(accountName: String): String = accountName.trim().lowercase()
+
     fun savePassword(context: Context, accountName: String, password: String) {
+        val key = normalizeAccountKey(accountName)
         val combined = encrypt(password)
         if (combined == null) {
             Log.e(TAG, "Failed to save password for $accountName")
@@ -105,7 +119,7 @@ object PasswordManager {
         try {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
-                .putString(accountName, combined)
+                .putString(key, combined)
                 .commit()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save password for $accountName", e)
@@ -115,7 +129,9 @@ object PasswordManager {
     fun getPassword(context: Context, accountName: String): String? {
         return try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val storedKey = prefs.all.keys.firstOrNull { it.equals(accountName, ignoreCase = true) } ?: accountName
+            val key = normalizeAccountKey(accountName)
+            // Prefer the normalized key; fall back to a legacy mixed-case entry.
+            val storedKey = prefs.all.keys.firstOrNull { it.equals(key, ignoreCase = true) } ?: key
             val combinedBase64 = prefs.getString(storedKey, null) ?: return null
             decrypt(combinedBase64)
         } catch (e: Exception) {
@@ -126,14 +142,18 @@ object PasswordManager {
 
     fun hasPassword(context: Context, accountName: String): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.contains(accountName)
+        val key = normalizeAccountKey(accountName)
+        return prefs.contains(key) || prefs.all.keys.any { it.equals(key, ignoreCase = true) }
     }
 
     fun deletePassword(context: Context, accountName: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .remove(accountName)
-            .apply()
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val key = normalizeAccountKey(accountName)
+        val keysToRemove = prefs.all.keys.filter { it.equals(key, ignoreCase = true) }.toMutableSet()
+        keysToRemove += key
+        prefs.edit().apply {
+            keysToRemove.forEach { remove(it) }
+        }.apply()
     }
 
     fun clearAll(context: Context) {

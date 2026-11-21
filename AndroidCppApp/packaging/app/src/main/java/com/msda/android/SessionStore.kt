@@ -29,19 +29,23 @@ object SessionStore {
     private const val KEYSTORE_ALIAS = "session_master_key"
     private const val CIPHER = "AES/GCM/NoPadding"
 
+    /**
+     * Loads the existing master key, generating one only on genuine first use.
+     * Never delete/recreate the alias on a read error: that would orphan every
+     * already-encrypted session. A read failure is surfaced to callers instead.
+     */
     private fun getMasterKey(): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").also { it.load(null) }
-        return try {
-            if (ks.containsAlias(KEYSTORE_ALIAS)) {
-                (ks.getEntry(KEYSTORE_ALIAS, null) as KeyStore.SecretKeyEntry).secretKey
-            } else {
-                generateKey()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Master key load failed, regenerating", e)
-            try { ks.deleteEntry(KEYSTORE_ALIAS) } catch (_: Exception) {}
-            generateKey()
+        if (!ks.containsAlias(KEYSTORE_ALIAS)) {
+            return generateKey()
         }
+        val entry = try {
+            ks.getEntry(KEYSTORE_ALIAS, null) as? KeyStore.SecretKeyEntry
+        } catch (e: Exception) {
+            throw MasterKeyReadException("Existing session master key could not be read", e)
+        }
+        return entry?.secretKey
+            ?: throw MasterKeyReadException("Existing session master key entry is missing or not a secret key")
     }
 
     private fun generateKey(): SecretKey {
@@ -75,6 +79,10 @@ object SessionStore {
             val cipher = Cipher.getInstance(CIPHER)
             cipher.init(Cipher.DECRYPT_MODE, getMasterKey(), GCMParameterSpec(128, iv))
             String(cipher.doFinal(encrypted), Charsets.UTF_8)
+        } catch (e: MasterKeyReadException) {
+            // Surface keystore read failures distinctly; callers must not treat an
+            // unreadable key as a missing/corrupt value and overwrite it.
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Decrypt failed", e)
             null
@@ -103,7 +111,15 @@ object SessionStore {
         return try {
             val blob = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString("s_$steamId", null) ?: return migrateLegacy(context, steamId)
-            val plain = decrypt(blob) ?: return migrateLegacy(context, steamId)
+            val plain = try {
+                decrypt(blob)
+            } catch (e: MasterKeyReadException) {
+                // The ciphertext is intact but the key is unavailable. Do not fall
+                // back to legacy migration (which would write a fresh ciphertext
+                // under a different key) and do not wipe the existing value.
+                Log.e(TAG, "Session for $steamId is unreadable: master key unavailable", e)
+                return null
+            } ?: return migrateLegacy(context, steamId)
             val j = JSONObject(plain)
             val login = j.optString("steamLoginSecure", "").takeIf { it.isNotBlank() } ?: return null
             val sid = j.optString("sessionid", "").takeIf { it.isNotBlank() } ?: return null

@@ -26,17 +26,21 @@ class MafileRepository(private val context: Context) {
         )
     }
 
-    suspend fun writeSession(session: SteamSessionData) {
+    suspend fun writeSession(session: SteamSessionData, sessionExpiresAtMs: Long? = null) {
         SessionLocks.withLock(session.steamId) {
-            writeSessionUnlocked(session)
+            writeSessionUnlocked(session, sessionExpiresAtMs)
         }
     }
 
     /**
      * Persist without taking the lock. Only call while [SessionLocks.withLock] is held for
      * [SteamSessionData.steamId]; all other callers must use [writeSession].
+     *
+     * This is the single authoritative writer for SessionStore. When the caller
+     * supplies [sessionExpiresAtMs] it is used verbatim; only callers without an
+     * explicit expiry (e.g. a fresh login) derive it from the access token.
      */
-    internal fun writeSessionUnlocked(session: SteamSessionData) {
+    internal fun writeSessionUnlocked(session: SteamSessionData, sessionExpiresAtMs: Long? = null) {
         writeMafileSession(session)
         SessionStore.saveSession(
             context,
@@ -47,8 +51,9 @@ class MafileRepository(private val context: Context) {
                 refreshToken = session.refreshToken,
                 accessToken = session.accessToken,
                 accountName = session.accountName,
-                sessionExpiresAtMs = runCatching { SteamTokenHelper.parse(session.accessToken).expiresAtMs }
-                    .getOrDefault(0L)
+                sessionExpiresAtMs = sessionExpiresAtMs
+                    ?: runCatching { SteamTokenHelper.parse(session.accessToken).expiresAtMs }
+                        .getOrDefault(0L)
             )
         )
     }

@@ -13,10 +13,10 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.lifecycle.lifecycleScope
 import com.msda.android.steam.NativeAuthBridge
 import com.msda.android.steam.SessionHandler
 import java.io.File
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,7 +55,6 @@ class HubActivity : BaseLockActivity() {
         }
 
         renderAccounts()
-        BackgroundSyncScheduler.disable(this)
         checkSessionAndPromptIfNeeded()
         UpdateChecker.checkOnLaunch(this)
 
@@ -70,7 +69,6 @@ class HubActivity : BaseLockActivity() {
     override fun onResume() {
         super.onResume()
         applyThemePreference()
-        BackgroundSyncScheduler.disable(this)
         renderAccounts()
         checkSessionAndPromptIfNeeded()
     }
@@ -282,7 +280,7 @@ class HubActivity : BaseLockActivity() {
         }
 
         val clipboard = getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("MSDA 2FA Code", code))
+        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), code))
         Toast.makeText(this, getString(R.string.code_copied_for_account, name), Toast.LENGTH_SHORT).show()
     }
 
@@ -450,25 +448,34 @@ class HubActivity : BaseLockActivity() {
             this,
             accountName,
             onResult = { result ->
-                if (result.success) {
-                    if (result.steamLoginSecure != null && result.sessionId != null) {
-                        SessionPersistence.saveSession(
-                            this,
-                            result.steamId ?: "",
-                            StoredSteamSession(
-                                steamLoginSecure = result.steamLoginSecure,
-                                sessionId = result.sessionId,
-                                refreshToken = result.refreshToken ?: "",
-                                accessToken = result.accessToken ?: "",
-                                accountName = accountName,
-                                sessionExpiresAtMs = result.sessionExpiresAtMs
-                            )
-                        )
-                    }
-                    renderAccounts()
-                    txtHubStatus.text = "Session renewed for $accountName"
+                if (isFinishing || isDestroyed) return@showPasswordDialog
+                if (!result.success) {
+                    txtHubStatus.text = getString(R.string.status_login_failed, result.errorMessage.orEmpty())
+                    return@showPasswordDialog
+                }
+
+                val sessionToSave = if (result.steamLoginSecure != null && result.sessionId != null) {
+                    StoredSteamSession(
+                        steamLoginSecure = result.steamLoginSecure,
+                        sessionId = result.sessionId,
+                        refreshToken = result.refreshToken.orEmpty(),
+                        accessToken = result.accessToken.orEmpty(),
+                        accountName = accountName,
+                        sessionExpiresAtMs = result.sessionExpiresAtMs
+                    )
                 } else {
-                    txtHubStatus.text = "Failed to renew session: ${result.errorMessage}"
+                    null
+                }
+
+                lifecycleScope.launch(Dispatchers.IO) {
+                    if (sessionToSave != null) {
+                        SessionPersistence.saveSession(this@HubActivity, result.steamId.orEmpty(), sessionToSave)
+                    }
+                    withContext(Dispatchers.Main) {
+                        if (isFinishing || isDestroyed) return@withContext
+                        renderAccounts()
+                        txtHubStatus.text = getString(R.string.status_login_saved)
+                    }
                 }
             },
             onProgress = { message ->
@@ -533,7 +540,7 @@ class HubActivity : BaseLockActivity() {
             return
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val base = NativeAuthBridge.confirmationAuthForSteamId(this@HubActivity, steamId) ?: return@launch
                 var effective = base
@@ -544,6 +551,7 @@ class HubActivity : BaseLockActivity() {
                 }
 
                 withContext(Dispatchers.Main) {
+                    if (isFinishing || isDestroyed) return@withContext
                     when {
                         MafileImportHelper.hasUsableSession(effective) -> {
                             txtHubStatus.text = getString(R.string.status_import_success)
@@ -559,7 +567,9 @@ class HubActivity : BaseLockActivity() {
                     }
                 }
             } catch (_: Throwable) {
-                withContext(Dispatchers.Main) { checkSessionAndPromptIfNeeded() }
+                withContext(Dispatchers.Main) {
+                    if (!isFinishing && !isDestroyed) checkSessionAndPromptIfNeeded()
+                }
             }
         }
     }

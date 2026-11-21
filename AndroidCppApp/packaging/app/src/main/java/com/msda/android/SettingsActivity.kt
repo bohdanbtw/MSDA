@@ -4,6 +4,8 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.InputFilter
 import android.text.InputType
 import android.view.WindowManager
@@ -19,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDateTime
@@ -27,6 +30,10 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 class SettingsActivity : BaseLockActivity() {
+    private val reauthHandler = Handler(Looper.getMainLooper())
+    private var reauthLockoutRunnable: Runnable? = null
+    private var suppressingBiometricToggle = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppSettings.applyTheme(this)
         super.onCreate(savedInstanceState)
@@ -78,23 +85,29 @@ class SettingsActivity : BaseLockActivity() {
         }
 
         switchBiometric.setOnCheckedChangeListener { buttonView, isChecked ->
-            if (!buttonView.isPressed) {
+            if (suppressingBiometricToggle || !buttonView.isPressed) {
                 return@setOnCheckedChangeListener
             }
 
             if (!AppSettings.hasPinLock(this)) {
-                switchBiometric.isChecked = false
+                setBiometricSwitch(switchBiometric, false)
                 Toast.makeText(this, getString(R.string.biometric_requires_pin), Toast.LENGTH_SHORT).show()
                 return@setOnCheckedChangeListener
             }
 
             if (isChecked && !isBiometricAvailable()) {
-                switchBiometric.isChecked = false
+                setBiometricSwitch(switchBiometric, false)
                 Toast.makeText(this, getString(R.string.biometric_unavailable), Toast.LENGTH_SHORT).show()
                 return@setOnCheckedChangeListener
             }
 
-            AppSettings.setBiometricUnlockEnabled(this, isChecked)
+            // Toggling fingerprint unlock is a security change too: hold the
+            // switch in its old position until re-authentication succeeds.
+            setBiometricSwitch(switchBiometric, !isChecked)
+            requireReauth {
+                AppSettings.setBiometricUnlockEnabled(this, isChecked)
+                setBiometricSwitch(switchBiometric, isChecked)
+            }
         }
 
         btnExport.setOnClickListener {
@@ -116,6 +129,8 @@ class SettingsActivity : BaseLockActivity() {
     }
 
     override fun onDestroy() {
+        reauthLockoutRunnable?.let { reauthHandler.removeCallbacks(it) }
+        reauthLockoutRunnable = null
         // Cancel the update-hint request if the screen is leaving.
         lifecycleScope.cancel()
         super.onDestroy()
@@ -130,7 +145,7 @@ class SettingsActivity : BaseLockActivity() {
                 val latest = UpdateChecker.fetchLatestRelease() ?: return@launch
                 if (isFinishing || isDestroyed) return@launch
                 onLatestUrl(latest.htmlUrl.ifBlank { "https://github.com/bohdanbtw/MSDA/releases/latest" })
-                val local = UpdateChecker.currentVersionName(applicationContext)
+                val local = UpdateChecker.currentVersionName(this@SettingsActivity)
                 if (UpdateChecker.isNewer(latest.versionName, local)) {
                     txtUpdateAvailable.visibility = android.view.View.VISIBLE
                 }
@@ -186,7 +201,14 @@ class SettingsActivity : BaseLockActivity() {
         btnRemovePin.isEnabled = hasPin
         btnRemovePin.alpha = if (hasPin) 1f else 0.5f
         switchBiometric.isEnabled = hasPin && isBiometricAvailable()
-        switchBiometric.isChecked = AppSettings.isBiometricUnlockEnabled(this)
+        setBiometricSwitch(switchBiometric, AppSettings.isBiometricUnlockEnabled(this))
+    }
+
+    /** Programmatic switch updates must not re-enter the checked-change listener. */
+    private fun setBiometricSwitch(switchBiometric: Switch, checked: Boolean) {
+        suppressingBiometricToggle = true
+        switchBiometric.isChecked = checked
+        suppressingBiometricToggle = false
     }
 
     private fun showPinSetupDialog(
@@ -320,6 +342,7 @@ class SettingsActivity : BaseLockActivity() {
         val prompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 super.onAuthenticationSucceeded(result)
+                AppSettings.clearPinFailures(this@SettingsActivity)
                 onSuccess()
             }
 
@@ -363,19 +386,60 @@ class SettingsActivity : BaseLockActivity() {
             .setPositiveButton(android.R.string.ok, null)
             .create()
             .also { dialog ->
+                // Buttons only exist after show(), so bind the positive button
+                // from the show listener instead of right after create().
+                var positiveButton: Button? = null
+                fun cancelLockoutTick() {
+                    reauthLockoutRunnable?.let { reauthHandler.removeCallbacks(it) }
+                    reauthLockoutRunnable = null
+                }
+                fun refreshLockoutState() {
+                    val button = positiveButton ?: return
+                    val remaining = AppSettings.getPinLockoutRemainingMillis(this@SettingsActivity)
+                    button.isEnabled = remaining <= 0
+                    if (remaining > 0) {
+                        val seconds = (remaining + 999) / 1000
+                        pinInput.error = getString(R.string.unlock_too_many_attempts, seconds)
+                        cancelLockoutTick()
+                        val tick = object : Runnable {
+                            override fun run() {
+                                if (!dialog.isShowing) return
+                                refreshLockoutState()
+                            }
+                        }
+                        reauthLockoutRunnable = tick
+                        reauthHandler.postDelayed(tick, 1_000L)
+                    } else {
+                        pinInput.error = null
+                        cancelLockoutTick()
+                    }
+                }
+
                 dialog.setOnShowListener {
                     dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    refreshLockoutState()
+                    positiveButton?.setOnClickListener {
+                        if (AppSettings.getPinLockoutRemainingMillis(this@SettingsActivity) > 0) {
+                            refreshLockoutState()
+                            return@setOnClickListener
+                        }
                         val currentPin = pinInput.text?.toString().orEmpty()
-                        if (AppSettings.verifyPinLock(this, currentPin)) {
+                        if (AppSettings.verifyPinLock(this@SettingsActivity, currentPin)) {
+                            AppSettings.clearPinFailures(this@SettingsActivity)
+                            cancelLockoutTick()
                             dialog.dismiss()
                             onSuccess()
                         } else {
+                            // Same exponential backoff as LockActivity.
+                            AppSettings.recordPinFailure(this@SettingsActivity)
                             pinInput.error = getString(R.string.pin_reauth_failed)
                             pinInput.text?.clear()
+                            refreshLockoutState()
                         }
                     }
                 }
+                dialog.setOnDismissListener { cancelLockoutTick() }
                 dialog.show()
             }
     }

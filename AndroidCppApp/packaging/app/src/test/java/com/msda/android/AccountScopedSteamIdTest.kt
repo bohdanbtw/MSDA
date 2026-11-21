@@ -46,9 +46,11 @@ class AccountScopedSteamIdTest {
 
     @Test
     fun secondsRemaining_isCodeWindowBoundedAndMatchesWallClock() {
-        assertEquals(30, AccountScopedSteamId.secondsRemaining(1_700_000_010))
-        assertEquals(1, AccountScopedSteamId.secondsRemaining(1_700_000_029))
-        assertEquals(30, AccountScopedSteamId.secondsRemaining(1_700_000_030))
+        // Native definition: 30 - (now % 30), in 1..30. 1_700_000_010 % 30 == 0.
+        assertEquals(30, AccountScopedSteamId.secondsRemaining(1_700_000_010)) // boundary -> 30
+        assertEquals(11, AccountScopedSteamId.secondsRemaining(1_700_000_029)) // % 30 == 19
+        assertEquals(10, AccountScopedSteamId.secondsRemaining(1_700_000_030)) // % 30 == 20
+        assertEquals(1, AccountScopedSteamId.secondsRemaining(1_700_000_039)) // % 30 == 29 -> 1
 
         for (second in 0L until 60L) {
             val value = AccountScopedSteamId.secondsRemaining(1_700_000_000 + second)

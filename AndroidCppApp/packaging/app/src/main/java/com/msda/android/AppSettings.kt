@@ -286,28 +286,40 @@ object AppSettings {
 
     /**
      * Encrypts a proxy password with the same Keystore-backed AES-GCM helper used
-     * for account passwords. Fails closed: if encryption is unavailable, no
-     * plaintext is written to disk.
+     * for account passwords. Returns null when encryption is unavailable so the
+     * caller can keep the original value instead of replacing it with an empty
+     * (and therefore lost) ciphertext.
      */
-    private fun encodeProxyPassword(password: String): String {
+    private fun encodeProxyPassword(password: String): String? {
         if (password.isEmpty()) return ""
-        val encrypted = PasswordManager.encrypt(password) ?: return ""
+        val encrypted = PasswordManager.encrypt(password) ?: return null
         return "$ENCRYPTED_VALUE_PREFIX$encrypted"
     }
 
     /**
      * Decrypts a stored proxy password. Unencrypted values left by older builds
-     * are migrated on first read; values that claim to be encrypted but cannot
-     * be decrypted are dropped rather than treated as plaintext.
+     * are migrated on first read — but only when encryption actually succeeds,
+     * so a Keystore failure can never overwrite the plaintext with "". Values
+     * that claim to be encrypted but cannot be decrypted are dropped rather
+     * than treated as plaintext.
      */
     private fun decodeProxyPassword(prefs: SharedPreferences, key: String): String {
         val stored = prefs.getString(key, null).orEmpty()
         if (stored.isEmpty()) return ""
         if (!stored.startsWith(ENCRYPTED_VALUE_PREFIX)) {
-            prefs.edit().putString(key, encodeProxyPassword(stored)).apply()
+            val encoded = encodeProxyPassword(stored)
+            if (encoded != null) {
+                prefs.edit().putString(key, encoded).apply()
+            }
+            // Leave the plaintext untouched when we could not encrypt it.
             return stored
         }
-        val decrypted = PasswordManager.decrypt(stored.removePrefix(ENCRYPTED_VALUE_PREFIX))
+        val decrypted = try {
+            PasswordManager.decrypt(stored.removePrefix(ENCRYPTED_VALUE_PREFIX))
+        } catch (_: MasterKeyReadException) {
+            // Key unreadable: leave the ciphertext in place instead of wiping it.
+            return ""
+        }
         if (decrypted != null) return decrypted
         prefs.edit().remove(key).apply()
         return ""
@@ -333,6 +345,7 @@ object AppSettings {
         if (steamId.isBlank()) return
 
         val normalizedType = if (config.type.equals("socks", ignoreCase = true)) "socks" else "http"
+        val encodedPassword = encodeProxyPassword(config.password)
 
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
@@ -341,7 +354,12 @@ object AppSettings {
             .putString("$KEY_PROXY_HOST_PREFIX$steamId", config.host.trim())
             .putInt("$KEY_PROXY_PORT_PREFIX$steamId", config.port)
             .putString("$KEY_PROXY_USERNAME_PREFIX$steamId", config.username.trim())
-            .putString("$KEY_PROXY_PASSWORD_PREFIX$steamId", encodeProxyPassword(config.password))
+            .apply {
+                // Encryption failure must never replace the stored value with "".
+                if (encodedPassword != null) {
+                    putString("$KEY_PROXY_PASSWORD_PREFIX$steamId", encodedPassword)
+                }
+            }
             .apply()
     }
 
@@ -373,6 +391,7 @@ object AppSettings {
 
     fun setDefaultProxyConfig(context: Context, config: AccountProxyConfig) {
         val normalizedType = if (config.type.equals("socks", ignoreCase = true)) "socks" else "http"
+        val encodedPassword = encodeProxyPassword(config.password)
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_DEFAULT_PROXY_ENABLED, config.enabled)
@@ -380,7 +399,12 @@ object AppSettings {
             .putString(KEY_DEFAULT_PROXY_HOST, config.host.trim())
             .putInt(KEY_DEFAULT_PROXY_PORT, config.port)
             .putString(KEY_DEFAULT_PROXY_USERNAME, config.username.trim())
-            .putString(KEY_DEFAULT_PROXY_PASSWORD, encodeProxyPassword(config.password))
+            .apply {
+                // Encryption failure must never replace the stored value with "".
+                if (encodedPassword != null) {
+                    putString(KEY_DEFAULT_PROXY_PASSWORD, encodedPassword)
+                }
+            }
             .apply()
     }
 

@@ -1,6 +1,8 @@
 package com.msda.android
 
 import com.msda.android.steam.MafileSecretsReader
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 
 /**
@@ -16,11 +18,48 @@ object AccountDeletionHelper {
     )
 
     /**
-     * Parse the pipe-delimited `NativeBridge.getAccounts()` output (`index|name|steamId`).
-     * Lines that do not satisfy the contract are ignored, so a native-side format change
-     * cannot make us resolve the wrong account.
+     * Parse the output of `NativeBridge.getAccounts()`.
+     *
+     * The current native bridge emits a JSON array of objects shaped like
+     * `{"index":0,"accountName":"bob","steamId":"7656119..."}`. Older builds emitted one
+     * `index|name|steamId` row per line, so that legacy format is still accepted to keep
+     * existing state working. Anything that does not satisfy either contract is ignored: a
+     * native-side format change must never make us resolve the wrong account.
      */
     fun parseAccounts(raw: String): List<AccountEntry> {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return emptyList()
+
+        return if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+            parseJsonAccounts(trimmed)
+        } else {
+            parseLegacyAccounts(raw)
+        }
+    }
+
+    private fun parseJsonAccounts(raw: String): List<AccountEntry> {
+        return try {
+            val array = if (raw.startsWith('[')) {
+                JSONArray(raw)
+            } else {
+                JSONArray().put(JSONObject(raw))
+            }
+            (0 until array.length()).mapNotNull { i ->
+                val obj = array.optJSONObject(i) ?: return@mapNotNull null
+                val index = obj.optInt("index", -1)
+                val name = obj.optString("accountName").ifBlank { obj.optString("name") }.trim()
+                val steamId = obj.optString("steamId").trim()
+                if (index < 0 || name.isBlank() || steamId.isBlank()) return@mapNotNull null
+                AccountEntry(index, name, steamId)
+            }
+        } catch (_: Exception) {
+            // org.json throws JSONException (and sometimes IllegalArgumentException/NPE) on
+            // hostile input. Treat a broken payload as "no accounts" so deletion is aborted.
+            emptyList()
+        }
+    }
+
+    private fun parseLegacyAccounts(raw: String): List<AccountEntry> {
         return raw.lines()
             .map { it.trim() }
             .filter { it.isNotBlank() }

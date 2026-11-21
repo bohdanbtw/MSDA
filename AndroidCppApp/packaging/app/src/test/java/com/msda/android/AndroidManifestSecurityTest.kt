@@ -44,7 +44,7 @@ class AndroidManifestSecurityTest {
 
     private fun activityBlock(simpleName: String): String {
         val pattern = "<activity\\b[^>]*android:name=\"\\.$simpleName\"[^>]*?(?:/>|>.*?</activity>)"
-        return Regex(pattern, Regex.DOTALL).find(manifest)?.value
+        return Regex(pattern, RegexOption.DOT_MATCHES_ALL).find(manifest)?.value
             ?: error("Activity .$simpleName not found in manifest")
     }
 }

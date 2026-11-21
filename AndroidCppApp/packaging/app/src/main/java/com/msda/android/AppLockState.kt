@@ -30,12 +30,23 @@ object AppLockState {
         }
     }
 
-    fun onActivityStopped() {
+    /**
+     * Default behaviour used by tests and direct callers: the last visible
+     * activity stopping immediately relocks.
+     */
+    fun onActivityStopped() = onActivityStopped(clearUnlock = true)
+
+    /**
+     * @param clearUnlock when false the visibility counter is updated but the
+     *   unlock flag is left alone, so a caller can defer the actual relock (see
+     *   [MsdaApplication], which cancels that deferred relock on rotation).
+     */
+    internal fun onActivityStopped(clearUnlock: Boolean) {
         synchronized(this) {
             if (startedActivities > 0) {
                 startedActivities--
             }
-            if (startedActivities == 0) {
+            if (startedActivities == 0 && clearUnlock) {
                 unlocked = false
             }
         }

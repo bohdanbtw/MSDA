@@ -1,6 +1,7 @@
 package com.msda.android
 
 import android.content.Context
+import com.msda.android.steam.ErrorSanitizer
 import com.msda.android.steam.EncryptionHelper
 import com.msda.android.steam.SessionHandler
 import com.msda.android.steam.SessionInvalidException
@@ -23,13 +24,22 @@ data class ConfirmationAuthContext(
     val refreshToken: String = "",
     val accessToken: String = ""
 ) {
+    /**
+     * Merge a stored session into this context.
+     *
+     * Session cookies ([steamLoginSecure], [sessionId]) are always taken from [session]: the
+     * stored session is the source of truth for the current cookies, so stale ones in `this`
+     * must not be kept. Optional credential fields ([refreshToken], [accessToken],
+     * [accountName]) are *filled only when blank* — a value already present in `this` is
+     * preserved. This matches [com.msda.android.steam.SessionHandler] renewal semantics.
+     */
     fun withSession(session: StoredSteamSession): ConfirmationAuthContext {
         return copy(
             steamLoginSecure = session.steamLoginSecure,
             sessionId = session.sessionId,
-            refreshToken = session.refreshToken.ifBlank { refreshToken },
-            accessToken = session.accessToken.ifBlank { accessToken },
-            accountName = session.accountName.ifBlank { accountName }
+            refreshToken = refreshToken.ifBlank { session.refreshToken },
+            accessToken = accessToken.ifBlank { session.accessToken },
+            accountName = accountName.ifBlank { session.accountName }
         )
     }
 }
@@ -268,7 +278,9 @@ object ConfirmationService {
                     .build()
             ).execute()
             val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code}: $body")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("HTTP ${response.code}: ${ErrorSanitizer.preview(body)}")
+            }
             JSONObject(body)
         }
     }
@@ -284,7 +296,9 @@ object ConfirmationService {
                     .build()
             ).execute()
             val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code}: $body")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("HTTP ${response.code}: ${ErrorSanitizer.preview(body)}")
+            }
             JSONObject(body)
         }
     }
@@ -328,7 +342,7 @@ object ConfirmationService {
     // internal so JVM unit tests can exercise the pure parsing logic directly.
     internal fun parseBundlesOrThrow(json: JSONObject): List<ConfirmationBundle> {
         if (!json.optBoolean("success", false)) {
-            val message = json.optString("message", "unknown")
+            val message = ErrorSanitizer.redact(json.optString("message", "unknown"))
             throw IllegalStateException("Confirmation load failed: $message")
         }
         val conf = json.optJSONArray("conf") ?: return emptyList()

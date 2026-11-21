@@ -25,7 +25,12 @@ object SteamGuardCodeGenerator {
     }
 
     fun generateFromSharedSecret(sharedSecret: String, unixTimeSeconds: Long): String {
-        val key = Base64.getDecoder().decode(sharedSecret)
+        // Match the native generator: a Steam shared secret must decode to exactly
+        // 20 bytes. Reject malformed/truncated secrets instead of deriving a
+        // well-formed but wrong code from a bad-length key.
+        val key = runCatching { Base64.getDecoder().decode(sharedSecret) }.getOrNull() ?: return ""
+        if (key.size != 20) return ""
+
         val timeSlice = unixTimeSeconds / 30L
         val message = ByteBuffer.allocate(8).putLong(timeSlice).array()
         val mac = Mac.getInstance("HmacSHA1")
