@@ -476,29 +476,42 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
 
     private suspend fun fetchLoginPageSessionId(): String {
 
-        val request = SteamHttpClient.newRequest("https://steamcommunity.com/login/home/")
+        // Steam no longer sets `sessionid` on /login/home/ — the current sign-in
+        // page only returns timezone/clientHints cookies. The community home page
+        // still sets both the cookie and `g_sessionID`, so try both endpoints.
+        val urls = listOf(
 
-            .get()
+            "https://steamcommunity.com/login/home/",
 
-            .build()
+            "https://steamcommunity.com/"
 
-        val response = client.newCall(request).execute()
-
-        val html = response.body?.string().orEmpty()
-
-        val fromCookie = extractCookieValue(response.headers("Set-Cookie"), "sessionid")
-
-        if (!fromCookie.isNullOrBlank()) return fromCookie
-
-
+        )
 
         val regex = Pattern.compile("g_sessionID\\s*=\\s*\"([a-zA-Z0-9]+)\"")
 
-        val matcher = regex.matcher(html)
+        for (url in urls) {
 
-        if (matcher.find()) {
+            val request = SteamHttpClient.newRequest(url)
 
-            return matcher.group(1).orEmpty()
+                .get()
+
+                .build()
+
+            val response = client.newCall(request).execute()
+
+            val html = response.body?.string().orEmpty()
+
+            val fromCookie = extractCookieValue(response.headers("Set-Cookie"), "sessionid")
+
+            if (!fromCookie.isNullOrBlank()) return fromCookie
+
+            val matcher = regex.matcher(html)
+
+            if (matcher.find()) {
+
+                return matcher.group(1).orEmpty()
+
+            }
 
         }
 
