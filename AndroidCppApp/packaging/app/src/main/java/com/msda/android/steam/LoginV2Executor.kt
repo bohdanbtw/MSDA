@@ -6,12 +6,11 @@ import android.content.Context
 
 import kotlinx.coroutines.delay
 
+import okhttp3.Cookie
 import okhttp3.FormBody
-
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
-
 import java.net.URI
-
 import java.util.regex.Pattern
 
 
@@ -475,51 +474,62 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
 
 
     private suspend fun fetchLoginPageSessionId(): String {
+        val communityUrl = "https://steamcommunity.com/".toHttpUrl()
 
+        // Do not reuse the sessionid seeded from the (possibly stale) saved session:
+        // login is requested precisely because that session is no longer valid.
         // Steam no longer sets `sessionid` on /login/home/ — the current sign-in
         // page only returns timezone/clientHints cookies. The community home page
         // still sets both the cookie and `g_sessionID`, so try both endpoints.
         val urls = listOf(
-
             "https://steamcommunity.com/login/home/",
-
             "https://steamcommunity.com/"
-
         )
 
         val regex = Pattern.compile("g_sessionID\\s*=\\s*\"([a-zA-Z0-9]+)\"")
 
         for (url in urls) {
-
             val request = SteamHttpClient.newRequest(url)
-
                 .get()
-
                 .build()
 
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
+                val html = response.body?.string().orEmpty()
 
-            val html = response.body?.string().orEmpty()
+                val fromCookie = extractCookieValue(response.headers("Set-Cookie"), "sessionid")
 
-            val fromCookie = extractCookieValue(response.headers("Set-Cookie"), "sessionid")
+                if (!fromCookie.isNullOrBlank()) {
+                    persistSessionIdCookie(communityUrl, fromCookie)
+                    return fromCookie
+                }
 
-            if (!fromCookie.isNullOrBlank()) return fromCookie
+                val matcher = regex.matcher(html)
 
-            val matcher = regex.matcher(html)
-
-            if (matcher.find()) {
-
-                return matcher.group(1).orEmpty()
-
+                if (matcher.find()) {
+                    val found = matcher.group(1).orEmpty()
+                    if (found.isNotBlank()) {
+                        persistSessionIdCookie(communityUrl, found)
+                        return found
+                    }
+                }
             }
-
         }
 
+        // Never fabricate a CSRF token: a made-up sessionid would silently break
+        // the finalizelogin POST and hide the real failure. Fail clearly instead.
         throw IllegalStateException("Failed to resolve sessionid from Steam login page")
-
     }
 
-
+    private fun persistSessionIdCookie(url: okhttp3.HttpUrl, sessionId: String) {
+        val cookie = Cookie.Builder()
+            .name("sessionid")
+            .value(sessionId)
+            .domain("steamcommunity.com")
+            .path("/")
+            .secure()
+            .build()
+        client.cookieJar.saveFromResponse(url, listOf(cookie))
+    }
 
     private fun extractCookieValue(setCookies: List<String>, key: String): String? {
 
