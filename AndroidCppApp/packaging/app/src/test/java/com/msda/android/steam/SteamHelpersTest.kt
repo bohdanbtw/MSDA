@@ -246,4 +246,21 @@ class SteamHelpersTest {
         assertFalse(LoginV2Executor.isAllowedTransferUrl("https://steampowered.com@evil.example/steal"))
         assertFalse(LoginV2Executor.isAllowedTransferUrl("not a url"))
     }
+
+    @Test
+    fun beginAuthResponse_decodesUint64ClientIdWithHighBitSet() {
+        // protobuf field 1 = 0xFFFFFFFFFFFFFFFF (valid uint64, negative as Kotlin Long)
+        val bytes = byteArrayOf(0x08) + ByteArray(9) { 0xFF.toByte() } + byteArrayOf(0x01)
+        val decoded = SteamProtoMessages.decodeBeginAuthSessionViaCredentialsResponse(bytes)
+        assertEquals(-1L, decoded.clientId)
+    }
+
+    @Test
+    fun generatedSessionId_matchesSteamFormat() {
+        repeat(10) {
+            val id = LoginV2Executor.generateSessionId()
+            assertEquals(24, id.length)
+            assertTrue("not lower-case hex: $id", id.all { it in '0'..'9' || it in 'a'..'f' })
+        }
+    }
 }

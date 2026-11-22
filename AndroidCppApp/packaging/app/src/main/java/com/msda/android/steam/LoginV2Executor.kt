@@ -11,7 +11,7 @@ import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
 import java.net.URI
-import java.util.regex.Pattern
+import java.security.SecureRandom
 
 
 
@@ -239,7 +239,9 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
 
         val decoded = SteamProtoMessages.decodeBeginAuthSessionViaCredentialsResponse(response)
 
-        if (decoded.clientId <= 0L || decoded.requestId.isEmpty()) {
+        // clientId is a protobuf uint64. A value with the high bit set becomes a
+        // negative Long here but is still perfectly valid — only zero is invalid.
+        if (decoded.clientId == 0L || decoded.requestId.isEmpty()) {
             val rsaHint = if (
                 rsa.publicKeyMod.isBlank() || rsa.publicKeyExp.isBlank() || rsa.timestamp <= 0L
             ) {
@@ -473,51 +475,17 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
 
 
 
-    private suspend fun fetchLoginPageSessionId(): String {
-        val communityUrl = "https://steamcommunity.com/".toHttpUrl()
-
-        // Do not reuse the sessionid seeded from the (possibly stale) saved session:
-        // login is requested precisely because that session is no longer valid.
-        // Steam no longer sets `sessionid` on /login/home/ — the current sign-in
-        // page only returns timezone/clientHints cookies. The community home page
-        // still sets both the cookie and `g_sessionID`, so try both endpoints.
-        val urls = listOf(
-            "https://steamcommunity.com/login/home/",
-            "https://steamcommunity.com/"
-        )
-
-        val regex = Pattern.compile("g_sessionID\\s*=\\s*\"([a-zA-Z0-9]+)\"")
-
-        for (url in urls) {
-            val request = SteamHttpClient.newRequest(url)
-                .get()
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                val html = response.body?.string().orEmpty()
-
-                val fromCookie = extractCookieValue(response.headers("Set-Cookie"), "sessionid")
-
-                if (!fromCookie.isNullOrBlank()) {
-                    persistSessionIdCookie(communityUrl, fromCookie)
-                    return fromCookie
-                }
-
-                val matcher = regex.matcher(html)
-
-                if (matcher.find()) {
-                    val found = matcher.group(1).orEmpty()
-                    if (found.isNotBlank()) {
-                        persistSessionIdCookie(communityUrl, found)
-                        return found
-                    }
-                }
-            }
-        }
-
-        // Never fabricate a CSRF token: a made-up sessionid would silently break
-        // the finalizelogin POST and hide the real failure. Fail clearly instead.
-        throw IllegalStateException("Failed to resolve sessionid from Steam login page")
+    /**
+     * Steam treats `sessionid` purely as a CSRF token: the value sent as a form
+     * parameter must match the cookie, but it does not have to be issued by Steam.
+     * Modern clients (e.g. NebulaAuth) generate it locally as 12 random bytes in
+     * lower-case hex. This removes the dependency on scraping a Steam web page,
+     * which no longer exposes it reliably.
+     */
+    private fun fetchLoginPageSessionId(): String {
+        val sessionId = generateSessionId()
+        persistSessionIdCookie("https://steamcommunity.com/".toHttpUrl(), sessionId)
+        return sessionId
     }
 
     private fun persistSessionIdCookie(url: okhttp3.HttpUrl, sessionId: String) {
@@ -570,6 +538,13 @@ class LoginV2Executor(private val context: Context, private val steamId: String)
         private const val GUARD_DEVICE_CONFIRMATION = 4
 
         private val ALLOWED_TRANSFER_HOSTS = listOf("steampowered.com", "steamcommunity.com")
+
+        /** Steam-format CSRF token: 12 cryptographically random bytes as 24 lower-case hex chars. */
+        internal fun generateSessionId(): String {
+            val bytes = ByteArray(12)
+            SecureRandom().nextBytes(bytes)
+            return bytes.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+        }
 
         /** Only HTTPS URLs on an allowed Steam host may receive the refresh-token nonce. */
         fun isAllowedTransferUrl(url: String): Boolean {
