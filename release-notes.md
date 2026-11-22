@@ -1,3 +1,16 @@
+# v1.6.0
+
+A stabilization and security release over v1.5.0.
+
+- **Steam login restored** — local Steam-format `sessionid` generation and a uint64 `clientId` fix make password login work again (verified live on an Android 15 emulator).
+- **App lock hardened** — no exported hub, re-lock on backgrounding, `FLAG_SECURE`, PBKDF2 PIN with backoff and re-auth for security changes.
+- **Account data safety** — steamid-based export/delete, sanitized import paths, fail-closed keystore handling, encrypted proxy passwords and redacted errors.
+- **Widget fixes** — no 1-second wake alarm, account-scoped code/timer reads, no global active-account mutation.
+- **Native core** — JNI exception containment, hardened JSON parsing, Base64 UB fix, strict secret validation and new native tests.
+- **Build** — targetSdk 35, R8, version from `gradle.properties`, arm64 + x86_64 libraries, signed upgradeable releases.
+
+See `releases/MSDA-1.6.0/RELEASE_NOTES.md` for the full list.
+
 # v1.5.0
 
 ## What's Changed
